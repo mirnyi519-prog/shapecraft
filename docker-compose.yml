@@ -1,22 +1,10 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: shapecraft
-      POSTGRES_PASSWORD: shapecraft
-      POSTGRES_DB: shapecraft
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-    restart: unless-stopped
-
   shapecraft:
     build: .
     ports:
       - "3000:3000"
-    depends_on:
-      - postgres
     environment:
-      DATABASE_URL: postgresql://shapecraft:shapecraft@postgres:5432/shapecraft
+      DATABASE_URL: file:/app/data/prod.db
       AUTH_SECRET: ${AUTH_SECRET:-change-me-to-a-long-random-string}
       OWNER_LOGIN: ${OWNER_LOGIN:-admin}
       OWNER_PASSWORD: ${OWNER_PASSWORD:-shapecraft123}
@@ -24,9 +12,10 @@ services:
       PARTNER_PASSWORD: ${PARTNER_PASSWORD:-shapecraft123}
       NODE_ENV: production
     volumes:
+      - shapecraft_data:/app/data
       - shapecraft_uploads:/app/public/uploads
     restart: unless-stopped
 
 volumes:
-  pg_data:
+  shapecraft_data:
   shapecraft_uploads:

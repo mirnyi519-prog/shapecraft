@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-mkdir -p /app/public/uploads
-export DATABASE_URL="${DATABASE_URL:?DATABASE_URL is required}"
+mkdir -p /app/data /app/public/uploads
+export DATABASE_URL="${DATABASE_URL:-file:/app/data/prod.db}"
 
 echo "Applying schema..."
 ./node_modules/.bin/prisma db push
