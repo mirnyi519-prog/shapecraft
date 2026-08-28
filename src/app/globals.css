@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f7f7f7;
+  --text: #1f2937;
+  --muted: #808081;
+  --border: #e5e7eb;
+  --brand: #ed6900;
+  --brand-dark: #c45500;
+  --brand-soft: #fff3eb;
+}
+
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --font-sans: var(--font-montserrat);
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-montserrat), Arial, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
