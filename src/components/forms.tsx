@@ -368,6 +368,115 @@ export function SaleForm({ products }: { products: ProductOption[] }) {
   );
 }
 
+export function ReceiptForm({ products }: { products: ProductOption[] }) {
+  const router = useRouter();
+  const [productId, setProductId] = useState(products[0]?.id ?? "");
+  const [quantity, setQuantity] = useState("1");
+  const [note, setNote] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const selected = products.find((product) => product.id === productId);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
+
+    const response = await fetch("/api/receipts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        productId,
+        quantity: Number(quantity),
+        note,
+      }),
+    });
+
+    if (!response.ok) {
+      const data = (await response.json()) as { error?: string };
+      setError(data.error ?? "Ошибка прихода");
+      setLoading(false);
+      return;
+    }
+
+    router.refresh();
+    setQuantity("1");
+    setNote("");
+    setLoading(false);
+  }
+
+  if (products.length === 0) {
+    return (
+      <p className="text-[var(--muted)]">
+        Сначала добавьте товар в каталог, затем можно оформить приход.
+      </p>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <label className="block space-y-2">
+        <span className="text-sm font-medium">Товар</span>
+        <select
+          className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5"
+          value={productId}
+          onChange={(event) => setProductId(event.target.value)}
+        >
+          {products.map((product) => (
+            <option key={product.id} value={product.id}>
+              {product.name} — сейчас {product.stock} шт
+            </option>
+          ))}
+        </select>
+      </label>
+      {selected ? (
+        <div className="flex items-center gap-4 rounded-xl bg-[var(--bg)] p-4">
+          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-white">
+            {selected.imageUrl ? (
+              <Image
+                src={selected.imageUrl}
+                alt={selected.name}
+                fill
+                className="object-cover"
+                sizes="80px"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-xs text-[var(--muted)]">
+                Нет фото
+              </div>
+            )}
+          </div>
+          <div className="text-sm">
+            <p className="font-medium">{selected.name}</p>
+            <p className="mt-1 text-[var(--muted)]">
+              Текущий остаток: {selected.stock} шт
+            </p>
+          </div>
+        </div>
+      ) : null}
+      <Input
+        label="Сколько напечатали, шт"
+        type="number"
+        min="1"
+        value={quantity}
+        onChange={(event) => setQuantity(event.target.value)}
+        required
+      />
+      <Textarea
+        label="Комментарий"
+        value={note}
+        onChange={(event) => setNote(event.target.value)}
+        placeholder="Например: новая партия, цвет чуть другой"
+      />
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      <Button type="submit" disabled={loading}>
+        {loading ? "Сохранение..." : "Оформить приход"}
+      </Button>
+    </form>
+  );
+}
+
 export function SettlementButton() {
   const router = useRouter();
   const [note, setNote] = useState("");

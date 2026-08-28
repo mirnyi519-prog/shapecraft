@@ -1,68 +1,57 @@
-# Деплой ShapeCraft на shapecraft.ru (Vercel)
+# ShapeCraft → shapecraft.ru за 10 минут
 
-Домена достаточно — хостинг поднимем на **Vercel** (бесплатный тариф).
+## Шаг 1. База (Neon, бесплатно)
 
-## Шаг 1. База данных Neon (PostgreSQL, бесплатно)
+1. Откройте **https://neon.tech** → Sign up через GitHub  
+2. **New Project** → имя `shapecraft` → Create  
+3. На главной скопируйте **Connection string** (PostgreSQL)  
+   Пример: `postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require`
 
-1. Откройте https://neon.tech и войдите через GitHub
-2. **New Project** → название `shapecraft`
-3. Скопируйте **Connection string** (PostgreSQL, pooled)
+## Шаг 2. Vercel (хостинг, бесплатно)
 
-## Шаг 2. Vercel
+1. Откройте **https://vercel.com/new/import?s=https://github.com/mirnyi519-prog/shapecraft**  
+2. Нажмите **Import** → Deploy (пока без переменных — упадёт, это нормально)  
+3. **Settings → Environment Variables** — добавьте:
 
-1. Откройте https://vercel.com/new
-2. Import репозитория: `mirnyi519-prog/shapecraft`
-3. **Environment Variables** (Production):
-
-| Переменная | Значение |
-|------------|----------|
-| `DATABASE_URL` | строка из Neon |
-| `AUTH_SECRET` | случайная строка 32+ символов |
+| Name | Value |
+|------|-------|
+| `DATABASE_URL` | строка из Neon (шаг 1) |
+| `AUTH_SECRET` | `shapecraft-prod-7f3k9m2x8q1w5n4r6t` (или своя длинная строка) |
 | `OWNER_LOGIN` | `admin` |
 | `OWNER_PASSWORD` | ваш пароль |
 | `PARTNER_LOGIN` | `partner` |
 | `PARTNER_PASSWORD` | пароль партнёра |
 
-4. **Deploy**
+4. **Deployments → ... → Redeploy** (пересобрать с переменными)
 
-5. После деплоя: **Storage** → **Create Blob Store** → привязать к проекту  
-   (добавит `BLOB_READ_WRITE_TOKEN` автоматически)
-
-6. **Redeploy** проект после создания Blob
+5. **Storage → Create Database → Blob** → Create → Connect to Project  
+6. Ещё раз **Redeploy**
 
 ## Шаг 3. Домен shapecraft.ru
 
-В Vercel: **Project → Settings → Domains → Add** → `shapecraft.ru`
+1. Vercel → проект → **Settings → Domains**  
+2. Add: `shapecraft.ru` и `www.shapecraft.ru`  
+3. У регистратора домена (REG.RU / nic.ru / Timeweb) добавьте:
 
-Vercel покажет DNS-записи. В панели регистратора домена (REG.RU, nic.ru и т.п.):
-
-**Вариант A (рекомендуется):**
 ```
-A     @    76.76.21.21
-CNAME www  cname.vercel-dns.com
-```
-
-**Вариант B:** делегировать NS на Vercel (если предложит)
-
-Подождите 5–30 минут — сайт откроется на https://shapecraft.ru
-
-## Шаг 4. Проверка
-
-- https://shapecraft.ru — витрина
-- https://shapecraft.ru/login — вход (`admin` / ваш пароль)
-
-## Локальная разработка
-
-Для локального запуска нужен PostgreSQL (Neon dev branch или Docker):
-
-```bash
-# в .env:
-DATABASE_URL="postgresql://..."
-npm run dev
+Тип   Имя   Значение
+A     @     76.76.21.21
+CNAME www   cname.vercel-dns.com
 ```
 
-Или Docker (VPS-путь):
+4. Подождите 5–30 мин → **https://shapecraft.ru**
+
+## Вход на сайте
+
+- Логin: `admin`  
+- Пароль: тот, что указали в `OWNER_PASSWORD`
+
+## Локально (как сейчас)
+
+Для разработки на ПК — Docker:
 
 ```bash
 docker compose up -d --build
 ```
+
+Сайт: http://localhost:3000

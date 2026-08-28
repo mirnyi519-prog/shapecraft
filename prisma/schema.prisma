@@ -15,6 +15,7 @@ model User {
   role      String   @default("partner")
   createdAt DateTime @default(now())
   sales     Sale[]
+  receipts  StockReceipt[]
 }
 
 model Product {
@@ -29,6 +30,7 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   sales       Sale[]
+  receipts    StockReceipt[]
 }
 
 model Sale {
@@ -66,4 +68,15 @@ model Settlement {
 model AppSetting {
   id                String @id @default("default")
   ownerSplitPercent Float  @default(50)
+}
+
+model StockReceipt {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id])
+  quantity    Int
+  note        String?
+  createdAt   DateTime @default(now())
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id])
 }
