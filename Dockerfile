@@ -20,7 +20,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN mkdir -p /app/data /app/public/uploads
+RUN mkdir -p /app/public/uploads
 
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/package-lock.json ./
@@ -36,5 +36,5 @@ COPY docker/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
 EXPOSE 3000
-VOLUME ["/app/data", "/app/public/uploads"]
+VOLUME ["/app/public/uploads"]
 ENTRYPOINT ["./entrypoint.sh"]
