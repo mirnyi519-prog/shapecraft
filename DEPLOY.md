@@ -1,56 +1,49 @@
-# ShapeCraft → shapecraft.ru за 10 минут
+# Деплой ShapeCraft → shapecraft.ru
 
-## Шаг 1. База (Neon, бесплатно)
+## Через PowerShell (рекомендуется)
 
-1. Откройте **https://neon.tech** → Sign up через GitHub  
-2. **New Project** → имя `shapecraft` → Create  
-3. На главной скопируйте **Connection string** (PostgreSQL)  
-   Пример: `postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require`
+### 1. Один раз — подготовка
 
-## Шаг 2. Vercel (хостинг, бесплатно)
+Создайте файл `.env.production` в корне проекта:
 
-1. Откройте **https://vercel.com/new/import?s=https://github.com/mirnyi519-prog/shapecraft**  
-2. Нажмите **Import** → Deploy (пока без переменных — упадёт, это нормально)  
-3. **Settings → Environment Variables** — добавьте:
+```env
+NEON_API_KEY=neon_api_xxxxxxxx
+OWNER_PASSWORD=ваш-пароль
+PARTNER_PASSWORD=пароль-партнёра
+```
 
-| Name | Value |
-|------|-------|
-| `DATABASE_URL` | строка из Neon (шаг 1) |
-| `AUTH_SECRET` | `shapecraft-prod-7f3k9m2x8q1w5n4r6t` (или своя длинная строка) |
-| `OWNER_LOGIN` | `admin` |
-| `OWNER_PASSWORD` | ваш пароль |
-| `PARTNER_LOGIN` | `partner` |
-| `PARTNER_PASSWORD` | пароль партнёра |
+API key Neon: https://console.neon.tech/app/settings/api-keys
 
-4. **Deployments → ... → Redeploy** (пересобрать с переменными)
+Войдите в Vercel:
 
-5. **Storage → Create Database → Blob** → Create → Connect to Project  
-6. Ещё раз **Redeploy**
+```powershell
+npx vercel login
+```
 
-## Шаг 3. Домен shapecraft.ru
+### 2. Деплой
 
-1. Vercel → проект → **Settings → Domains**  
-2. Add: `shapecraft.ru` и `www.shapecraft.ru`  
-3. У регистратора домена (REG.RU / nic.ru / Timeweb) добавьте:
+```powershell
+npm run deploy
+```
+
+Скрипт сам: создаст базу Neon → настроит Vercel → задеплоит → привяжет домен.
+
+### 3. DNS у регистратора домена
 
 ```
-Тип   Имя   Значение
 A     @     76.76.21.21
 CNAME www   cname.vercel-dns.com
 ```
 
-4. Подождите 5–30 мин → **https://shapecraft.ru**
+Через 5–30 мин: **https://shapecraft.ru**
 
-## Вход на сайте
+Вход: `admin` / ваш пароль из `.env.production`
 
-- Логin: `admin`  
-- Пароль: тот, что указали в `OWNER_PASSWORD`
+---
 
-## Локально (как сейчас)
+## Локально (Docker)
 
-Для разработки на ПК — Docker:
-
-```bash
+```powershell
 docker compose up -d --build
 ```
 
