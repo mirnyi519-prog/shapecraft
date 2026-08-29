@@ -25,9 +25,15 @@ if ! docker compose version >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v git >/dev/null 2>&1; then
+  apt-get update -y
+  apt-get install -y git
+fi
+
 if [ -d "$DIR/.git" ]; then
   echo "==> Updating repo..."
-  git -C "$DIR" pull --ff-only
+  git -C "$DIR" fetch origin
+  git -C "$DIR" reset --hard origin/master
 else
   echo "==> Cloning repo..."
   mkdir -p "$(dirname "$DIR")"
@@ -51,20 +57,46 @@ echo "==> Building and starting..."
 docker compose up -d --build
 
 echo ""
-echo "==> App started on http://127.0.0.1:3000"
-echo "    Test: curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000"
+echo "==> Waiting for app..."
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000 || true)
+  if [ "$code" = "200" ] || [ "$code" = "307" ] || [ "$code" = "302" ]; then
+    echo "    App OK (HTTP $code)"
+    break
+  fi
+  sleep 3
+done
 
-if ! command -v nginx >/dev/null 2>&1; then
-  echo "==> Installing nginx + certbot..."
-  export DEBIAN_FRONTEND=noninteractive
-  apt-get update -y
-  apt-get install -y nginx certbot python3-certbot-nginx
-fi
+# На Timeweb часто уже стоит Caddy — используем его, иначе nginx
+if command -v caddy >/dev/null 2>&1 || [ -d /etc/caddy ]; then
+  echo "==> Configuring Caddy for $DOMAIN..."
+  CADDY_DIR="/etc/caddy"
+  mkdir -p "$CADDY_DIR"
+  cat > "$CADDY_DIR/shapecraft.caddy" <<EOF
+$DOMAIN, www.$DOMAIN {
+  encode gzip
+  reverse_proxy 127.0.0.1:3000
+}
+EOF
+  if [ -f "$CADDY_DIR/Caddyfile" ] && ! grep -q "$DOMAIN" "$CADDY_DIR/Caddyfile" 2>/dev/null; then
+    echo "import shapecraft.caddy" >> "$CADDY_DIR/Caddyfile"
+  elif [ ! -f "$CADDY_DIR/Caddyfile" ]; then
+    echo "import shapecraft.caddy" > "$CADDY_DIR/Caddyfile"
+  fi
+  systemctl reload caddy 2>/dev/null || caddy reload --config "$CADDY_DIR/Caddyfile" 2>/dev/null || true
+  echo "    Caddy config written. If site still 404, add reverse_proxy in panel / main Caddyfile."
+else
+  if ! command -v nginx >/dev/null 2>&1; then
+    echo "==> Installing nginx + certbot..."
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -y
+    apt-get install -y nginx certbot python3-certbot-nginx
+  fi
 
-NGINX_CONF="/etc/nginx/sites-available/$DOMAIN"
-if [ ! -f "$NGINX_CONF" ]; then
-  echo "==> Configuring nginx for $DOMAIN..."
-  cat > "$NGINX_CONF" <<EOF
+  NGINX_CONF="/etc/nginx/sites-available/$DOMAIN"
+  if [ ! -f "$NGINX_CONF" ]; then
+    echo "==> Configuring nginx for $DOMAIN..."
+    cat > "$NGINX_CONF" <<EOF
 server {
   listen 80;
   server_name $DOMAIN www.$DOMAIN;
@@ -83,15 +115,16 @@ server {
   }
 }
 EOF
-  ln -sf "$NGINX_CONF" "/etc/nginx/sites-enabled/$DOMAIN"
-  rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
-  nginx -t
-  systemctl enable nginx
-  systemctl reload nginx
+    ln -sf "$NGINX_CONF" "/etc/nginx/sites-enabled/$DOMAIN"
+    rm -f /etc/nginx/sites-enabled/default 2>/dev/null || true
+    nginx -t
+    systemctl enable nginx
+    systemctl reload nginx
+  fi
 fi
 
 echo ""
 echo "==> Done."
-echo "    Site: http://$DOMAIN"
-echo "    HTTPS: certbot --nginx -d $DOMAIN -d www.$DOMAIN"
-echo "    Login: admin / пароль из $DIR/.env (OWNER_PASSWORD)"
+echo "    Local:  http://127.0.0.1:3000"
+echo "    Public: http://$DOMAIN  or  http://SERVER_IP:3000"
+echo "    Login:  admin / пароль из $DIR/.env (OWNER_PASSWORD, по умолчанию shapecraft123)"
