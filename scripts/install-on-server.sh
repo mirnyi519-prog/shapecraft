@@ -44,13 +44,30 @@ cd "$DIR"
 
 if [ ! -f .env ]; then
   echo "==> Creating .env..."
-  cp .env.example .env
   AUTH=$(openssl rand -hex 24 2>/dev/null || head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 32)
-  sed -i "s/change-me-to-random-string/$AUTH/" .env
+  cat > .env <<EOF
+AUTH_SECRET=$AUTH
+OWNER_LOGIN=admin
+OWNER_PASSWORD=shapecraft123
+PARTNER_LOGIN=partner
+PARTNER_PASSWORD=shapecraft123
+COOKIE_SECURE=false
+EOF
   echo ""
-  echo "ВАЖНО: отредактируйте пароли в $DIR/.env"
-  echo "  nano $DIR/.env"
+  echo "Логин: admin / shapecraft123"
+  echo "Пароли можно сменить: nano $DIR/.env"
   echo ""
+else
+  # если старый .env с your-password — поправим на дефолт
+  if grep -q 'OWNER_PASSWORD=your-password' .env 2>/dev/null; then
+    sed -i 's/OWNER_PASSWORD=your-password/OWNER_PASSWORD=shapecraft123/' .env
+  fi
+  if grep -q 'PARTNER_PASSWORD=partner-password' .env 2>/dev/null; then
+    sed -i 's/PARTNER_PASSWORD=partner-password/PARTNER_PASSWORD=shapecraft123/' .env
+  fi
+  if ! grep -q 'COOKIE_SECURE=' .env 2>/dev/null; then
+    echo 'COOKIE_SECURE=false' >> .env
+  fi
 fi
 
 echo "==> Building and starting..."

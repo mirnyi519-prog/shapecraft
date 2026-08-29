@@ -60,10 +60,15 @@ export async function createSession(user: SessionUser): Promise<void> {
     .sign(getAuthSecret());
 
   const cookieStore = await cookies();
+  const secureCookie =
+    process.env.COOKIE_SECURE === "true" ||
+    process.env.COOKIE_SECURE === "1";
+
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // По HTTP (IP:3000) Secure-cookie браузер не сохраняет
+    secure: secureCookie,
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
