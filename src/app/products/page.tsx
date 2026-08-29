@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
-import { ProductAdminCard } from "@/components/product-admin-card";
+import { ProductsBrowser } from "@/components/products-browser";
 import { Button, Card } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -40,15 +40,7 @@ export default async function ProductsPage() {
             <p className="text-[var(--muted)]">Каталог пуст. Добавьте первый товар.</p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {products.map((product) => (
-              <ProductAdminCard
-                key={product.id}
-                product={product}
-                isAdmin={admin}
-              />
-            ))}
-          </div>
+          <ProductsBrowser products={products} isAdmin={admin} />
         )}
       </div>
     </AppShell>

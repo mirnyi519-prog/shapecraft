@@ -4,7 +4,7 @@ import { Badge, Button, Card } from "@/components/ui";
 import { formatRub } from "@/lib/calculations";
 import { hasListPrice } from "@/lib/pricing";
 
-type ProductCardData = {
+export type ProductCardData = {
   id: string;
   name: string;
   description: string | null;
