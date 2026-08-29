@@ -9,6 +9,10 @@ REPO="${SHAPECRAFT_REPO:-https://github.com/mirnyi519-prog/shapecraft.git}"
 DIR="${SHAPECRAFT_DIR:-/opt/shapecraft}"
 DOMAIN="${SHAPECRAFT_DOMAIN:-shapecraft.ru}"
 
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+  REPO="https://${GITHUB_TOKEN}@github.com/mirnyi519-prog/shapecraft.git"
+fi
+
 echo "==> ShapeCraft install"
 
 if ! command -v docker >/dev/null 2>&1; then

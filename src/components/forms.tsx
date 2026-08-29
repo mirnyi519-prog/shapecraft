@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Input, Textarea } from "@/components/ui";
 
 export function LoginForm() {
@@ -80,8 +80,15 @@ export function ProductForm({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleUpload(file: File) {
+    if (!file.type.startsWith("image/")) {
+      setError("Можно загружать только изображения");
+      return;
+    }
+
     setUploading(true);
     setError("");
     const formData = new FormData();
@@ -103,6 +110,55 @@ export function ProductForm({
     setValues((current) => ({ ...current, imageUrl: data.url }));
     setUploading(false);
   }
+
+  const handleUploadRef = useRef(handleUpload);
+  handleUploadRef.current = handleUpload;
+
+  function takeImageFromDataTransfer(data: DataTransfer | null) {
+    if (!data) {
+      return false;
+    }
+
+    for (const item of Array.from(data.items)) {
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          void handleUploadRef.current(file);
+          return true;
+        }
+      }
+    }
+
+    for (const file of Array.from(data.files)) {
+      if (file.type.startsWith("image/")) {
+        void handleUploadRef.current(file);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  useEffect(() => {
+    function onPaste(event: ClipboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (takeImageFromDataTransfer(event.clipboardData)) {
+        event.preventDefault();
+      }
+    }
+
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -159,21 +215,90 @@ export function ProductForm({
       <div className="space-y-2">
         <span className="text-sm font-medium">Фото</span>
         <input
+          ref={fileInputRef}
           type="file"
           accept="image/*"
+          className="hidden"
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) {
               void handleUpload(file);
             }
+            event.target.value = "";
           }}
         />
-        {uploading ? <p className="text-sm text-[var(--muted)]">Загрузка...</p> : null}
-        {values.imageUrl ? (
-          <div className="relative h-40 w-40 overflow-hidden rounded-xl border border-[var(--border)]">
-            <Image src={values.imageUrl} alt="Preview" fill className="object-cover" />
+        <div
+          tabIndex={0}
+          role="button"
+          aria-label="Зона загрузки фото"
+          onPaste={(event) => {
+            if (takeImageFromDataTransfer(event.clipboardData)) {
+              event.preventDefault();
+            }
+          }}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragOver(false);
+            const file = event.dataTransfer.files?.[0];
+            if (file) {
+              void handleUpload(file);
+            }
+          }}
+          className={`rounded-xl border border-dashed p-4 transition outline-none focus:border-[var(--brand)] ${
+            dragOver
+              ? "border-[var(--brand)] bg-[var(--brand-soft)]"
+              : "border-[var(--border)] bg-[var(--bg)]"
+          }`}
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {values.imageUrl ? (
+              <div className="relative h-40 w-40 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-white">
+                <Image
+                  src={values.imageUrl}
+                  alt="Preview"
+                  fill
+                  className="object-cover"
+                />
+              </div>
+            ) : (
+              <div className="flex h-40 w-40 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-white text-sm text-[var(--muted)]">
+                Нет фото
+              </div>
+            )}
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {uploading ? "Загрузка..." : "Загрузить фото"}
+              </Button>
+              <p className="text-sm text-[var(--muted)]">
+                Или вставьте из буфера: Ctrl+V / Cmd+V
+              </p>
+              <p className="text-sm text-[var(--muted)]">
+                Можно перетащить файл сюда
+              </p>
+              {values.imageUrl ? (
+                <button
+                  type="button"
+                  className="text-sm text-red-600 hover:underline"
+                  onClick={() =>
+                    setValues((current) => ({ ...current, imageUrl: "" }))
+                  }
+                >
+                  Убрать фото
+                </button>
+              ) : null}
+            </div>
           </div>
-        ) : null}
+        </div>
       </div>
       <div className={`grid gap-4 ${canEditCost ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         {canEditCost ? (
