@@ -373,18 +373,23 @@ export function SaleForm({ products }: { products: ProductOption[] }) {
   const router = useRouter();
   const [productId, setProductId] = useState(products[0]?.id ?? "");
   const [quantity, setQuantity] = useState("1");
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(() => {
+    const first = products[0];
+    return first ? String(first.listPrice) : "";
+  });
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const selected = products.find((product) => product.id === productId);
 
-  function fillListPrice() {
-    if (selected) {
-      setAmount(String(selected.listPrice * Number(quantity || 1)));
+  useEffect(() => {
+    if (!selected) {
+      return;
     }
-  }
+    const qty = Math.max(1, Number(quantity) || 1);
+    setAmount(String(selected.listPrice * qty));
+  }, [productId, quantity, selected?.listPrice]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -426,7 +431,7 @@ export function SaleForm({ products }: { products: ProductOption[] }) {
       <label className="block space-y-2">
         <span className="text-sm font-medium">Товар</span>
         <select
-          className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5"
+          className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base"
           value={productId}
           onChange={(event) => setProductId(event.target.value)}
         >
@@ -439,15 +444,23 @@ export function SaleForm({ products }: { products: ProductOption[] }) {
       </label>
       {selected ? (
         <div className="flex items-center gap-4 rounded-xl bg-[var(--bg)] p-4">
-          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-white">
+          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--brand-soft)]/35">
             {selected.imageUrl ? (
-              <Image
-                src={selected.imageUrl}
-                alt={selected.name}
-                fill
-                className="object-cover"
-                sizes="80px"
-              />
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selected.imageUrl}
+                  alt=""
+                  aria-hidden
+                  className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-md"
+                />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selected.imageUrl}
+                  alt={selected.name}
+                  className="relative z-10 h-full w-full object-contain p-1"
+                />
+              </>
             ) : (
               <div className="flex h-full items-center justify-center text-xs text-[var(--muted)]">
                 Нет фото
@@ -459,13 +472,9 @@ export function SaleForm({ products }: { products: ProductOption[] }) {
             <p className="mt-1">
               Прайс: {selected.listPrice} ₽ · Остаток: {selected.stock} шт
             </p>
-            <button
-              type="button"
-              className="mt-2 text-[var(--brand)] underline"
-              onClick={fillListPrice}
-            >
-              Подставить прайс
-            </button>
+            <p className="mt-1 text-xs">
+              Сумма подставляется из прайса, её можно изменить
+            </p>
           </div>
         </div>
       ) : null}
