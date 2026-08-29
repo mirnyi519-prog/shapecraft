@@ -21,13 +21,20 @@ export async function POST(request: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const url = await saveUploadedImage(buffer, file.name);
+    const url = await saveUploadedImage(buffer, file.name || "paste.png", file.type);
 
     return NextResponse.json({ url });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
     }
-    return NextResponse.json({ error: "Ошибка загрузки" }, { status: 500 });
+    console.error("upload error", error);
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? `Ошибка загрузки: ${error.message}` : "Ошибка загрузки",
+      },
+      { status: 500 },
+    );
   }
 }

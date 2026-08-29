@@ -84,7 +84,12 @@ export function ProductForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleUpload(file: File) {
-    if (!file.type.startsWith("image/")) {
+    const type = file.type || "";
+    const looksLikeImage =
+      type.startsWith("image/") ||
+      /\.(png|jpe?g|webp|gif)$/i.test(file.name || "");
+
+    if (!looksLikeImage) {
       setError("Можно загружать только изображения");
       return;
     }
@@ -92,22 +97,31 @@ export function ProductForm({
     setUploading(true);
     setError("");
     const formData = new FormData();
-    formData.append("file", file);
+    const named =
+      file.name && file.name !== "blob"
+        ? file
+        : new File([file], `paste-${Date.now()}.png`, {
+            type: type || "image/png",
+          });
+    formData.append("file", named);
 
-    const response = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
+    try {
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
 
-    if (!response.ok) {
-      const data = (await response.json()) as { error?: string };
-      setError(data.error ?? "Ошибка загрузки фото");
-      setUploading(false);
-      return;
+      const data = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !data.url) {
+        setError(data.error ?? "Ошибка загрузки фото");
+        setUploading(false);
+        return;
+      }
+
+      setValues((current) => ({ ...current, imageUrl: data.url! }));
+    } catch {
+      setError("Не удалось загрузить фото. Проверьте сеть и вход.");
     }
-
-    const data = (await response.json()) as { url: string };
-    setValues((current) => ({ ...current, imageUrl: data.url }));
     setUploading(false);
   }
 
@@ -120,7 +134,7 @@ export function ProductForm({
     }
 
     for (const item of Array.from(data.items)) {
-      if (item.type.startsWith("image/")) {
+      if (item.kind === "file" && item.type.startsWith("image/")) {
         const file = item.getAsFile();
         if (file) {
           void handleUploadRef.current(file);
@@ -130,7 +144,10 @@ export function ProductForm({
     }
 
     for (const file of Array.from(data.files)) {
-      if (file.type.startsWith("image/")) {
+      if (
+        file.type.startsWith("image/") ||
+        /\.(png|jpe?g|webp|gif)$/i.test(file.name)
+      ) {
         void handleUploadRef.current(file);
         return true;
       }
@@ -141,16 +158,7 @@ export function ProductForm({
 
   useEffect(() => {
     function onPaste(event: ClipboardEvent) {
-      const target = event.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-
+      // Картинку из буфера вставляем всегда, даже если фокус в поле названия
       if (takeImageFromDataTransfer(event.clipboardData)) {
         event.preventDefault();
       }
@@ -258,11 +266,11 @@ export function ProductForm({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             {values.imageUrl ? (
               <div className="relative h-40 w-40 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-white">
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={values.imageUrl}
                   alt="Preview"
-                  fill
-                  className="object-cover"
+                  className="h-full w-full object-cover"
                 />
               </div>
             ) : (
@@ -280,10 +288,10 @@ export function ProductForm({
                 {uploading ? "Загрузка..." : "Загрузить фото"}
               </Button>
               <p className="text-sm text-[var(--muted)]">
-                Или вставьте из буфера: Ctrl+V / Cmd+V
+                Кликните в зону фото и нажмите Ctrl+V (скриншот из буфера)
               </p>
               <p className="text-sm text-[var(--muted)]">
-                Можно перетащить файл сюда
+                Или перетащите файл сюда
               </p>
               {values.imageUrl ? (
                 <button
