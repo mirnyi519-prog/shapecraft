@@ -79,7 +79,7 @@ export function Input({
     <label className="block space-y-2">
       <span className="text-sm font-medium">{label}</span>
       <input
-        className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 outline-none ring-[var(--brand)] focus:ring-2"
+        className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base outline-none ring-[var(--brand)] focus:ring-2"
         {...props}
       />
     </label>
@@ -94,7 +94,7 @@ export function Textarea({
     <label className="block space-y-2">
       <span className="text-sm font-medium">{label}</span>
       <textarea
-        className="min-h-24 w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 outline-none ring-[var(--brand)] focus:ring-2"
+        className="min-h-24 w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base outline-none ring-[var(--brand)] focus:ring-2"
         {...props}
       />
     </label>

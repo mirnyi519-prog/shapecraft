@@ -1,6 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
+import { ProductPhoto } from "@/components/product-photo";
 import { Badge, Button, Card } from "@/components/ui";
 import { formatRub } from "@/lib/calculations";
 import { getSession } from "@/lib/auth";
@@ -20,14 +20,14 @@ export default async function ProductsPage() {
   return (
     <AppShell>
       <div className="space-y-6">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold">Товары</h1>
             <p className="text-[var(--muted)]">Каталог игрушек и остатки</p>
           </div>
           {session.role === "admin" ? (
-            <Link href="/products/new">
-              <Button>+ Новый товар</Button>
+            <Link href="/products/new" className="w-full sm:w-auto">
+              <Button className="min-h-11 w-full sm:w-auto">+ Новый товар</Button>
             </Link>
           ) : null}
         </div>
@@ -37,25 +37,16 @@ export default async function ProductsPage() {
             <p className="text-[var(--muted)]">Каталог пуст. Добавьте первый товар.</p>
           </Card>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {products.map((product) => (
               <Link key={product.id} href={`/products/${product.id}`}>
                 <Card>
                   <div className="space-y-4">
-                    <div className="relative h-44 overflow-hidden rounded-xl bg-[var(--bg)]">
-                      {product.imageUrl ? (
-                        <Image
-                          src={product.imageUrl}
-                          alt={product.name}
-                          fill
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-[var(--muted)]">
-                          Нет фото
-                        </div>
-                      )}
-                    </div>
+                    <ProductPhoto
+                      src={product.imageUrl}
+                      alt={product.name}
+                      frameClassName="aspect-[4/3] h-auto min-h-40"
+                    />
                     <div>
                       <div className="flex items-start justify-between gap-3">
                         <h2 className="text-lg font-semibold">{product.name}</h2>

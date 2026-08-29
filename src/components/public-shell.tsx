@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { LogoutButton } from "@/components/logout-button";
+import { ShopMark } from "@/components/shop-mark";
 import { Button } from "@/components/ui";
 
 export async function PublicShell({ children }: { children: React.ReactNode }) {
@@ -8,34 +9,39 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      <header className="border-b border-[var(--border)] bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
-          <div>
-            <Link href="/" className="text-xl font-bold text-[var(--brand)]">
+      <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:py-4">
+          <div className="min-w-0">
+            <Link
+              href="/"
+              className="block truncate text-lg font-bold text-[var(--brand)] sm:text-xl"
+            >
               ShapeCraft
             </Link>
-            <p className="text-sm text-[var(--muted)]">3D-игрушки · shapecraft.ru</p>
+            <p className="truncate text-xs text-[var(--muted)] sm:text-sm">
+              3D-игрушки · shapecraft.ru
+            </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {session ? (
               <>
-                <span className="hidden text-sm text-[var(--muted)] sm:inline">
+                <span className="hidden max-w-[9rem] truncate text-sm text-[var(--muted)] sm:inline">
                   {session.name}
                 </span>
                 <Link href="/dashboard">
-                  <Button variant="secondary">Управление</Button>
+                  <Button variant="secondary" className="min-h-11 px-3 sm:px-4">
+                    Управление
+                  </Button>
                 </Link>
                 <LogoutButton />
               </>
             ) : (
-              <Link href="/login">
-                <Button>Вход</Button>
-              </Link>
+              <ShopMark href="/login" label="Вход" />
             )}
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-4 pb-10 sm:py-6">{children}</main>
     </div>
   );
 }

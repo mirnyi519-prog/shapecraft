@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Montserrat } from "next/font/google";
 import "./globals.css";
 
@@ -10,6 +10,14 @@ const montserrat = Montserrat({
 export const metadata: Metadata = {
   title: "ShapeCraft — учёт 3D-печати",
   description: "Учёт товаров, продаж и расчётов ShapeCraft",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
+  themeColor: "#ed6900",
 };
 
 export const dynamic = "force-dynamic";

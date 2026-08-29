@@ -1,4 +1,4 @@
-import Image from "next/image";
+import { ProductPhoto } from "@/components/product-photo";
 import { Badge, Card } from "@/components/ui";
 import { formatRub } from "@/lib/calculations";
 
@@ -28,30 +28,28 @@ export function ProductCatalog({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {products.map((product) => (
         <Card key={product.id}>
           <div className="space-y-4">
-            <div className="relative h-48 overflow-hidden rounded-xl bg-[var(--bg)]">
-              {product.imageUrl ? (
-                <Image
-                  src={product.imageUrl}
-                  alt={product.name}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 100vw, 33vw"
-                />
-              ) : (
-                <div className="flex h-full items-center justify-center text-[var(--muted)]">
-                  Нет фото
-                </div>
-              )}
-            </div>
+            <ProductPhoto
+              src={product.imageUrl}
+              alt={product.name}
+              frameClassName="aspect-[4/3] h-auto min-h-44 sm:min-h-48"
+            />
             <div>
               <div className="flex items-start justify-between gap-3">
-                <h2 className="text-lg font-semibold">{product.name}</h2>
-                <Badge tone={product.stock === 0 ? "warning" : product.stock <= 2 ? "neutral" : "success"}>
-                  {product.stock === 0 ? "Нет в наличии" : `${product.stock} шт`}
+                <h2 className="text-base font-semibold sm:text-lg">{product.name}</h2>
+                <Badge
+                  tone={
+                    product.stock === 0
+                      ? "warning"
+                      : product.stock <= 2
+                        ? "neutral"
+                        : "success"
+                  }
+                >
+                  {product.stock === 0 ? "Нет" : `${product.stock} шт`}
                 </Badge>
               </div>
               {product.description ? (

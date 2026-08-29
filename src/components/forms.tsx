@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { ProductPhoto } from "@/components/product-photo";
 import { Button, Input, Textarea } from "@/components/ui";
 
 export function LoginForm() {
@@ -52,7 +53,7 @@ export function LoginForm() {
         required
       />
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <Button type="submit" className="w-full" disabled={loading}>
+      <Button type="submit" className="min-h-11 w-full" disabled={loading}>
         {loading ? "Вход..." : "Войти"}
       </Button>
     </form>
@@ -265,16 +266,15 @@ export function ProductForm({
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             {values.imageUrl ? (
-              <div className="relative h-40 w-40 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-white">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+              <div className="w-full max-w-[12rem] shrink-0 sm:w-40">
+                <ProductPhoto
                   src={values.imageUrl}
                   alt="Preview"
-                  className="h-full w-full object-cover"
+                  frameClassName="aspect-square h-auto"
                 />
               </div>
             ) : (
-              <div className="flex h-40 w-40 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-white text-sm text-[var(--muted)]">
+              <div className="flex h-40 w-full max-w-[12rem] shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--brand-soft)]/35 text-sm text-[var(--muted)] sm:w-40">
                 Нет фото
               </div>
             )}
