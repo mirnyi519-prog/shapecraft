@@ -50,6 +50,7 @@ export default async function SalesPage() {
                       <th className="px-3 py-3">Себест.</th>
                     ) : null}
                     <th className="px-3 py-3">{selfShareLabel(session.role)}</th>
+                    <th className="px-3 py-3">Комментарий</th>
                     <th className="px-3 py-3">Период</th>
                   </tr>
                 </thead>
@@ -79,6 +80,15 @@ export default async function SalesPage() {
                           session.role === "admin"
                             ? sale.ownerShare
                             : sale.partnerShare,
+                        )}
+                      </td>
+                      <td className="px-3 py-3 max-w-[14rem] text-[var(--muted)]">
+                        {sale.note?.trim() ? (
+                          <span className="whitespace-pre-wrap break-words">
+                            {sale.note.trim()}
+                          </span>
+                        ) : (
+                          <span>—</span>
                         )}
                       </td>
                       <td className="px-3 py-3">
