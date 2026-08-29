@@ -369,43 +369,80 @@ type ProductOption = {
   imageUrl: string | null;
 };
 
-export function SaleForm({ products }: { products: ProductOption[] }) {
+export type SaleFormInitial = {
+  id: string;
+  productId: string;
+  quantity: number;
+  amount: number;
+  note: string;
+  settled: boolean;
+};
+
+export function SaleForm({
+  products,
+  initial,
+}: {
+  products: ProductOption[];
+  initial?: SaleFormInitial;
+}) {
   const router = useRouter();
-  const [productId, setProductId] = useState(products[0]?.id ?? "");
-  const [quantity, setQuantity] = useState("1");
+  const isEdit = Boolean(initial?.id);
+  const settledOnlyNote = Boolean(initial?.settled);
+
+  const [productId, setProductId] = useState(
+    initial?.productId ?? products[0]?.id ?? "",
+  );
+  const [quantity, setQuantity] = useState(
+    initial ? String(initial.quantity) : "1",
+  );
   const [amount, setAmount] = useState(() => {
+    if (initial) {
+      return String(initial.amount);
+    }
     const first = products[0];
     return first ? String(first.listPrice) : "";
   });
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(initial?.note ?? "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const skipPriceAutofill = useRef(isEdit);
 
   const selected = products.find((product) => product.id === productId);
 
   useEffect(() => {
-    if (!selected) {
+    if (!selected || settledOnlyNote) {
+      return;
+    }
+    if (skipPriceAutofill.current) {
+      skipPriceAutofill.current = false;
       return;
     }
     const qty = Math.max(1, Number(quantity) || 1);
     setAmount(String(selected.listPrice * qty));
-  }, [productId, quantity, selected?.listPrice]);
+  }, [productId, quantity, selected?.listPrice, settledOnlyNote]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError("");
 
-    const response = await fetch("/api/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        productId,
-        quantity: Number(quantity),
-        amount: Number(amount),
-        note,
-      }),
-    });
+    const response = await fetch(
+      isEdit ? `/api/sales/${initial!.id}` : "/api/sales",
+      {
+        method: isEdit ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          settledOnlyNote
+            ? { note }
+            : {
+                productId,
+                quantity: Number(quantity),
+                amount: Number(amount),
+                note,
+              },
+        ),
+      },
+    );
 
     if (!response.ok) {
       const data = (await response.json()) as { error?: string };
@@ -414,6 +451,28 @@ export function SaleForm({ products }: { products: ProductOption[] }) {
       return;
     }
 
+    router.push("/sales");
+    router.refresh();
+  }
+
+  async function handleDelete() {
+    if (!initial?.id || settledOnlyNote) {
+      return;
+    }
+    if (!window.confirm("Удалить эту продажу? Остаток товара будет возвращён.")) {
+      return;
+    }
+    setLoading(true);
+    setError("");
+    const response = await fetch(`/api/sales/${initial.id}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      const data = (await response.json()) as { error?: string };
+      setError(data.error ?? "Ошибка удаления");
+      setLoading(false);
+      return;
+    }
     router.push("/sales");
     router.refresh();
   }
@@ -428,11 +487,17 @@ export function SaleForm({ products }: { products: ProductOption[] }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {settledOnlyNote ? (
+        <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Продажа в закрытом периоде. Можно изменить только комментарий.
+        </p>
+      ) : null}
       <label className="block space-y-2">
         <span className="text-sm font-medium">Товар</span>
         <select
-          className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base"
+          className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base disabled:opacity-60"
           value={productId}
+          disabled={settledOnlyNote}
           onChange={(event) => setProductId(event.target.value)}
         >
           {products.map((product) => (
@@ -472,9 +537,11 @@ export function SaleForm({ products }: { products: ProductOption[] }) {
             <p className="mt-1">
               Прайс: {selected.listPrice} ₽ · Остаток: {selected.stock} шт
             </p>
-            <p className="mt-1 text-xs">
-              Сумма подставляется из прайса, её можно изменить
-            </p>
+            {!settledOnlyNote ? (
+              <p className="mt-1 text-xs">
+                Сумма подставляется из прайса, её можно изменить
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -484,6 +551,7 @@ export function SaleForm({ products }: { products: ProductOption[] }) {
           type="number"
           min="1"
           value={quantity}
+          disabled={settledOnlyNote}
           onChange={(event) => setQuantity(event.target.value)}
           required
         />
@@ -493,6 +561,7 @@ export function SaleForm({ products }: { products: ProductOption[] }) {
           min="0"
           step="1"
           value={amount}
+          disabled={settledOnlyNote}
           onChange={(event) => setAmount(event.target.value)}
           required
         />
@@ -503,9 +572,26 @@ export function SaleForm({ products }: { products: ProductOption[] }) {
         onChange={(event) => setNote(event.target.value)}
       />
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <Button type="submit" disabled={loading}>
-        {loading ? "Сохранение..." : "Зафиксировать продажу"}
-      </Button>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Button type="submit" disabled={loading} className="min-h-11">
+          {loading
+            ? "Сохранение..."
+            : isEdit
+              ? "Сохранить изменения"
+              : "Зафиксировать продажу"}
+        </Button>
+        {isEdit && !settledOnlyNote ? (
+          <Button
+            type="button"
+            variant="danger"
+            disabled={loading}
+            className="min-h-11"
+            onClick={() => void handleDelete()}
+          >
+            Удалить
+          </Button>
+        ) : null}
+      </div>
     </form>
   );
 }
