@@ -334,7 +334,7 @@ export function ProductForm({
           />
         ) : null}
         <Input
-          label="Цена в прайсе, ₽ (можно позже)"
+          label="Цена в прайсе, ₽"
           type="number"
           min="0"
           step="1"
