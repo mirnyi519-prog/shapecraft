@@ -13,9 +13,11 @@ RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /v
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV DATABASE_URL="file:./dev.db"
+ENV DATABASE_URL="file:./build.db"
 RUN npx prisma generate
+RUN npx prisma db push --skip-generate
 RUN npm run build
+RUN rm -f ./build.db ./build.db-journal
 
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app

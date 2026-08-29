@@ -12,6 +12,8 @@ export const metadata: Metadata = {
   description: "Учёт товаров, продаж и расчётов ShapeCraft",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ru" className={`${montserrat.variable} h-full antialiased`}>
