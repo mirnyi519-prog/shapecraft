@@ -1,13 +1,16 @@
 # syntax=docker/dockerfile:1
 
-FROM node:22-bookworm-slim AS deps
+# Можно переопределить: --build-arg BASE_IMAGE=<локальный id> — без Docker Hub
+ARG BASE_IMAGE=mirror.gcr.io/library/node:22-bookworm-slim
+
+FROM ${BASE_IMAGE} AS deps
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
 RUN npm ci
 
-FROM node:22-bookworm-slim AS builder
+FROM ${BASE_IMAGE} AS builder
 WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=deps /app/node_modules ./node_modules
@@ -19,7 +22,7 @@ RUN npx prisma db push --skip-generate
 RUN npm run build
 RUN rm -f ./build.db ./build.db-journal
 
-FROM node:22-bookworm-slim AS runner
+FROM ${BASE_IMAGE} AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
