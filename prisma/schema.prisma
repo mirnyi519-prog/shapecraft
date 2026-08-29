@@ -19,18 +19,29 @@ model User {
 }
 
 model Product {
+  id           String         @id @default(cuid())
+  name         String
+  description  String?
+  imageUrl     String?
+  costPrice    Float
+  listPrice    Float?
+  stock        Int            @default(0)
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  sales        Sale[]
+  receipts     StockReceipt[]
+  priceHistory PriceHistory[]
+}
+
+model PriceHistory {
   id          String   @id @default(cuid())
-  name        String
-  description String?
-  imageUrl    String?
-  costPrice   Float
-  listPrice   Float
-  stock       Int      @default(0)
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  sales       Sale[]
-  receipts    StockReceipt[]
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  oldPrice    Float?
+  newPrice    Float?
+  changedAt   DateTime @default(now())
+  changedById String?
 }
 
 model Sale {

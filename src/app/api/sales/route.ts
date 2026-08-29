@@ -59,6 +59,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Товар не найден" }, { status: 404 });
     }
 
+    if (product.listPrice === null || product.listPrice === undefined) {
+      return NextResponse.json(
+        { error: "Нельзя продать товар без цены в прайсе" },
+        { status: 400 },
+      );
+    }
+
     if (product.stock < quantity) {
       return NextResponse.json(
         { error: `Недостаточно остатка (есть ${product.stock})` },

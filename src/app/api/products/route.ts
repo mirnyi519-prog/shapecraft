@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { parseOptionalPrice } from "@/lib/pricing";
 
 export async function GET() {
   try {
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
       description?: string;
       imageUrl?: string;
       costPrice?: number;
-      listPrice?: number;
+      listPrice?: number | null;
       stock?: number;
     };
 
@@ -47,15 +48,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const product = await prisma.product.create({
-      data: {
-        name: body.name.trim(),
-        description: body.description?.trim() || null,
-        imageUrl: body.imageUrl || null,
-        costPrice: Number(body.costPrice),
-        listPrice: Number(body.listPrice ?? 0),
-        stock: Number(body.stock ?? 0),
-      },
+    const listPrice = parseOptionalPrice(body.listPrice);
+
+    const product = await prisma.$transaction(async (tx) => {
+      const created = await tx.product.create({
+        data: {
+          name: body.name!.trim(),
+          description: body.description?.trim() || null,
+          imageUrl: body.imageUrl || null,
+          costPrice: Number(body.costPrice),
+          listPrice,
+          stock: Number(body.stock ?? 0),
+        },
+      });
+
+      if (listPrice !== null) {
+        await tx.priceHistory.create({
+          data: {
+            productId: created.id,
+            oldPrice: null,
+            newPrice: listPrice,
+            changedById: session.id,
+          },
+        });
+      }
+
+      return created;
     });
 
     return NextResponse.json(product, { status: 201 });
@@ -63,6 +81,7 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
     }
+    console.error("product create", error);
     return NextResponse.json({ error: "Ошибка сохранения" }, { status: 500 });
   }
 }

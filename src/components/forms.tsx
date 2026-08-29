@@ -174,16 +174,27 @@ export function ProductForm({
     setLoading(true);
     setError("");
 
-    const payload: Record<string, string | number | undefined> = {
+    const payload: Record<string, string | number | null | undefined> = {
       name: values.name,
       description: values.description,
       imageUrl: values.imageUrl || undefined,
-      listPrice: Number(values.listPrice),
+      listPrice:
+        values.listPrice.trim() === "" ? null : Number(values.listPrice),
       stock: Number(values.stock),
     };
 
     if (canEditCost) {
       payload.costPrice = Number(values.costPrice);
+    }
+
+    if (
+      payload.listPrice !== null &&
+      payload.listPrice !== undefined &&
+      !Number.isFinite(Number(payload.listPrice))
+    ) {
+      setError("Некорректная цена в прайсе");
+      setLoading(false);
+      return;
     }
 
     const response = await fetch(
@@ -323,7 +334,7 @@ export function ProductForm({
           />
         ) : null}
         <Input
-          label="Цена в прайсе, ₽"
+          label="Цена в прайсе, ₽ (можно позже)"
           type="number"
           min="0"
           step="1"
@@ -331,7 +342,7 @@ export function ProductForm({
           onChange={(event) =>
             setValues({ ...values, listPrice: event.target.value })
           }
-          required
+          placeholder="Пока не знаю"
         />
         <Input
           label="Остаток, шт"
@@ -364,7 +375,7 @@ export type ProductFormValues = {
 type ProductOption = {
   id: string;
   name: string;
-  listPrice: number;
+  listPrice: number | null;
   stock: number;
   imageUrl: string | null;
 };
@@ -381,16 +392,27 @@ export type SaleFormInitial = {
 export function SaleForm({
   products,
   initial,
+  defaultProductId,
+  redirectTo = "/sales",
 }: {
   products: ProductOption[];
   initial?: SaleFormInitial;
+  defaultProductId?: string;
+  redirectTo?: string;
 }) {
   const router = useRouter();
   const isEdit = Boolean(initial?.id);
   const settledOnlyNote = Boolean(initial?.settled);
+  const sellable = products.filter(
+    (p) => p.listPrice !== null && p.listPrice !== undefined,
+  );
+  const options = isEdit ? products : sellable;
 
   const [productId, setProductId] = useState(
-    initial?.productId ?? products[0]?.id ?? "",
+    initial?.productId ??
+      defaultProductId ??
+      options[0]?.id ??
+      "",
   );
   const [quantity, setQuantity] = useState(
     initial ? String(initial.quantity) : "1",
@@ -399,18 +421,19 @@ export function SaleForm({
     if (initial) {
       return String(initial.amount);
     }
-    const first = products[0];
-    return first ? String(first.listPrice) : "";
+    const first =
+      options.find((p) => p.id === defaultProductId) ?? options[0];
+    return first?.listPrice != null ? String(first.listPrice) : "";
   });
   const [note, setNote] = useState(initial?.note ?? "");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const skipPriceAutofill = useRef(isEdit);
 
-  const selected = products.find((product) => product.id === productId);
+  const selected = options.find((product) => product.id === productId);
 
   useEffect(() => {
-    if (!selected || settledOnlyNote) {
+    if (!selected || settledOnlyNote || selected.listPrice == null) {
       return;
     }
     if (skipPriceAutofill.current) {
@@ -425,6 +448,12 @@ export function SaleForm({
     event.preventDefault();
     setLoading(true);
     setError("");
+
+    if (!isEdit && selected?.listPrice == null) {
+      setError("Нельзя продать товар без цены в прайсе");
+      setLoading(false);
+      return;
+    }
 
     const response = await fetch(
       isEdit ? `/api/sales/${initial!.id}` : "/api/sales",
@@ -451,7 +480,7 @@ export function SaleForm({
       return;
     }
 
-    router.push("/sales");
+    router.push(redirectTo);
     router.refresh();
   }
 
@@ -473,14 +502,16 @@ export function SaleForm({
       setLoading(false);
       return;
     }
-    router.push("/sales");
+    router.push(redirectTo);
     router.refresh();
   }
 
-  if (products.length === 0) {
+  if (options.length === 0) {
     return (
       <p className="text-[var(--muted)]">
-        Сначала добавьте хотя бы один товар в каталог.
+        {products.length === 0
+          ? "Сначала добавьте хотя бы один товар в каталог."
+          : "Нет товаров с ценой в прайсе. Укажите прайс в карточке товара, затем продавайте."}
       </p>
     );
   }
@@ -497,12 +528,13 @@ export function SaleForm({
         <select
           className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base disabled:opacity-60"
           value={productId}
-          disabled={settledOnlyNote}
+          disabled={settledOnlyNote || Boolean(defaultProductId && !isEdit)}
           onChange={(event) => setProductId(event.target.value)}
         >
-          {products.map((product) => (
+          {options.map((product) => (
             <option key={product.id} value={product.id}>
-              {product.name} — остаток {product.stock}, прайс {product.listPrice} ₽
+              {product.name} — остаток {product.stock}, прайс{" "}
+              {product.listPrice ?? "—"} ₽
             </option>
           ))}
         </select>
@@ -535,7 +567,8 @@ export function SaleForm({
           <div className="text-sm text-[var(--muted)]">
             <p className="font-medium text-[var(--text)]">{selected.name}</p>
             <p className="mt-1">
-              Прайс: {selected.listPrice} ₽ · Остаток: {selected.stock} шт
+              Прайс: {selected.listPrice ?? "не задан"} ₽ · Остаток:{" "}
+              {selected.stock} шт
             </p>
             {!settledOnlyNote ? (
               <p className="mt-1 text-xs">
@@ -596,9 +629,19 @@ export function SaleForm({
   );
 }
 
-export function ReceiptForm({ products }: { products: ProductOption[] }) {
+export function ReceiptForm({
+  products,
+  defaultProductId,
+  redirectTo,
+}: {
+  products: ProductOption[];
+  defaultProductId?: string;
+  redirectTo?: string;
+}) {
   const router = useRouter();
-  const [productId, setProductId] = useState(products[0]?.id ?? "");
+  const [productId, setProductId] = useState(
+    defaultProductId ?? products[0]?.id ?? "",
+  );
   const [quantity, setQuantity] = useState("1");
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
@@ -628,6 +671,12 @@ export function ReceiptForm({ products }: { products: ProductOption[] }) {
       return;
     }
 
+    if (redirectTo) {
+      router.push(redirectTo);
+      router.refresh();
+      return;
+    }
+
     router.refresh();
     setQuantity("1");
     setNote("");
@@ -647,8 +696,9 @@ export function ReceiptForm({ products }: { products: ProductOption[] }) {
       <label className="block space-y-2">
         <span className="text-sm font-medium">Товар</span>
         <select
-          className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5"
+          className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 disabled:opacity-60"
           value={productId}
+          disabled={Boolean(defaultProductId)}
           onChange={(event) => setProductId(event.target.value)}
         >
           {products.map((product) => (

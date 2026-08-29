@@ -85,6 +85,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Товар не найден" }, { status: 404 });
     }
 
+    if (product.listPrice === null || product.listPrice === undefined) {
+      return NextResponse.json(
+        { error: "Нельзя продать товар без цены в прайсе" },
+        { status: 400 },
+      );
+    }
+
     const availableStock =
       product.stock +
       (product.id === existing.productId ? existing.quantity : 0);
