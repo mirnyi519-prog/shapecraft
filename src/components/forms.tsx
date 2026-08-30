@@ -157,18 +157,6 @@ export function ProductForm({
     return false;
   }
 
-  useEffect(() => {
-    function onPaste(event: ClipboardEvent) {
-      // Картинку из буфера вставляем всегда, даже если фокус в поле названия
-      if (takeImageFromDataTransfer(event.clipboardData)) {
-        event.preventDefault();
-      }
-    }
-
-    window.addEventListener("paste", onPaste);
-    return () => window.removeEventListener("paste", onPaste);
-  }, []);
-
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
@@ -299,7 +287,10 @@ export function ProductForm({
                 {uploading ? "Загрузка..." : "Загрузить фото"}
               </Button>
               <p className="text-sm text-[var(--muted)]">
-                Кликните в зону фото и нажмите Ctrl+V (скриншот из буфера)
+                Кликните в зону фото и нажмите Ctrl+V — вставится скриншот
+              </p>
+              <p className="text-sm text-[var(--muted)]">
+                В название и описание текст вставляется как обычно
               </p>
               <p className="text-sm text-[var(--muted)]">
                 Или перетащите файл сюда

@@ -102,3 +102,16 @@ model SiteVisit {
   @@index([ipAddress])
   @@index([visitedAt])
 }
+
+model FeedbackMessage {
+  id        String   @id @default(cuid())
+  name      String?
+  contact   String?
+  message   String
+  ipAddress String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([read])
+}

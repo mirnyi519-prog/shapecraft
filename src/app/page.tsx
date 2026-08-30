@@ -1,4 +1,5 @@
 import { ProductCatalog } from "@/components/product-catalog";
+import { FeedbackForm } from "@/components/feedback-form";
 import { PublicShell } from "@/components/public-shell";
 import { prisma } from "@/lib/db";
 
@@ -26,6 +27,7 @@ export default async function HomePage() {
           </p>
         </div>
         <ProductCatalog products={products} />
+        <FeedbackForm />
       </div>
     </PublicShell>
   );
