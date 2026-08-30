@@ -73,7 +73,7 @@ export function FeedbackForm() {
     <>
       <div className="flex justify-center pt-2">
         <Button type="button" className="min-h-11 px-6" onClick={() => setOpen(true)}>
-          Написать администратору
+          Обратная связь
         </Button>
       </div>
 
@@ -118,11 +118,22 @@ export function FeedbackForm() {
               <div className="space-y-4">
                 <div>
                   <h2 id="feedback-dialog-title" className="text-xl font-semibold">
-                    Написать администратору
+                    Обратная связь
                   </h2>
-                  <p className="mt-1 text-sm text-[var(--muted)]">
-                    Вопрос по игрушке, заказу или предложение.
+                  <p className="mt-2 text-sm text-[var(--muted)]">
+                    Напишите нам прямо с витрины — сообщение попадёт администратору
+                    ShapeCraft. Так можно уточнить наличие, цену или задать любой
+                    вопрос по игрушкам.
                   </p>
+                </div>
+                <div className="rounded-xl bg-[var(--bg)] px-4 py-3 text-sm text-[var(--text)]">
+                  <p className="font-medium">Когда это удобно:</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-[var(--muted)]">
+                    <li>узнать, есть ли нужная игрушка в пекарне сейчас;</li>
+                    <li>спросить про цвет, размер или когда появится новая партия;</li>
+                    <li>предложить идею для новой игрушки или пожелание;</li>
+                    <li>сообщить об ошибке на сайте или в описании товара.</li>
+                  </ul>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <Input
