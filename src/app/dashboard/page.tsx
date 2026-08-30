@@ -1,10 +1,12 @@
+import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { ProductThumb } from "@/components/product-thumb";
-import { Badge, Card, StatCard } from "@/components/ui";
+import { Badge, Button, Card, StatCard } from "@/components/ui";
 import { formatDate, formatDateTime, formatRub } from "@/lib/calculations";
-import { getSession } from "@/lib/auth";
+import { getSession, isAdmin } from "@/lib/auth";
 import { otherShareLabel, saleShareHint, selfShareLabel } from "@/lib/labels";
 import { prisma } from "@/lib/db";
+import { getVisitStats } from "@/lib/visits";
 
 async function getDashboardData(role: "admin" | "partner") {
   const pendingSales = await prisma.sale.findMany({
@@ -56,6 +58,7 @@ export default async function DashboardPage() {
   }
 
   const data = await getDashboardData(session.role);
+  const visitStats = isAdmin(session.role) ? await getVisitStats() : null;
 
   return (
     <AppShell>
@@ -67,6 +70,27 @@ export default async function DashboardPage() {
             {data.periodFrom ? ` с ${formatDate(data.periodFrom)}` : " — с начала учёта"}
           </p>
         </div>
+
+        {visitStats ? (
+          <div className="grid gap-4 md:grid-cols-3">
+            <StatCard label="Визитов на сайте" value={String(visitStats.totalVisits)} />
+            <StatCard label="Уникальных IP" value={String(visitStats.uniqueIps)} />
+            <StatCard
+              label="Визитов сегодня"
+              value={String(visitStats.visitsToday)}
+              hint="Подробная таблица по IP"
+              accent
+            />
+          </div>
+        ) : null}
+
+        {visitStats ? (
+          <div className="flex justify-end">
+            <Link href="/visits">
+              <Button variant="secondary">Посещения по IP</Button>
+            </Link>
+          </div>
+        ) : null}
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <StatCard label="Продано штук" value={String(data.totals.count)} />

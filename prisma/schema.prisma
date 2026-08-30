@@ -91,3 +91,14 @@ model StockReceipt {
   createdById String?
   createdBy   User?    @relation(fields: [createdById], references: [id])
 }
+
+model SiteVisit {
+  id        String   @id @default(cuid())
+  ipAddress String
+  path      String
+  userAgent String?
+  visitedAt DateTime @default(now())
+
+  @@index([ipAddress])
+  @@index([visitedAt])
+}

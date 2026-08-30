@@ -15,6 +15,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/settlements", label: "Расчёты" },
     ...(admin ? [{ href: "/receipts", label: "Приход" }] : []),
     ...(admin ? [{ href: "/users", label: "Пользователи" }] : []),
+    ...(admin ? [{ href: "/visits", label: "Посещения" }] : []),
   ];
 
   return (
