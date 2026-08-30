@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { ProductArchiveButton } from "@/components/product-archive-button";
 import { Badge, Button, Card } from "@/components/ui";
 import { ProductForm } from "@/components/forms";
 import { formatDateTime, formatRub } from "@/lib/calculations";
@@ -42,6 +43,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
   }
 
   const priced = hasListPrice(product.listPrice);
+  const onStorefront = product.active;
 
   return (
     <AppShell>
@@ -51,14 +53,19 @@ export default async function ProductDetailPage({ params }: PageProps) {
             ← К товарам
           </Link>
           <h1 className="mt-1 text-2xl font-bold">{product.name}</h1>
+          {!onStorefront ? (
+            <div className="mt-2">
+              <Badge tone="neutral">Архив — не на витрине</Badge>
+            </div>
+          ) : null}
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
           <Link href={`/products/${product.id}/receipt`}>
             <Button variant="secondary" className="min-h-11 w-full sm:w-auto">
               Поставка
             </Button>
           </Link>
-          {priced && product.stock > 0 ? (
+          {onStorefront && priced && product.stock > 0 ? (
             <Link href={`/products/${product.id}/sale`}>
               <Button className="min-h-11 w-full sm:w-auto">Продажа</Button>
             </Link>
@@ -67,10 +74,21 @@ export default async function ProductDetailPage({ params }: PageProps) {
               Продажа
             </Button>
           )}
+          <ProductArchiveButton
+            productId={product.id}
+            active={onStorefront}
+            className="sm:w-48"
+          />
         </div>
       </div>
 
-      {!priced ? (
+      {!onStorefront ? (
+        <p className="mb-4 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-sm text-[var(--muted)]">
+          Товар убран с витрины. Посетители его не видят, продажи недоступны.
+        </p>
+      ) : null}
+
+      {!priced && onStorefront ? (
         <p className="mb-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800">
           У товара нет цены в прайсе — карточка выделена красным, продажа недоступна.
         </p>

@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       where: { id: body.productId },
     });
 
-    if (!product || !product.active) {
+    if (!product) {
       return NextResponse.json({ error: "Товар не найден" }, { status: 404 });
     }
 

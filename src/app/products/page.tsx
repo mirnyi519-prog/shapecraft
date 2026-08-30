@@ -14,8 +14,8 @@ export default async function ProductsPage() {
   const admin = isAdmin(session.role);
 
   const products = await prisma.product.findMany({
-    where: { active: true },
-    orderBy: { updatedAt: "desc" },
+    where: admin ? undefined : { active: true },
+    orderBy: [{ active: "desc" }, { updatedAt: "desc" }],
   });
 
   return (

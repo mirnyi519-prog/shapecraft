@@ -55,8 +55,12 @@ export async function POST(request: NextRequest) {
       where: { id: body.productId },
     });
 
-    if (!product || !product.active) {
+    if (!product) {
       return NextResponse.json({ error: "Товар не найден" }, { status: 404 });
+    }
+
+    if (!product.active) {
+      return NextResponse.json({ error: "Товар в архиве — продажа недоступна" }, { status: 400 });
     }
 
     if (product.listPrice === null || product.listPrice === undefined) {

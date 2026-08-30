@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProductArchiveButton } from "@/components/product-archive-button";
 import { ProductPhoto } from "@/components/product-photo";
 import { Badge, Button, Card } from "@/components/ui";
 import { formatRub } from "@/lib/calculations";
@@ -12,6 +13,7 @@ export type ProductCardData = {
   listPrice: number | null;
   costPrice: number;
   stock: number;
+  active: boolean;
 };
 
 export function ProductAdminCard({
@@ -22,13 +24,17 @@ export function ProductAdminCard({
   isAdmin: boolean;
 }) {
   const priced = hasListPrice(product.listPrice);
+  const onStorefront = product.active;
+  const canSell = onStorefront && priced;
 
   return (
     <Card
       className={
-        priced
-          ? ""
-          : "border-red-400 bg-red-50 ring-1 ring-red-200"
+        !onStorefront
+          ? "border-[var(--border)] bg-[var(--bg)] opacity-90"
+          : priced
+            ? ""
+            : "border-red-400 bg-red-50 ring-1 ring-red-200"
       }
     >
       <div className="space-y-4">
@@ -46,11 +52,18 @@ export function ProductAdminCard({
                 {product.name}
               </h2>
             </Link>
-            <Badge tone={product.stock <= 2 ? "warning" : "success"}>
-              {product.stock} шт
-            </Badge>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              {!onStorefront ? <Badge tone="neutral">Архив</Badge> : null}
+              <Badge tone={product.stock <= 2 ? "warning" : "success"}>
+                {product.stock} шт
+              </Badge>
+            </div>
           </div>
-          {!priced ? (
+          {!onStorefront ? (
+            <p className="mt-2 text-sm font-medium text-[var(--muted)]">
+              Не на витрине · продажа недоступна
+            </p>
+          ) : !priced ? (
             <p className="mt-2 text-sm font-medium text-red-700">
               Нет цены в прайсе — продажа недоступна
             </p>
@@ -66,25 +79,30 @@ export function ProductAdminCard({
             </p>
           ) : null}
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          {isAdmin ? (
-            <Link href={`/products/${product.id}/receipt`} className="flex-1">
-              <Button type="button" variant="secondary" className="min-h-11 w-full">
-                Поставка
-              </Button>
-            </Link>
-          ) : null}
-          {priced ? (
-            <Link href={`/products/${product.id}/sale`} className="flex-1">
-              <Button type="button" className="min-h-11 w-full">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            {isAdmin ? (
+              <Link href={`/products/${product.id}/receipt`} className="flex-1">
+                <Button type="button" variant="secondary" className="min-h-11 w-full">
+                  Поставка
+                </Button>
+              </Link>
+            ) : null}
+            {canSell ? (
+              <Link href={`/products/${product.id}/sale`} className="flex-1">
+                <Button type="button" className="min-h-11 w-full">
+                  Продажа
+                </Button>
+              </Link>
+            ) : (
+              <Button type="button" className="min-h-11 flex-1" disabled>
                 Продажа
               </Button>
-            </Link>
-          ) : (
-            <Button type="button" className="min-h-11 flex-1" disabled>
-              Продажа
-            </Button>
-          )}
+            )}
+          </div>
+          {isAdmin ? (
+            <ProductArchiveButton productId={product.id} active={onStorefront} />
+          ) : null}
         </div>
       </div>
     </Card>

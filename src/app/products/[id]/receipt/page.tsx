@@ -19,7 +19,7 @@ export default async function ProductReceiptPage({ params }: PageProps) {
 
   const { id } = await params;
   const product = await prisma.product.findUnique({ where: { id } });
-  if (!product || !product.active) {
+  if (!product) {
     notFound();
   }
 

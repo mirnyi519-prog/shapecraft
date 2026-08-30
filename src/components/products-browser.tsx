@@ -8,7 +8,7 @@ import {
 import { Card } from "@/components/ui";
 import { hasListPrice } from "@/lib/pricing";
 
-type FilterChip = "all" | "no-price" | "low-stock" | "in-stock" | "out";
+type FilterChip = "all" | "archive" | "no-price" | "low-stock" | "in-stock" | "out";
 
 function normalize(text: string): string {
   return text
@@ -112,8 +112,9 @@ function scoreProduct(product: ProductCardData, tokens: string[]): number {
   return score;
 }
 
-const CHIPS: { id: FilterChip; label: string }[] = [
-  { id: "all", label: "Все" },
+const CHIPS: { id: FilterChip; label: string; adminOnly?: boolean }[] = [
+  { id: "all", label: "На витрине" },
+  { id: "archive", label: "Архив", adminOnly: true },
   { id: "no-price", label: "Без прайса" },
   { id: "low-stock", label: "Мало" },
   { id: "in-stock", label: "В наличии" },
@@ -134,16 +135,18 @@ export function ProductsBrowser({
   const filtered = useMemo(() => {
     const byChip = products.filter((product) => {
       switch (chip) {
+        case "archive":
+          return !product.active;
         case "no-price":
-          return !hasListPrice(product.listPrice);
+          return product.active && !hasListPrice(product.listPrice);
         case "low-stock":
-          return product.stock > 0 && product.stock <= 2;
+          return product.active && product.stock > 0 && product.stock <= 2;
         case "in-stock":
-          return product.stock > 0;
+          return product.active && product.stock > 0;
         case "out":
-          return product.stock === 0;
+          return product.active && product.stock === 0;
         default:
-          return true;
+          return product.active;
       }
     });
 
@@ -188,7 +191,7 @@ export function ProductsBrowser({
           />
         </label>
         <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {CHIPS.map((item) => {
+          {CHIPS.filter((item) => !item.adminOnly || isAdmin).map((item) => {
             const active = chip === item.id;
             return (
               <button
