@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { parseOptionalNumber } from "@/lib/product-specs";
 import { parseOptionalPrice } from "@/lib/pricing";
 
 export async function GET() {
@@ -35,6 +36,10 @@ export async function POST(request: NextRequest) {
       costPrice?: number;
       listPrice?: number | null;
       stock?: number;
+      weightGrams?: number | null;
+      widthMm?: number | null;
+      heightMm?: number | null;
+      depthMm?: number | null;
     };
 
     if (!body.name?.trim()) {
@@ -59,6 +64,10 @@ export async function POST(request: NextRequest) {
           costPrice: Number(body.costPrice),
           listPrice,
           stock: Number(body.stock ?? 0),
+          weightGrams: parseOptionalNumber(body.weightGrams),
+          widthMm: parseOptionalNumber(body.widthMm),
+          heightMm: parseOptionalNumber(body.heightMm),
+          depthMm: parseOptionalNumber(body.depthMm),
         },
       });
 

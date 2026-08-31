@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Button, Card } from "@/components/ui";
@@ -13,6 +14,8 @@ export type FeedbackRow = {
   ipAddress: string | null;
   read: boolean;
   createdAt: string;
+  productId: string | null;
+  productName: string | null;
 };
 
 type FilterChip = "all" | "new" | "read";
@@ -57,6 +60,7 @@ export function FeedbackManager({
         item.contact,
         item.message,
         item.ipAddress,
+        item.productName,
       ]
         .filter(Boolean)
         .join(" ")
@@ -235,6 +239,21 @@ export function FeedbackManager({
                       </span>
                     ) : null}
                   </p>
+                  {item.productName ? (
+                    <p className="text-sm">
+                      <span className="text-[var(--muted)]">Товар: </span>
+                      {item.productId ? (
+                        <Link
+                          href={`/products/${item.productId}`}
+                          className="font-medium text-[var(--brand)] hover:underline"
+                        >
+                          {item.productName}
+                        </Link>
+                      ) : (
+                        <span className="font-medium">{item.productName}</span>
+                      )}
+                    </p>
+                  ) : null}
                   <p className="whitespace-pre-wrap text-[var(--text)]">
                     {item.message}
                   </p>

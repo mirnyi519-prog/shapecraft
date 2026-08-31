@@ -7,6 +7,7 @@ type FeedbackBody = {
   name?: string;
   contact?: string;
   message?: string;
+  productId?: string;
 };
 
 function trimOptional(value: unknown, maxLength: number): string | null {
@@ -29,6 +30,9 @@ export async function GET() {
 
     const messages = await prisma.feedbackMessage.findMany({
       orderBy: { createdAt: "desc" },
+      include: {
+        product: { select: { id: true, name: true } },
+      },
     });
 
     const unreadCount = messages.filter((item) => !item.read).length;
@@ -54,12 +58,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let productId: string | null = null;
+    if (typeof body.productId === "string" && body.productId.trim()) {
+      const product = await prisma.product.findUnique({
+        where: { id: body.productId.trim() },
+        select: { id: true, active: true },
+      });
+      if (!product || !product.active) {
+        return NextResponse.json({ error: "Товар не найден" }, { status: 400 });
+      }
+      productId = product.id;
+    }
+
     const created = await prisma.feedbackMessage.create({
       data: {
         name: trimOptional(body.name, 100),
         contact: trimOptional(body.contact, 200),
         message,
         ipAddress: getClientIp(request),
+        productId,
       },
     });
 

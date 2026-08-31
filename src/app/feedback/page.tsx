@@ -16,6 +16,9 @@ export default async function FeedbackPage() {
 
   const messages = await prisma.feedbackMessage.findMany({
     orderBy: { createdAt: "desc" },
+    include: {
+      product: { select: { id: true, name: true } },
+    },
   });
 
   const unreadCount = messages.filter((item) => !item.read).length;
@@ -38,6 +41,8 @@ export default async function FeedbackPage() {
             ipAddress: item.ipAddress,
             read: item.read,
             createdAt: item.createdAt.toISOString(),
+            productId: item.productId,
+            productName: item.product?.name ?? null,
           }))}
           initialUnreadCount={unreadCount}
         />

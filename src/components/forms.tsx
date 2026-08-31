@@ -76,6 +76,10 @@ export function ProductForm({
       costPrice: "",
       listPrice: "",
       stock: "0",
+      weightGrams: "",
+      widthMm: "",
+      heightMm: "",
+      depthMm: "",
     },
   );
   const [uploading, setUploading] = useState(false);
@@ -169,6 +173,11 @@ export function ProductForm({
       listPrice:
         values.listPrice.trim() === "" ? null : Number(values.listPrice),
       stock: Number(values.stock),
+      weightGrams:
+        values.weightGrams.trim() === "" ? null : Number(values.weightGrams),
+      widthMm: values.widthMm.trim() === "" ? null : Number(values.widthMm),
+      heightMm: values.heightMm.trim() === "" ? null : Number(values.heightMm),
+      depthMm: values.depthMm.trim() === "" ? null : Number(values.depthMm),
     };
 
     if (canEditCost) {
@@ -345,6 +354,55 @@ export function ProductForm({
           required
         />
       </div>
+      <div>
+        <p className="mb-3 text-sm font-medium">Вес и габариты</p>
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Input
+            label="Вес, г"
+            type="number"
+            min="0"
+            step="0.1"
+            value={values.weightGrams}
+            onChange={(event) =>
+              setValues({ ...values, weightGrams: event.target.value })
+            }
+            placeholder="45"
+          />
+          <Input
+            label="Ширина, мм"
+            type="number"
+            min="0"
+            step="1"
+            value={values.widthMm}
+            onChange={(event) =>
+              setValues({ ...values, widthMm: event.target.value })
+            }
+            placeholder="60"
+          />
+          <Input
+            label="Высота, мм"
+            type="number"
+            min="0"
+            step="1"
+            value={values.heightMm}
+            onChange={(event) =>
+              setValues({ ...values, heightMm: event.target.value })
+            }
+            placeholder="40"
+          />
+          <Input
+            label="Глубина, мм"
+            type="number"
+            min="0"
+            step="1"
+            value={values.depthMm}
+            onChange={(event) =>
+              setValues({ ...values, depthMm: event.target.value })
+            }
+            placeholder="35"
+          />
+        </div>
+      </div>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <Button type="submit" disabled={loading || uploading}>
         {loading ? "Сохранение..." : "Сохранить"}
@@ -361,6 +419,10 @@ export type ProductFormValues = {
   costPrice: string;
   listPrice: string;
   stock: string;
+  weightGrams: string;
+  widthMm: string;
+  heightMm: string;
+  depthMm: string;
 };
 
 type ProductOption = {

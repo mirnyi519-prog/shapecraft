@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { parseOptionalNumber } from "@/lib/product-specs";
 import { parseOptionalPrice } from "@/lib/pricing";
 
 type RouteContext = {
@@ -55,6 +56,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       listPrice?: number | null;
       stock?: number;
       active?: boolean;
+      weightGrams?: number | null;
+      widthMm?: number | null;
+      heightMm?: number | null;
+      depthMm?: number | null;
     };
 
     const existing = await prisma.product.findUnique({ where: { id } });
@@ -88,6 +93,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           ...(listPriceProvided ? { listPrice: nextListPrice } : {}),
           ...(body.stock !== undefined ? { stock: Number(body.stock) } : {}),
           ...(body.active !== undefined ? { active: body.active } : {}),
+          ...(Object.prototype.hasOwnProperty.call(body, "weightGrams")
+            ? { weightGrams: parseOptionalNumber(body.weightGrams) }
+            : {}),
+          ...(Object.prototype.hasOwnProperty.call(body, "widthMm")
+            ? { widthMm: parseOptionalNumber(body.widthMm) }
+            : {}),
+          ...(Object.prototype.hasOwnProperty.call(body, "heightMm")
+            ? { heightMm: parseOptionalNumber(body.heightMm) }
+            : {}),
+          ...(Object.prototype.hasOwnProperty.call(body, "depthMm")
+            ? { depthMm: parseOptionalNumber(body.depthMm) }
+            : {}),
         },
       });
 

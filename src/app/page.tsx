@@ -15,6 +15,10 @@ export default async function HomePage() {
       imageUrl: true,
       listPrice: true,
       stock: true,
+      weightGrams: true,
+      widthMm: true,
+      heightMm: true,
+      depthMm: true,
     },
   });
 

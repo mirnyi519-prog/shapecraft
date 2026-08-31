@@ -19,19 +19,25 @@ model User {
 }
 
 model Product {
-  id           String         @id @default(cuid())
-  name         String
-  description  String?
-  imageUrl     String?
-  costPrice    Float
-  listPrice    Float?
-  stock        Int            @default(0)
-  active       Boolean        @default(true)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  sales        Sale[]
-  receipts     StockReceipt[]
-  priceHistory PriceHistory[]
+  id               String            @id @default(cuid())
+  name             String
+  description      String?
+  imageUrl         String?
+  costPrice        Float
+  listPrice        Float?
+  stock            Int               @default(0)
+  active           Boolean           @default(true)
+  weightGrams      Float?
+  widthMm          Float?
+  heightMm         Float?
+  depthMm          Float?
+  viewCount        Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  sales            Sale[]
+  receipts         StockReceipt[]
+  priceHistory     PriceHistory[]
+  feedbackMessages FeedbackMessage[]
 }
 
 model PriceHistory {
@@ -109,9 +115,12 @@ model FeedbackMessage {
   contact   String?
   message   String
   ipAddress String?
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@index([createdAt])
   @@index([read])
+  @@index([productId])
 }

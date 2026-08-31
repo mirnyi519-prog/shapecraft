@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { ProductArchiveButton } from "@/components/product-archive-button";
-import { Badge, Button, Card } from "@/components/ui";
+import { ProductSpecsBlock } from "@/components/product-specs-block";
+import { Badge, Button, Card, StatCard } from "@/components/ui";
 import { ProductForm } from "@/components/forms";
 import { formatDateTime, formatRub } from "@/lib/calculations";
 import { getSession } from "@/lib/auth";
@@ -94,6 +95,14 @@ export default async function ProductDetailPage({ params }: PageProps) {
         </p>
       ) : null}
 
+      <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <StatCard
+          label="Просмотров на витрине"
+          value={String(product.viewCount)}
+          hint="Считается при открытии карточки"
+        />
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">
         <Card
           title="Редактирование"
@@ -112,11 +121,38 @@ export default async function ProductDetailPage({ params }: PageProps) {
                   ? ""
                   : String(product.listPrice),
               stock: String(product.stock),
+              weightGrams:
+                product.weightGrams === null || product.weightGrams === undefined
+                  ? ""
+                  : String(product.weightGrams),
+              widthMm:
+                product.widthMm === null || product.widthMm === undefined
+                  ? ""
+                  : String(product.widthMm),
+              heightMm:
+                product.heightMm === null || product.heightMm === undefined
+                  ? ""
+                  : String(product.heightMm),
+              depthMm:
+                product.depthMm === null || product.depthMm === undefined
+                  ? ""
+                  : String(product.depthMm),
             }}
           />
         </Card>
 
         <div className="space-y-6">
+          <Card title="Вес и габариты">
+            <ProductSpecsBlock
+              product={{
+                weightGrams: product.weightGrams,
+                widthMm: product.widthMm,
+                heightMm: product.heightMm,
+                depthMm: product.depthMm,
+              }}
+            />
+          </Card>
+
           <Card title="История прайса">
             <div className="mb-4">
               <Badge tone={product.stock <= 2 ? "warning" : "success"}>
