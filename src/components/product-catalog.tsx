@@ -5,6 +5,7 @@ import { FeedbackModal } from "@/components/feedback-modal";
 import { ProductPhoto } from "@/components/product-photo";
 import { ProductSpecsBlock } from "@/components/product-specs-block";
 import { Badge, Button, Card } from "@/components/ui";
+import { useScrollLock } from "@/hooks/use-scroll-lock";
 import { formatRub } from "@/lib/calculations";
 import { hasListPrice } from "@/lib/pricing";
 
@@ -32,6 +33,13 @@ export function ProductCatalog({
   const [selected, setSelected] = useState<CatalogProduct | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
+  useScrollLock(Boolean(selected));
+
+  function closeProduct() {
+    setFeedbackOpen(false);
+    setSelected(null);
+  }
+
   useEffect(() => {
     if (!selected) {
       return;
@@ -39,21 +47,20 @@ export function ProductCatalog({
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape" && !feedbackOpen) {
-        setSelected(null);
+        closeProduct();
       }
     }
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
-
-    void fetch(`/api/products/${selected.id}/view`, { method: "POST" }).catch(() => {});
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [selected, feedbackOpen]);
+
+  useEffect(() => {
+    if (!selected) {
+      return;
+    }
+    void fetch(`/api/products/${selected.id}/view`, { method: "POST" }).catch(() => {});
+  }, [selected?.id]);
 
   if (products.length === 0) {
     return (
@@ -136,7 +143,7 @@ export function ProductCatalog({
       {selected ? (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-4 sm:items-center"
-          onClick={() => setSelected(null)}
+          onClick={closeProduct}
           role="presentation"
         >
           <div
@@ -175,7 +182,7 @@ export function ProductCatalog({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSelected(null)}
+                  onClick={closeProduct}
                   className="rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted)] hover:bg-[var(--bg)]"
                 >
                   Закрыть
@@ -216,7 +223,7 @@ export function ProductCatalog({
                   type="button"
                   variant="secondary"
                   className="min-h-11 flex-1"
-                  onClick={() => setSelected(null)}
+                  onClick={closeProduct}
                 >
                   Закрыть
                 </Button>

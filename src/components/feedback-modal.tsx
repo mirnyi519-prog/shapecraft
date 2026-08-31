@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button, Input, Textarea } from "@/components/ui";
+import { useScrollLock } from "@/hooks/use-scroll-lock";
 
 type FeedbackModalProps = {
   open: boolean;
@@ -23,6 +24,8 @@ export function FeedbackModal({
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
 
+  useScrollLock(open);
+
   useEffect(() => {
     if (!open) {
       return;
@@ -34,14 +37,8 @@ export function FeedbackModal({
       }
     }
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
   useEffect(() => {
