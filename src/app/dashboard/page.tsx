@@ -42,11 +42,26 @@ async function getDashboardData(role: "admin" | "partner") {
     take: 5,
   });
 
+  const productViews =
+    role === "admin"
+      ? await prisma.product.findMany({
+          orderBy: [{ viewCount: "desc" }, { name: "asc" }],
+          select: {
+            id: true,
+            name: true,
+            imageUrl: true,
+            viewCount: true,
+            active: true,
+          },
+        })
+      : [];
+
   return {
     role,
     totals,
     recentSales: pendingSales.slice(0, 8),
     lowStock,
+    productViews,
     periodFrom: lastSettlement?.createdAt ?? null,
   };
 }
@@ -184,6 +199,64 @@ export default async function DashboardPage() {
             )}
           </Card>
         </div>
+
+        {session.role === "admin" ? (
+          <Card title="Просмотры товаров на витрине">
+            {data.productViews.length === 0 ? (
+              <p className="text-[var(--muted)]">
+                Пока нет данных — просмотры считаются при открытии карточки на витрине.
+              </p>
+            ) : (
+              <div className="overflow-hidden rounded-xl border border-[var(--border)]">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-left text-sm">
+                    <thead className="border-b border-[var(--border)] bg-[var(--bg)] text-[var(--muted)]">
+                      <tr>
+                        <th className="px-4 py-3 font-medium">Фото</th>
+                        <th className="px-4 py-3 font-medium">Название</th>
+                        <th className="px-4 py-3 font-medium text-right">Просмотры</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.productViews.map((product) => (
+                        <tr
+                          key={product.id}
+                          className="relative border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg)]"
+                        >
+                          <td className="px-4 py-3">
+                            <ProductThumb
+                              src={product.imageUrl}
+                              alt={product.name}
+                              size={48}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-medium">
+                              {product.name}
+                              {!product.active ? (
+                                <span className="ml-2 text-xs text-[var(--muted)]">
+                                  (архив)
+                                </span>
+                              ) : null}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold">
+                            {product.viewCount}
+                          </td>
+                          <Link
+                            href={`/products/${product.id}`}
+                            className="absolute inset-0"
+                            aria-label={`${product.name}, ${product.viewCount} просмотров`}
+                          />
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </Card>
+        ) : null}
       </div>
     </AppShell>
   );
