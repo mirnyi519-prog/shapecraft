@@ -56,19 +56,16 @@ export async function listBlockedIps(): Promise<
 }
 
 export async function getSessionEpoch(): Promise<number> {
-  const fromEnv = Number(process.env.SESSION_EPOCH || 0);
   const setting = await prisma.appSetting.findUnique({
     where: { id: "default" },
   });
   const fromDb = setting?.sessionEpoch ?? 0;
-  return Math.max(
-    Number.isFinite(fromEnv) ? fromEnv : 0,
-    Number.isFinite(fromDb) ? fromDb : 0,
-  );
+  return Number.isFinite(fromDb) ? fromDb : 0;
 }
 
 export async function revokeAllSessions(): Promise<number> {
-  const epoch = Math.floor(Date.now() / 1000);
+  // На секунду назад — чтобы новый JWT с iat=now точно прошёл проверку
+  const epoch = Math.floor(Date.now() / 1000) - 1;
   await prisma.appSetting.upsert({
     where: { id: "default" },
     create: {

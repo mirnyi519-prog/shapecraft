@@ -8,12 +8,6 @@ const publicPaths = ["/login"];
 
 const skipTrackingPrefixes = ["/api", "/_next", "/favicon", "/uploads"];
 
-/** Сессии, выпущенные до этого unix-time, считаются недействительными */
-function getSessionEpoch(): number {
-  const value = Number(process.env.SESSION_EPOCH || "1788202805");
-  return Number.isFinite(value) ? value : 0;
-}
-
 function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
@@ -97,11 +91,7 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
   }
 
   try {
-    const { payload } = await jwtVerify(token, getAuthSecret());
-    const issuedAt = typeof payload.iat === "number" ? payload.iat : 0;
-    if (issuedAt < getSessionEpoch()) {
-      return false;
-    }
+    await jwtVerify(token, getAuthSecret());
     return true;
   } catch {
     return false;

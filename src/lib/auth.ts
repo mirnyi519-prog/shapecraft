@@ -15,6 +15,35 @@ export type SessionUser = {
 const SESSION_COOKIE = "shapecraft_session";
 const SESSION_TTL = "30d";
 
+function getSessionCookieOptions() {
+  const secureCookie =
+    process.env.COOKIE_SECURE === "true" ||
+    process.env.COOKIE_SECURE === "1";
+
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: secureCookie,
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+  };
+}
+
+export async function signSessionToken(user: SessionUser): Promise<string> {
+  return new SignJWT({
+    id: user.id,
+    login: user.login,
+    name: user.name,
+    role: user.role,
+  })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(SESSION_TTL)
+    .sign(getAuthSecret());
+}
+
+export { SESSION_COOKIE, getSessionCookieOptions };
+
 export const USER_ROLES: { value: UserRole; label: string }[] = [
   { value: "admin", label: "Админ" },
   { value: "partner", label: "Партнёр" },
@@ -48,30 +77,9 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export async function createSession(user: SessionUser): Promise<void> {
-  const token = await new SignJWT({
-    id: user.id,
-    login: user.login,
-    name: user.name,
-    role: user.role,
-  })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime(SESSION_TTL)
-    .sign(getAuthSecret());
-
+  const token = await signSessionToken(user);
   const cookieStore = await cookies();
-  const secureCookie =
-    process.env.COOKIE_SECURE === "true" ||
-    process.env.COOKIE_SECURE === "1";
-
-  cookieStore.set(SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    // По HTTP (IP:3000) Secure-cookie браузер не сохраняет
-    secure: secureCookie,
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  cookieStore.set(SESSION_COOKIE, token, getSessionCookieOptions());
 }
 
 export async function destroySession(): Promise<void> {

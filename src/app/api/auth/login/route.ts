@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSession, verifyPassword } from "@/lib/auth";
+import {
+  getSessionCookieOptions,
+  SESSION_COOKIE,
+  signSessionToken,
+  verifyPassword,
+} from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isIpBlocked } from "@/lib/access-control";
 import { rateLimit } from "@/lib/rate-limit";
@@ -85,14 +90,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await createSession({
+    const sessionUser = {
       id: user.id,
       login: user.login,
       name: user.name,
-      role: user.role === "partner" ? "partner" : "admin",
-    });
-
-    return NextResponse.json({ ok: true });
+      role: user.role === "partner" ? ("partner" as const) : ("admin" as const),
+    };
+    const token = await signSessionToken(sessionUser);
+    const response = NextResponse.json({ ok: true });
+    response.cookies.set(SESSION_COOKIE, token, getSessionCookieOptions());
+    return response;
   } catch {
     return NextResponse.json({ error: "Ошибка входа" }, { status: 500 });
   }

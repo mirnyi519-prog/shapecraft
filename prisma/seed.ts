@@ -13,18 +13,15 @@ async function main() {
     create: { ownerSplitPercent: 50, sessionEpoch: 0 },
   });
 
-  // Сброс всех старых сессий (можно поднять через SESSION_EPOCH в .env)
-  const sessionEpoch = Math.max(
-    Number(process.env.SESSION_EPOCH || 1788202805),
-    1788202805,
-  );
+  // Сброс «залипшего» epoch после ошибочного деплоя безопасности
   const current = await prisma.appSetting.findUnique({ where: { id: "default" } });
-  if ((current?.sessionEpoch ?? 0) < sessionEpoch) {
+  const badEpochFloor = 1788180000;
+  if ((current?.sessionEpoch ?? 0) >= badEpochFloor) {
     await prisma.appSetting.update({
       where: { id: "default" },
-      data: { sessionEpoch },
+      data: { sessionEpoch: 0 },
     });
-    console.log(`Session epoch set to ${sessionEpoch} (all older sessions revoked)`);
+    console.log("Session epoch reset (fixed bad security deploy value)");
   }
 
   await prisma.blockedIp.upsert({
@@ -43,13 +40,17 @@ async function main() {
     data: { role: "admin" },
   });
 
+  const resetPasswords = process.env.RESET_PASSWORDS === "1";
+
   await prisma.user.upsert({
     where: { login: adminLogin },
-    update: {
-      name: "Админ",
-      password: await hashPassword(adminPassword),
-      role: "admin",
-    },
+    update: resetPasswords
+      ? {
+          name: "Админ",
+          password: await hashPassword(adminPassword),
+          role: "admin",
+        }
+      : { name: "Админ", role: "admin" },
     create: {
       login: adminLogin,
       name: "Админ",
@@ -60,11 +61,13 @@ async function main() {
 
   await prisma.user.upsert({
     where: { login: partnerLogin },
-    update: {
-      name: "Партнёр",
-      password: await hashPassword(partnerPassword),
-      role: "partner",
-    },
+    update: resetPasswords
+      ? {
+          name: "Партнёр",
+          password: await hashPassword(partnerPassword),
+          role: "partner",
+        }
+      : { name: "Партнёр", role: "partner" },
     create: {
       login: partnerLogin,
       name: "Партнёр",
