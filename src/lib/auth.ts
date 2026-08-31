@@ -88,6 +88,13 @@ export async function getSession(): Promise<SessionUser | null> {
 
   try {
     const { payload } = await jwtVerify(token, getAuthSecret());
+    const issuedAt = typeof payload.iat === "number" ? payload.iat : 0;
+    const { getSessionEpoch } = await import("@/lib/access-control");
+    const epoch = await getSessionEpoch();
+    if (issuedAt < epoch) {
+      return null;
+    }
+
     const role = String(payload.role);
     // Миграция старых сессий owner → admin
     const normalizedRole: UserRole =

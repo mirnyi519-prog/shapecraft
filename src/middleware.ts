@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { isProbePath, withSecurityHeaders } from "@/lib/security-edge";
+import { isIpBlockedStatic } from "@/lib/ip-blocklist";
 
 const SESSION_COOKIE = "shapecraft_session";
 const publicPaths = ["/login"];
 
 const skipTrackingPrefixes = ["/api", "/_next", "/favicon", "/uploads"];
+
+/** Сессии, выпущенные до этого unix-time, считаются недействительными */
+function getSessionEpoch(): number {
+  const value = Number(process.env.SESSION_EPOCH || "1788202805");
+  return Number.isFinite(value) ? value : 0;
+}
 
 function getClientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -43,7 +50,12 @@ function trackPageVisit(request: NextRequest, pathname: string): void {
   }).catch(() => {});
 }
 
-function logProbe(request: NextRequest, pathname: string): void {
+function logSecurityHit(
+  request: NextRequest,
+  type: string,
+  pathname: string,
+  detail?: string,
+): void {
   const secret = process.env.AUTH_SECRET;
   if (!secret) {
     return;
@@ -61,10 +73,11 @@ function logProbe(request: NextRequest, pathname: string): void {
       "user-agent": request.headers.get("user-agent") ?? "",
     },
     body: JSON.stringify({
-      type: "probe",
+      type,
       path: pathname,
       ipAddress: getClientIp(request),
-      detail: request.headers.get("user-agent")?.slice(0, 200) ?? null,
+      detail:
+        detail ?? request.headers.get("user-agent")?.slice(0, 200) ?? null,
     }),
   }).catch(() => {});
 }
@@ -84,19 +97,43 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
   }
 
   try {
-    await jwtVerify(token, getAuthSecret());
+    const { payload } = await jwtVerify(token, getAuthSecret());
+    const issuedAt = typeof payload.iat === "number" ? payload.iat : 0;
+    if (issuedAt < getSessionEpoch()) {
+      return false;
+    }
     return true;
   } catch {
     return false;
   }
 }
 
+function blockedResponse(): NextResponse {
+  return withSecurityHeaders(
+    new NextResponse("Access denied", {
+      status: 403,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    }),
+  );
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const ip = getClientIp(request);
+
+  if (isIpBlockedStatic(ip)) {
+    logSecurityHit(request, "ip_block", pathname, "IP в блоклисте");
+    return blockedResponse();
+  }
 
   if (isProbePath(pathname)) {
-    logProbe(request, pathname);
+    logSecurityHit(request, "probe", pathname);
     return withSecurityHeaders(new NextResponse(null, { status: 404 }));
+  }
+
+  // API дальше обрабатывают сами (с DB-блоклистом), здесь только статический блок
+  if (pathname.startsWith("/api")) {
+    return withSecurityHeaders(NextResponse.next());
   }
 
   const isPublic =
@@ -122,6 +159,8 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     response = NextResponse.redirect(loginUrl);
+    // Сбрасываем протухшую cookie
+    response.cookies.delete(SESSION_COOKIE);
     return withSecurityHeaders(response);
   }
 
@@ -131,5 +170,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.svg$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.svg$).*)"],
 };

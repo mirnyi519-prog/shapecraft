@@ -10,7 +10,32 @@ async function main() {
   await prisma.appSetting.upsert({
     where: { id: "default" },
     update: {},
-    create: { ownerSplitPercent: 50 },
+    create: { ownerSplitPercent: 50, sessionEpoch: 0 },
+  });
+
+  // Сброс всех старых сессий (можно поднять через SESSION_EPOCH в .env)
+  const sessionEpoch = Math.max(
+    Number(process.env.SESSION_EPOCH || 1788202805),
+    1788202805,
+  );
+  const current = await prisma.appSetting.findUnique({ where: { id: "default" } });
+  if ((current?.sessionEpoch ?? 0) < sessionEpoch) {
+    await prisma.appSetting.update({
+      where: { id: "default" },
+      data: { sessionEpoch },
+    });
+    console.log(`Session epoch set to ${sessionEpoch} (all older sessions revoked)`);
+  }
+
+  await prisma.blockedIp.upsert({
+    where: { ipAddress: "34.16.206.147" },
+    update: {
+      reason: "Google Cloud — попытки взлома shapecraft.ru",
+    },
+    create: {
+      ipAddress: "34.16.206.147",
+      reason: "Google Cloud — попытки взлома shapecraft.ru",
+    },
   });
 
   await prisma.user.updateMany({

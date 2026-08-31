@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getClientIp, recordSiteVisit } from "@/lib/visits";
+import { isIpBlocked } from "@/lib/access-control";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   logSecurityEvent,
@@ -16,6 +17,11 @@ type TrackBody = {
 export async function POST(request: NextRequest) {
   try {
     const ip = getClientIp(request);
+
+    if (await isIpBlocked(ip)) {
+      return NextResponse.json({ ok: true, skipped: true });
+    }
+
     const limited = rateLimit({
       key: `visit-track:${ip}`,
       limit: 120,

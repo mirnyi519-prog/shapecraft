@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdmin, requireAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getClientIp } from "@/lib/visits";
+import { isIpBlocked } from "@/lib/access-control";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   logSecurityEvent,
@@ -57,6 +58,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const ip = getClientIp(request);
+
+    if (await isIpBlocked(ip)) {
+      return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
+    }
+
     const limited = rateLimit({
       key: `feedback:${ip}`,
       limit: 5,

@@ -9,6 +9,8 @@ services:
     environment:
       DATABASE_URL: file:/app/data/prod.db
       AUTH_SECRET: ${AUTH_SECRET:-change-me-to-a-long-random-string}
+      SESSION_EPOCH: ${SESSION_EPOCH:-1788202805}
+      BLOCKED_IPS: ${BLOCKED_IPS:-34.16.206.147}
       OWNER_LOGIN: ${OWNER_LOGIN:-admin}
       OWNER_PASSWORD: ${OWNER_PASSWORD:-shapecraft123}
       PARTNER_LOGIN: ${PARTNER_LOGIN:-partner}

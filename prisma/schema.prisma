@@ -85,6 +85,7 @@ model Settlement {
 model AppSetting {
   id                String @id @default("default")
   ownerSplitPercent Float  @default(50)
+  sessionEpoch      Int    @default(0)
 }
 
 model StockReceipt {
@@ -135,5 +136,14 @@ model SecurityEvent {
 
   @@index([createdAt])
   @@index([type])
+  @@index([ipAddress])
+}
+
+model BlockedIp {
+  id        String   @id @default(cuid())
+  ipAddress String   @unique
+  reason    String?
+  createdAt DateTime @default(now())
+
   @@index([ipAddress])
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSession, verifyPassword } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { isIpBlocked } from "@/lib/access-control";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   clientIpFromRequest,
@@ -15,6 +16,16 @@ const LOGIN_MAX_ATTEMPTS = 8;
 export async function POST(request: NextRequest) {
   try {
     const ip = clientIpFromRequest(request);
+
+    if (await isIpBlocked(ip)) {
+      void logSecurityEvent({
+        type: "ip_block",
+        ipAddress: ip,
+        path: "/api/auth/login",
+        detail: "Попытка входа с заблокированного IP",
+      });
+      return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
+    }
 
     const attemptLimit = rateLimit({
       key: `login-attempt:${ip}`,
