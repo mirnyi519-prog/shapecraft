@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
+import { isProbePath, withSecurityHeaders } from "@/lib/security-edge";
 
 const SESSION_COOKIE = "shapecraft_session";
 const publicPaths = ["/login"];
@@ -33,11 +34,38 @@ function trackPageVisit(request: NextRequest, pathname: string): void {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-forwarded-for": request.headers.get("x-forwarded-for") ?? getClientIp(request),
+      "x-forwarded-for":
+        request.headers.get("x-forwarded-for") ?? getClientIp(request),
       "x-real-ip": request.headers.get("x-real-ip") ?? "",
       "user-agent": request.headers.get("user-agent") ?? "",
     },
     body: JSON.stringify({ path: pathname }),
+  }).catch(() => {});
+}
+
+function logProbe(request: NextRequest, pathname: string): void {
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    return;
+  }
+
+  const logUrl = new URL("/api/security/log", request.url);
+  void fetch(logUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-security-log-secret": secret,
+      "x-forwarded-for":
+        request.headers.get("x-forwarded-for") ?? getClientIp(request),
+      "x-real-ip": request.headers.get("x-real-ip") ?? "",
+      "user-agent": request.headers.get("user-agent") ?? "",
+    },
+    body: JSON.stringify({
+      type: "probe",
+      path: pathname,
+      ipAddress: getClientIp(request),
+      detail: request.headers.get("user-agent")?.slice(0, 200) ?? null,
+    }),
   }).catch(() => {});
 }
 
@@ -65,6 +93,12 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (isProbePath(pathname)) {
+    logProbe(request, pathname);
+    return withSecurityHeaders(new NextResponse(null, { status: 404 }));
+  }
+
   const isPublic =
     pathname === "/" ||
     publicPaths.some((path) => pathname.startsWith(path)) ||
@@ -72,22 +106,28 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/uploads") ||
     pathname.startsWith("/favicon");
 
+  let response: NextResponse;
+
   if (isPublic) {
     if (pathname.startsWith("/login") && (await hasValidSession(request))) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      response = NextResponse.redirect(new URL("/dashboard", request.url));
+      return withSecurityHeaders(response);
     }
     trackPageVisit(request, pathname);
-    return NextResponse.next();
+    response = NextResponse.next();
+    return withSecurityHeaders(response);
   }
 
   if (!(await hasValidSession(request))) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    response = NextResponse.redirect(loginUrl);
+    return withSecurityHeaders(response);
   }
 
   trackPageVisit(request, pathname);
-  return NextResponse.next();
+  response = NextResponse.next();
+  return withSecurityHeaders(response);
 }
 
 export const config = {

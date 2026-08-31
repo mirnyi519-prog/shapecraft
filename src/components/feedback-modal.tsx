@@ -20,6 +20,7 @@ export function FeedbackModal({
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [message, setMessage] = useState("");
+  const [website, setWebsite] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [sent, setSent] = useState(false);
@@ -46,6 +47,7 @@ export function FeedbackModal({
       setName("");
       setContact("");
       setMessage("");
+      setWebsite("");
       setError("");
       setSent(false);
     }
@@ -64,6 +66,7 @@ export function FeedbackModal({
         contact,
         message,
         productId,
+        website,
       }),
     });
 
@@ -77,6 +80,7 @@ export function FeedbackModal({
     setName("");
     setContact("");
     setMessage("");
+    setWebsite("");
     setSent(true);
     setLoading(false);
   }
@@ -148,7 +152,22 @@ export function FeedbackModal({
                 </ul>
               </div>
             ) : null}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="relative space-y-4">
+              <div
+                aria-hidden="true"
+                className="absolute -left-[9999px] h-0 w-0 overflow-hidden opacity-0"
+              >
+                <label>
+                  Сайт
+                  <input
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={website}
+                    onChange={(event) => setWebsite(event.target.value)}
+                  />
+                </label>
+              </div>
               <Input
                 label="Ваше имя"
                 value={name}

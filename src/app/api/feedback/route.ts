@@ -2,12 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdmin, requireAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { getClientIp } from "@/lib/visits";
+import { rateLimit } from "@/lib/rate-limit";
+import {
+  logSecurityEvent,
+  SECURITY_EVENT_TYPES,
+  tooManyRequests,
+} from "@/lib/security";
 
 type FeedbackBody = {
   name?: string;
   contact?: string;
   message?: string;
   productId?: string;
+  /** Honeypot — должно быть пустым */
+  website?: string;
 };
 
 function trimOptional(value: unknown, maxLength: number): string | null {
@@ -48,7 +56,33 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const limited = rateLimit({
+      key: `feedback:${ip}`,
+      limit: 5,
+      windowMs: 15 * 60 * 1000,
+    });
+
+    if (!limited.ok) {
+      void logSecurityEvent({
+        type: SECURITY_EVENT_TYPES.RATE_LIMIT,
+        ipAddress: ip,
+        path: "/api/feedback",
+        detail: "Лимит обратной связи",
+      });
+      return tooManyRequests(
+        limited.retryAfterSec,
+        "Слишком много сообщений. Подождите немного.",
+      );
+    }
+
     const body = (await request.json()) as FeedbackBody;
+
+    // Honeypot: боты заполняют скрытое поле — молча «успех»
+    if (trimOptional(body.website, 100)) {
+      return NextResponse.json({ ok: true, id: "ok" });
+    }
+
     const message = trimOptional(body.message, 2000);
 
     if (!message || message.length < 3) {

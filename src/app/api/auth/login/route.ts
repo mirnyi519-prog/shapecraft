@@ -1,9 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSession, verifyPassword } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { rateLimit } from "@/lib/rate-limit";
+import {
+  clientIpFromRequest,
+  logSecurityEvent,
+  SECURITY_EVENT_TYPES,
+  tooManyRequests,
+} from "@/lib/security";
+
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 8;
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = clientIpFromRequest(request);
+
+    const attemptLimit = rateLimit({
+      key: `login-attempt:${ip}`,
+      limit: LOGIN_MAX_ATTEMPTS,
+      windowMs: LOGIN_WINDOW_MS,
+    });
+
+    if (!attemptLimit.ok) {
+      void logSecurityEvent({
+        type: SECURITY_EVENT_TYPES.LOGIN_LOCK,
+        ipAddress: ip,
+        path: "/api/auth/login",
+        detail: "Превышен лимит попыток входа",
+      });
+      return tooManyRequests(
+        attemptLimit.retryAfterSec,
+        "Слишком много попыток входа. Подождите 15 минут.",
+      );
+    }
+
     const body = (await request.json()) as {
       login?: string;
       password?: string;
@@ -21,6 +52,22 @@ export async function POST(request: NextRequest) {
 
     const user = await prisma.user.findUnique({ where: { login } });
     if (!user || !(await verifyPassword(password, user.password))) {
+      void logSecurityEvent({
+        type: SECURITY_EVENT_TYPES.LOGIN_FAIL,
+        ipAddress: ip,
+        path: "/api/auth/login",
+        detail: `Логин: ${login}`,
+      });
+
+      if (attemptLimit.remaining === 0) {
+        void logSecurityEvent({
+          type: SECURITY_EVENT_TYPES.LOGIN_LOCK,
+          ipAddress: ip,
+          path: "/api/auth/login",
+          detail: `Исчерпан лимит попыток для ${login}`,
+        });
+      }
+
       return NextResponse.json(
         { error: "Неверный логин или пароль" },
         { status: 401 },

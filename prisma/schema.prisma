@@ -124,3 +124,16 @@ model FeedbackMessage {
   @@index([read])
   @@index([productId])
 }
+
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  type      String
+  ipAddress String
+  path      String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([type])
+  @@index([ipAddress])
+}
