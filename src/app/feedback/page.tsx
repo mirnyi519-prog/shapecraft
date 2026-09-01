@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { FeedbackManager } from "@/components/feedback-manager";
 import { getSession, isAdmin } from "@/lib/auth";
+import { mapFeedbackMessage } from "@/lib/feedback";
 import { prisma } from "@/lib/db";
 
 export default async function FeedbackPage() {
@@ -33,17 +34,7 @@ export default async function FeedbackPage() {
           </p>
         </div>
         <FeedbackManager
-          initialMessages={messages.map((item) => ({
-            id: item.id,
-            name: item.name,
-            contact: item.contact,
-            message: item.message,
-            ipAddress: item.ipAddress,
-            read: item.read,
-            createdAt: item.createdAt.toISOString(),
-            productId: item.productId,
-            productName: item.product?.name ?? null,
-          }))}
+          initialMessages={messages.map(mapFeedbackMessage)}
           initialUnreadCount={unreadCount}
         />
       </div>

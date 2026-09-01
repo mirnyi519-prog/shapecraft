@@ -5,18 +5,9 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Button, Card } from "@/components/ui";
 import { formatDateTime } from "@/lib/calculations";
+import { feedbackCardClass, type FeedbackRow } from "@/lib/feedback";
 
-export type FeedbackRow = {
-  id: string;
-  name: string | null;
-  contact: string | null;
-  message: string;
-  ipAddress: string | null;
-  read: boolean;
-  createdAt: string;
-  productId: string | null;
-  productName: string | null;
-};
+export type { FeedbackRow };
 
 type FilterChip = "all" | "new" | "read";
 
@@ -214,11 +205,7 @@ export function FeedbackManager({
           {filtered.map((item) => (
             <article
               key={item.id}
-              className={`rounded-2xl border p-5 shadow-sm ${
-                item.read
-                  ? "border-[var(--border)] bg-white"
-                  : "border-[var(--brand)] bg-[var(--brand-soft)]/35"
-              }`}
+              className={`rounded-2xl border p-5 shadow-sm ${feedbackCardClass(item.read)}`}
             >
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="space-y-2">
