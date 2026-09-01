@@ -5,29 +5,10 @@ import {
   WorldTrendsView,
 } from "@/components/world-trends-view";
 import { getSession, isAdmin } from "@/lib/auth";
-import type { WorldTrendBatchView } from "@/lib/world-trends";
-import { getWeekLabel, isWorldPriceTier } from "@/lib/world-trends";
-import { getLatestWorldTrendBatch } from "@/lib/world-trends-bot";
-
-function mapBatch(
-  batch: NonNullable<Awaited<ReturnType<typeof getLatestWorldTrendBatch>>>,
-): WorldTrendBatchView {
-  return {
-    id: batch.id,
-    weekLabel: batch.weekLabel,
-    generatedAt: batch.generatedAt.toISOString(),
-    articles: batch.articles.map((item) => ({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      imageUrl: item.imageUrl,
-      sourceUrl: item.sourceUrl,
-      priceTier: isWorldPriceTier(item.priceTier) ? item.priceTier : "medium",
-      priceLabel: item.priceLabel,
-      sortOrder: item.sortOrder,
-    })),
-  };
-}
+import { getWeekLabel } from "@/lib/world-trends";
+import {
+  getLatestWorldTrendBatchView,
+} from "@/lib/world-trends-data";
 
 export default async function WorldPage() {
   const session = await getSession();
@@ -39,8 +20,7 @@ export default async function WorldPage() {
     redirect("/dashboard");
   }
 
-  const latest = await getLatestWorldTrendBatch();
-  const batch = latest ? mapBatch(latest) : null;
+  const batch = await getLatestWorldTrendBatchView();
   const currentWeek = getWeekLabel();
   const imagesLoaded =
     batch?.articles.filter((item) => item.imageUrl).length ?? 0;

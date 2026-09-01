@@ -14,7 +14,13 @@ import {
   type WorldTrendBatchView,
 } from "@/lib/world-trends";
 
-function ArticleCard({ article }: { article: WorldTrendArticleView }) {
+function ArticleCard({
+  article,
+  showSource = true,
+}: {
+  article: WorldTrendArticleView;
+  showSource?: boolean;
+}) {
   return (
     <Card className="h-full overflow-hidden p-0">
       <div className="relative aspect-[4/3] bg-[var(--brand-soft)]">
@@ -43,7 +49,7 @@ function ArticleCard({ article }: { article: WorldTrendArticleView }) {
         <p className="text-sm leading-relaxed text-[var(--text)]">
           {article.description}
         </p>
-        {article.sourceUrl ? (
+        {showSource && article.sourceUrl ? (
           <Link
             href={article.sourceUrl}
             target="_blank"
