@@ -1,4 +1,5 @@
-import { PublicShell } from "@/components/public-shell";
+import { redirect } from "next/navigation";
+import { AppShell } from "@/components/app-shell";
 import {
   WorldTrendsAdmin,
   WorldTrendsView,
@@ -30,11 +31,19 @@ function mapBatch(
 
 export default async function WorldPage() {
   const session = await getSession();
+  if (!session) {
+    redirect("/login?next=/world");
+  }
+
+  if (!isAdmin(session.role)) {
+    redirect("/dashboard");
+  }
+
   const latest = await getLatestWorldTrendBatch();
   const batch = latest ? mapBatch(latest) : null;
 
   return (
-    <PublicShell>
+    <AppShell>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">В мире</h1>
@@ -43,12 +52,9 @@ export default async function WorldPage() {
           </p>
         </div>
 
-        {session && isAdmin(session.role) ? (
-          <WorldTrendsAdmin lastGenerated={batch?.generatedAt ?? null} />
-        ) : null}
-
+        <WorldTrendsAdmin lastGenerated={batch?.generatedAt ?? null} />
         <WorldTrendsView batch={batch} />
       </div>
-    </PublicShell>
+    </AppShell>
   );
 }

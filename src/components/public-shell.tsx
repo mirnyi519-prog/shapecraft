@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { LogoutButton } from "@/components/logout-button";
-import { PublicNav } from "@/components/public-nav";
 import { ShopMark } from "@/components/shop-mark";
 import { Button } from "@/components/ui";
 
@@ -41,7 +40,6 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
             )}
           </div>
         </div>
-        <PublicNav />
       </header>
       <main className="mx-auto max-w-6xl px-4 py-4 pb-10 sm:py-6">{children}</main>
     </div>

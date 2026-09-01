@@ -22,7 +22,6 @@ export type AppNavItem = {
 export function getAppNavItems(admin: boolean): AppNavItem[] {
   return [
     { href: "/", label: "Витрина", icon: "store" },
-    { href: "/world", label: "В мире", icon: "world" },
     { href: "/display", label: "Экран", icon: "display" },
     { href: "/dashboard", label: "Сводка", icon: "dashboard" },
     { href: "/products", label: "Товары", icon: "products" },
@@ -33,6 +32,7 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
     ...(admin ? [{ href: "/users", label: "Пользователи", icon: "users" as const }] : []),
     ...(admin ? [{ href: "/visits", label: "Посещения", icon: "visits" as const }] : []),
     ...(admin ? [{ href: "/feedback", label: "Обратная связь", icon: "feedback" as const }] : []),
+    ...(admin ? [{ href: "/world", label: "В мире", icon: "world" as const }] : []),
     ...(admin ? [{ href: "/security", label: "Безопасность", icon: "security" as const }] : []),
   ];
 }
