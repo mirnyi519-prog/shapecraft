@@ -7,12 +7,9 @@ import {
   SECURITY_EVENT_TYPES,
   tooManyRequests,
 } from "@/lib/security";
+import type { TrackVisitPayload } from "@/lib/visit-tracking";
 
 export const runtime = "nodejs";
-
-type TrackBody = {
-  path?: string;
-};
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,7 +35,7 @@ export async function POST(request: NextRequest) {
       return tooManyRequests(limited.retryAfterSec);
     }
 
-    const body = (await request.json()) as TrackBody;
+    const body = (await request.json()) as TrackVisitPayload;
     const path = body.path?.trim() || "/";
 
     if (
@@ -53,6 +50,11 @@ export async function POST(request: NextRequest) {
       ipAddress: ip,
       path,
       userAgent: request.headers.get("user-agent"),
+      referer: body.referer ?? request.headers.get("referer"),
+      visitorId: body.visitorId,
+      utmSource: body.utmSource,
+      utmMedium: body.utmMedium,
+      utmCampaign: body.utmCampaign,
     });
 
     return NextResponse.json({ ok: true });

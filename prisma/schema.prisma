@@ -100,14 +100,21 @@ model StockReceipt {
 }
 
 model SiteVisit {
-  id        String   @id @default(cuid())
-  ipAddress String
-  path      String
-  userAgent String?
-  visitedAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  ipAddress   String
+  path        String
+  userAgent   String?
+  referrer    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  visitorId   String?
+  isReturning Boolean  @default(false)
+  visitedAt   DateTime @default(now())
 
   @@index([ipAddress])
   @@index([visitedAt])
+  @@index([visitorId])
 }
 
 model FeedbackMessage {

@@ -212,7 +212,7 @@ export default async function DashboardPage() {
             <StatCard
               label="Визитов сегодня"
               value={String(visitStats.visitsToday)}
-              hint="Подробная таблица по IP"
+              hint={`${visitStats.newVisitsToday} нов · ${visitStats.returningVisitsToday} повт`}
               accent
             />
           </div>

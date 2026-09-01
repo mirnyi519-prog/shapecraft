@@ -25,7 +25,8 @@ export default async function VisitsPage() {
           <div>
             <h1 className="text-2xl font-bold">Посещения сайта</h1>
             <p className="text-[var(--muted)]">
-              Счётчик просмотров страниц. Боты не учитываются.
+              Счётчик просмотров страниц: источник, UTM, новый/повторный. Боты не
+              учитываются.
             </p>
           </div>
           <Link href="/dashboard" className="w-full sm:w-auto">
@@ -35,13 +36,21 @@ export default async function VisitsPage() {
           </Link>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <StatCard label="Всего визитов" value={String(stats.totalVisits)} />
           <StatCard label="Уникальных IP" value={String(stats.uniqueIps)} />
           <StatCard
             label="Сегодня"
             value={String(stats.visitsToday)}
             accent
+          />
+          <StatCard
+            label="Новые сегодня"
+            value={String(stats.newVisitsToday)}
+          />
+          <StatCard
+            label="Повторные сегодня"
+            value={String(stats.returningVisitsToday)}
           />
         </div>
 

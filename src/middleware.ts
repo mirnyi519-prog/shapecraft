@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { isProbePath, withSecurityHeaders } from "@/lib/security-edge";
 import { isIpBlockedStatic } from "@/lib/ip-blocklist";
+import {
+  VISITOR_COOKIE,
+  getVisitorCookieOptions,
+  type TrackVisitPayload,
+} from "@/lib/visit-tracking";
 
 const SESSION_COOKIE = "shapecraft_session";
 const publicPaths = ["/login"];
@@ -25,11 +30,45 @@ function getClientIp(request: NextRequest): string {
   return "unknown";
 }
 
-function trackPageVisit(request: NextRequest, pathname: string): void {
+function buildTrackPayload(
+  request: NextRequest,
+  pathname: string,
+): {
+  payload: TrackVisitPayload;
+  visitorId: string;
+  isNewVisitor: boolean;
+} {
+  const existingVisitorId = request.cookies.get(VISITOR_COOKIE)?.value?.trim();
+  const visitorId = existingVisitorId || crypto.randomUUID();
+  const isNewVisitor = !existingVisitorId;
+  const { searchParams } = request.nextUrl;
+
+  return {
+    payload: {
+      path: pathname,
+      referer: request.headers.get("referer"),
+      visitorId,
+      utmSource: searchParams.get("utm_source"),
+      utmMedium: searchParams.get("utm_medium"),
+      utmCampaign: searchParams.get("utm_campaign"),
+    },
+    visitorId,
+    isNewVisitor,
+  };
+}
+
+function trackPageVisit(
+  request: NextRequest,
+  pathname: string,
+): { visitorId: string; isNewVisitor: boolean } {
   if (skipTrackingPrefixes.some((prefix) => pathname.startsWith(prefix))) {
-    return;
+    return {
+      visitorId: request.cookies.get(VISITOR_COOKIE)?.value?.trim() ?? "",
+      isNewVisitor: false,
+    };
   }
 
+  const { payload, visitorId, isNewVisitor } = buildTrackPayload(request, pathname);
   const trackUrl = new URL("/api/visits/track", request.url);
   void fetch(trackUrl, {
     method: "POST",
@@ -40,8 +79,20 @@ function trackPageVisit(request: NextRequest, pathname: string): void {
       "x-real-ip": request.headers.get("x-real-ip") ?? "",
       "user-agent": request.headers.get("user-agent") ?? "",
     },
-    body: JSON.stringify({ path: pathname }),
+    body: JSON.stringify(payload),
   }).catch(() => {});
+
+  return { visitorId, isNewVisitor };
+}
+
+function applyVisitorCookie(
+  response: NextResponse,
+  visitorId: string,
+  isNewVisitor: boolean,
+): void {
+  if (isNewVisitor && visitorId) {
+    response.cookies.set(VISITOR_COOKIE, visitorId, getVisitorCookieOptions());
+  }
 }
 
 function logSecurityHit(
@@ -141,8 +192,9 @@ export async function middleware(request: NextRequest) {
       response = NextResponse.redirect(new URL("/dashboard", request.url));
       return withSecurityHeaders(response);
     }
-    trackPageVisit(request, pathname);
+    const tracking = trackPageVisit(request, pathname);
     response = NextResponse.next();
+    applyVisitorCookie(response, tracking.visitorId, tracking.isNewVisitor);
     return withSecurityHeaders(response);
   }
 
@@ -155,8 +207,9 @@ export async function middleware(request: NextRequest) {
     return withSecurityHeaders(response);
   }
 
-  trackPageVisit(request, pathname);
+  const tracking = trackPageVisit(request, pathname);
   response = NextResponse.next();
+  applyVisitorCookie(response, tracking.visitorId, tracking.isNewVisitor);
   return withSecurityHeaders(response);
 }
 
