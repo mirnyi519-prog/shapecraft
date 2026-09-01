@@ -1,0 +1,12 @@
+{
+  "articles": [
+    {
+      "name": "Пример: Articulated Dragon",
+      "description": "Подвижный дракон с шарнирами — один из самых скачиваемых моделей на MakerWorld. Хорошо смотрится в мультикolor-печати, популярен как подарок.",
+      "priceTier": "expensive",
+      "priceLabel": "3000–4500 ₽",
+      "sourceUrl": "https://makerworld.com/",
+      "imageUrl": null
+    }
+  ]
+}

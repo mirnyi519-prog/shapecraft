@@ -12,7 +12,7 @@
     "lint": "eslint",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
-    "world:generate": "tsx scripts/generate-world-trends.ts",
+    "world:import": "tsx scripts/import-world-trends.ts",
     "db:setup": "prisma migrate dev --name init && tsx prisma/seed.ts",
     "postinstall": "prisma generate"
   },

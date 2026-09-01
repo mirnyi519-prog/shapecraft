@@ -1,53 +1,19 @@
-import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
-import { generateWorldTrends } from "@/lib/world-trends-bot";
+import { NextResponse } from "next/server";
 
-function isCronAuthorized(request: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret) {
-    return false;
-  }
-  const header = request.headers.get("x-cron-secret")?.trim();
-  return header === secret;
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const cron = isCronAuthorized(request);
-    let force = false;
-
-    if (!cron) {
-      await requireAdmin();
-    } else {
-      const url = new URL(request.url);
-      force = url.searchParams.get("force") === "1";
-    }
-
-    if (!cron) {
-      const body = (await request.json().catch(() => ({}))) as {
-        force?: boolean;
-      };
-      force = Boolean(body.force);
-    }
-
-    const result = await generateWorldTrends({ force });
-    return NextResponse.json({ ok: true, ...result });
-  } catch (error) {
-    if (error instanceof Error && error.message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-    }
-    if (error instanceof Error && error.message === "FORBIDDEN") {
-      return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
-    }
-    const message =
-      error instanceof Error ? error.message : "Ошибка генерации подборки";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+/** Устарело: используйте POST /api/world/import */
+export async function POST() {
+  return NextResponse.json(
+    {
+      error:
+        "Генерация через OpenAI отключена. Попросите агента Cursor обновить подборку «В мире» или импортируйте JSON через POST /api/world/import",
+    },
+    { status: 410 },
+  );
 }
 
 export async function GET() {
+  const { getLatestWorldTrendBatch } = await import("@/lib/world-trends-bot");
   try {
-    const { getLatestWorldTrendBatch } = await import("@/lib/world-trends-bot");
     const batch = await getLatestWorldTrendBatch();
     if (!batch) {
       return NextResponse.json({ batch: null });
@@ -58,6 +24,7 @@ export async function GET() {
         id: batch.id,
         weekLabel: batch.weekLabel,
         generatedAt: batch.generatedAt.toISOString(),
+        source: batch.source,
         articles: batch.articles.map((item) => ({
           id: item.id,
           name: item.name,

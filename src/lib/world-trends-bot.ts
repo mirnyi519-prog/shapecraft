@@ -8,7 +8,7 @@ import {
   type WorldPriceTier,
 } from "@/lib/world-trends";
 
-type GeneratedArticle = {
+export type WorldTrendImportArticle = {
   name: string;
   description: string;
   priceTier: WorldPriceTier;
@@ -17,7 +17,7 @@ type GeneratedArticle = {
   imageUrl?: string | null;
 };
 
-type BotResult = {
+export type ImportWorldTrendsResult = {
   batchId: string;
   weekLabel: string;
   articleCount: number;
@@ -38,7 +38,7 @@ async function fetchOgImage(url: string): Promise<string | null> {
   try {
     const response = await fetch(url, {
       headers: {
-        "User-Agent": "ShapeCraftWorldBot/1.0",
+        "User-Agent": "ShapeCraftWorldAgent/1.0",
         Accept: "text/html,application/xhtml+xml",
       },
       signal: AbortSignal.timeout(12_000),
@@ -75,7 +75,7 @@ async function saveRemoteImage(
 ): Promise<string | null> {
   try {
     const response = await fetch(imageUrl, {
-      headers: { "User-Agent": "ShapeCraftWorldBot/1.0" },
+      headers: { "User-Agent": "ShapeCraftWorldAgent/1.0" },
       signal: AbortSignal.timeout(15_000),
       redirect: "follow",
     });
@@ -106,7 +106,7 @@ async function saveRemoteImage(
 }
 
 async function resolveArticleImage(
-  article: GeneratedArticle,
+  article: WorldTrendImportArticle,
   index: number,
 ): Promise<string | null> {
   const candidates = [
@@ -127,88 +127,26 @@ async function resolveArticleImage(
   return null;
 }
 
-async function callOpenAiArticles(): Promise<GeneratedArticle[]> {
-  const apiKey = process.env.OPENAI_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY не задан — добавьте ключ в .env на сервере");
+export function parseImportArticles(raw: unknown): WorldTrendImportArticle[] {
+  const list = Array.isArray(raw)
+    ? raw
+    : raw &&
+        typeof raw === "object" &&
+        Array.isArray((raw as { articles?: unknown[] }).articles)
+      ? (raw as { articles: unknown[] }).articles
+      : null;
+
+  if (!list) {
+    throw new Error("Ожидается JSON-масс articles или массив статей");
   }
 
-  const model = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
-  const weekLabel = getWeekLabel();
+  const articles: WorldTrendImportArticle[] = [];
 
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.7,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "Ты аналитик трендов 3D-печати игрушек. Отвечай только JSON на русском языке.",
-        },
-        {
-          role: "user",
-          content: `Подготовь актуальную недельную подборку (${weekLabel}) популярных игрушек для FDM 3D-печати по мировым площадкам (MakerWorld, Printables, Thingiverse, Etsy, Reddit r/3Dprinting).
-
-Нужно ровно 15 позиций:
-- 5 expensive — премиум, сложные, крупные, articulation, multi-color (>2500 ₽ на рынке)
-- 5 medium — популярные модели среднего сегмента (800–2500 ₽)
-- 5 cheap — простые, быстрые в печати, массовый спрос (<800 ₽)
-
-Для каждой позиции верни:
-- name — короткое название модели
-- description — 2–4 предложения: что это, почему популярно, кому зайдёт
-- priceTier — expensive | medium | cheap
-- priceLabel — ориентир цены в ₽, например "1200–1800 ₽"
-- sourceUrl — реальная или правдоподобная публичная ссылка на модель/страницу
-
-JSON формат:
-{
-  "articles": [
-    {
-      "name": "...",
-      "description": "...",
-      "priceTier": "expensive",
-      "priceLabel": "3000–4500 ₽",
-      "sourceUrl": "https://..."
-    }
-  ]
-}`,
-        },
-      ],
-    }),
-    signal: AbortSignal.timeout(120_000),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`OpenAI error ${response.status}: ${detail.slice(0, 300)}`);
-  }
-
-  const payload = (await response.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
-  const content = payload.choices?.[0]?.message?.content;
-  if (!content) {
-    throw new Error("OpenAI вернул пустой ответ");
-  }
-
-  const parsed = JSON.parse(content) as { articles?: unknown[] };
-  if (!Array.isArray(parsed.articles)) {
-    throw new Error("Некорректный JSON от OpenAI");
-  }
-
-  const articles: GeneratedArticle[] = [];
-  for (const item of parsed.articles) {
+  for (const item of list) {
     if (!item || typeof item !== "object") {
       continue;
     }
+
     const row = item as Record<string, unknown>;
     const priceTier = String(row.priceTier ?? "");
     if (!isWorldPriceTier(priceTier)) {
@@ -235,11 +173,13 @@ JSON формат:
     });
   }
 
-  return normalizeArticles(articles);
+  return normalizeImportArticles(articles);
 }
 
-function normalizeArticles(articles: GeneratedArticle[]): GeneratedArticle[] {
-  const buckets: Record<WorldPriceTier, GeneratedArticle[]> = {
+export function normalizeImportArticles(
+  articles: WorldTrendImportArticle[],
+): WorldTrendImportArticle[] {
+  const buckets: Record<WorldPriceTier, WorldTrendImportArticle[]> = {
     expensive: [],
     medium: [],
     cheap: [],
@@ -260,22 +200,21 @@ function normalizeArticles(articles: GeneratedArticle[]): GeneratedArticle[] {
     }
   }
 
-  return [
-    ...buckets.expensive,
-    ...buckets.medium,
-    ...buckets.cheap,
-  ];
+  return [...buckets.expensive, ...buckets.medium, ...buckets.cheap];
 }
 
-export async function generateWorldTrends(input?: {
+export async function importWorldTrends(input: {
+  articles: WorldTrendImportArticle[];
   force?: boolean;
-}): Promise<BotResult> {
+  source?: string;
+}): Promise<ImportWorldTrendsResult> {
+  const normalized = normalizeImportArticles(input.articles);
   const weekLabel = getWeekLabel();
   const existing = await prisma.worldTrendBatch.findUnique({
     where: { weekLabel },
   });
 
-  if (existing && !input?.force) {
+  if (existing && !input.force) {
     return {
       batchId: existing.id,
       weekLabel,
@@ -285,9 +224,8 @@ export async function generateWorldTrends(input?: {
     };
   }
 
-  const generated = await callOpenAiArticles();
   const images = await Promise.all(
-    generated.map((article, index) => resolveArticleImage(article, index)),
+    normalized.map((article, index) => resolveArticleImage(article, index)),
   );
 
   const batch = await prisma.$transaction(async (tx) => {
@@ -298,9 +236,9 @@ export async function generateWorldTrends(input?: {
     const created = await tx.worldTrendBatch.create({
       data: {
         weekLabel,
-        source: "openai-bot",
+        source: input.source ?? "cursor-agent",
         articles: {
-          create: generated.map((article, index) => ({
+          create: normalized.map((article, index) => ({
             name: article.name,
             description: article.description,
             imageUrl: images[index],
@@ -331,7 +269,7 @@ export async function generateWorldTrends(input?: {
   return {
     batchId: batch.id,
     weekLabel,
-    articleCount: generated.length,
+    articleCount: normalized.length,
   };
 }
 
@@ -345,3 +283,6 @@ export async function getLatestWorldTrendBatch() {
     },
   });
 }
+
+/** @deprecated используйте importWorldTrends */
+export const generateWorldTrends = importWorldTrends;

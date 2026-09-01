@@ -116,19 +116,30 @@ export function WorldTrendsAdmin({
   lastGenerated: string | null;
 }) {
   const router = useRouter();
+  const [json, setJson] = useState("");
+  const [force, setForce] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function handleGenerate(force = false) {
+  async function handleImport() {
     setLoading(true);
     setError("");
     setMessage("");
 
-    const response = await fetch("/api/world/generate", {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(json);
+    } catch {
+      setError("Некорректный JSON");
+      setLoading(false);
+      return;
+    }
+
+    const response = await fetch("/api/world/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ force }),
+      body: JSON.stringify({ articles: parsed, force }),
     });
 
     const data = (await response.json()) as {
@@ -138,28 +149,28 @@ export function WorldTrendsAdmin({
     };
 
     if (!response.ok) {
-      setError(data.error ?? "Ошибка генерации");
+      setError(data.error ?? "Ошибка импорта");
       setLoading(false);
       return;
     }
 
     setMessage(
-      `Подборка ${data.weekLabel} обновлена: ${data.articleCount ?? 0} статей`,
+      `Подборка ${data.weekLabel} импортирована: ${data.articleCount ?? 0} статей`,
     );
     setLoading(false);
     router.refresh();
   }
 
   return (
-    <Card title="Еженедельный бот «В мире»">
+    <Card title="Импорт от агента Cursor">
       <p className="mb-3 text-sm text-[var(--muted)]">
-        Бот анализирует мировые тренды 3D-печати и добавляет 15 статей: топ-5
-        дорогих, средних и бюджетных игрушек. Для работы нужен{" "}
-        <code className="rounded bg-[var(--bg)] px-1">OPENAI_API_KEY</code> в .env.
+        Платный OpenAI больше не нужен. Попросите в Cursor:{" "}
+        <strong>«Обнови подборку В мире»</strong> — агент найдёт тренды,
+        соберёт JSON и импортирует. Или вставьте JSON ниже вручную.
       </p>
       {lastGenerated ? (
         <p className="mb-3 text-sm text-[var(--muted)]">
-          Последний запуск:{" "}
+          Последнее обновление:{" "}
           {new Date(lastGenerated).toLocaleString("ru-RU", {
             day: "2-digit",
             month: "long",
@@ -169,25 +180,29 @@ export function WorldTrendsAdmin({
           })}
         </p>
       ) : null}
+      <label className="mb-3 block space-y-2">
+        <span className="text-sm font-medium">JSON подборки (15 статей)</span>
+        <textarea
+          value={json}
+          onChange={(event) => setJson(event.target.value)}
+          placeholder='{"articles":[{"name":"...","description":"...","priceTier":"expensive","priceLabel":"3000 ₽","sourceUrl":"https://..."}]}'
+          className="min-h-48 w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 font-mono text-xs outline-none ring-[var(--brand)] focus:ring-2"
+        />
+      </label>
+      <label className="mb-4 flex cursor-pointer items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={force}
+          onChange={(event) => setForce(event.target.checked)}
+          className="h-4 w-4 rounded border-[var(--border)]"
+        />
+        Перезаписать подборку текущей недели
+      </label>
       {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
       {message ? <p className="mb-3 text-sm text-green-700">{message}</p> : null}
-      <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          disabled={loading}
-          onClick={() => void handleGenerate(false)}
-        >
-          {loading ? "Генерация..." : "Сгенерировать подборку"}
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={loading}
-          onClick={() => void handleGenerate(true)}
-        >
-          Перегенерировать принудительно
-        </Button>
-      </div>
+      <Button type="button" disabled={loading || !json.trim()} onClick={() => void handleImport()}>
+        {loading ? "Импорт..." : "Импортировать подборку"}
+      </Button>
     </Card>
   );
 }
