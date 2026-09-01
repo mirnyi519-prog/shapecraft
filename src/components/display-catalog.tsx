@@ -39,7 +39,7 @@ export function DisplayCatalog({ products }: { products: CatalogProduct[] }) {
             <p className="text-sm font-medium uppercase tracking-wide text-[var(--brand)]">
               ShapeCraft
             </p>
-            <h1 className="text-3xl font-bold">Каталог игрушек</h1>
+            <h1 className="text-3xl font-bold">Сувениры</h1>
             <p className="mt-1 text-[var(--muted)]">Актуальные цены и остатки</p>
           </div>
           {now ? (
@@ -53,7 +53,7 @@ export function DisplayCatalog({ products }: { products: CatalogProduct[] }) {
       <main className="mx-auto max-w-[1400px] px-6 py-6">
         {products.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-[var(--border)] px-6 py-16 text-center text-lg text-[var(--muted)]">
-            Каталог пока пуст
+            Сувениры пока пуст
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">

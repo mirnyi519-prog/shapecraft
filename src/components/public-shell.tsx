@@ -19,7 +19,7 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
               ShapeCraft
             </Link>
             <p className="truncate text-xs text-[var(--muted)] sm:text-sm">
-              3D-игрушки · shapecraft.ru
+              3D-сувениры · shapecraft.ru
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">

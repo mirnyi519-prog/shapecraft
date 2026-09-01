@@ -25,7 +25,7 @@ export default async function ProductsPage() {
           <div>
             <h1 className="text-2xl font-bold">Товары</h1>
             <p className="text-[var(--muted)]">
-              Каталог игрушек и остатки. Красные карточки — без прайса.
+              Сувениры и остатки. Красные карточки — без прайса.
             </p>
           </div>
           {admin ? (

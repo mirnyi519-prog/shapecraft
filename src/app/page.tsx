@@ -29,7 +29,7 @@ export default async function HomePage() {
     <PublicShell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Каталог игрушек</h1>
+          <h1 className="text-2xl font-bold">Сувениры</h1>
           <p className="text-[var(--muted)]">
             Актуальные цены и остатки в пекарне
           </p>

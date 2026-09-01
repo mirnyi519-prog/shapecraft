@@ -187,7 +187,7 @@ export function ProductCatalog({
   if (products.length === 0 && !hasHighlights) {
     return (
       <Card>
-        <p className="text-[var(--muted)]">Каталог пока пуст — скоро появятся новые игрушки.</p>
+        <p className="text-[var(--muted)]">Каталог пока пуст — скоро появятся новые сувениры.</p>
       </Card>
     );
   }
@@ -215,7 +215,7 @@ export function ProductCatalog({
 
       {products.length > 0 ? (
         <>
-          <h2 className="mb-4 text-lg font-semibold">Весь каталог</h2>
+          <h2 className="mb-4 text-lg font-semibold">Все сувениры</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {products.map((product) => (
               <ProductCard

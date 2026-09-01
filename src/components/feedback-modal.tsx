@@ -145,9 +145,9 @@ export function FeedbackModal({
               <div className="rounded-xl bg-[var(--bg)] px-4 py-3 text-sm text-[var(--text)]">
                 <p className="font-medium">Когда это удобно:</p>
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-[var(--muted)]">
-                  <li>узнать, есть ли нужная игрушка в пекарне сейчас;</li>
+                  <li>узнать, есть ли нужный сувенир в пекарне сейчас;</li>
                   <li>спросить про цвет, размер или когда появится новая партия;</li>
-                  <li>предложить идею для новой игрушки или пожелание;</li>
+                  <li>предложить идею для нового сувенира или пожелание;</li>
                   <li>сообщить об ошибке на сайте или в описании товара.</li>
                 </ul>
               </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useMemo, useState } from "react";
-import { Badge, Card } from "@/components/ui";
+import { Card } from "@/components/ui";
 import { formatDateTime } from "@/lib/calculations";
 import type { IpVisitSummary } from "@/lib/visits";
 
@@ -12,6 +12,10 @@ const SORT_OPTIONS: { id: SortKey; label: string }[] = [
   { id: "last", label: "По последнему" },
   { id: "first", label: "По первому" },
 ];
+
+const TH =
+  "px-3 py-2 align-middle text-[11px] font-medium uppercase tracking-wide text-[var(--muted)]";
+const TD = "px-3 py-2 align-middle text-xs leading-snug text-[var(--text)]";
 
 function pathLabel(path: string): string {
   if (path === "/") {
@@ -24,16 +28,37 @@ function pathLabel(path: string): string {
     return "Сводка";
   }
   if (path === "/products") {
-    return "Товары";
+    return "Сувениры";
   }
   if (path.startsWith("/products/")) {
-    return "Товар";
+    return "Сувенир";
   }
   return path;
 }
 
 function visitorTypeLabel(isReturning: boolean): string {
   return isReturning ? "Повторный" : "Новый";
+}
+
+function CompactBadge({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: "neutral" | "success";
+}) {
+  const styles = {
+    neutral: "bg-[var(--bg)] text-[var(--text)]",
+    success: "bg-green-100 text-green-800",
+  };
+
+  return (
+    <span
+      className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-medium leading-none ${styles[tone]}`}
+    >
+      {children}
+    </span>
+  );
 }
 
 export function VisitsTable({ rows }: { rows: IpVisitSummary[] }) {
@@ -87,7 +112,7 @@ export function VisitsTable({ rows }: { rows: IpVisitSummary[] }) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="IP, устройство, источник, UTM, новый/повторный..."
-            className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base outline-none ring-[var(--brand)] focus:ring-2"
+            className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm outline-none ring-[var(--brand)] focus:ring-2"
             autoComplete="off"
           />
         </label>
@@ -99,7 +124,7 @@ export function VisitsTable({ rows }: { rows: IpVisitSummary[] }) {
                 key={item.id}
                 type="button"
                 onClick={() => setSort(item.id)}
-                className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition ${
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
                   active
                     ? "bg-[var(--brand)] text-white"
                     : "border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] hover:bg-white"
@@ -110,14 +135,14 @@ export function VisitsTable({ rows }: { rows: IpVisitSummary[] }) {
             );
           })}
         </div>
-        <p className="text-sm text-[var(--muted)]">
+        <p className="text-xs text-[var(--muted)]">
           Показано: {filtered.length} из {rows.length} IP
         </p>
       </div>
 
       {filtered.length === 0 ? (
         <Card>
-          <p className="text-[var(--muted)]">
+          <p className="text-sm text-[var(--muted)]">
             {rows.length === 0
               ? "Посещений пока нет. Данные появятся после первых заходов на сайт."
               : "По этому запросу ничего не найдено."}
@@ -126,19 +151,31 @@ export function VisitsTable({ rows }: { rows: IpVisitSummary[] }) {
       ) : (
         <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-[var(--border)] bg-[var(--bg)] text-[var(--muted)]">
+            <table className="w-full min-w-[960px] table-fixed border-collapse text-left">
+              <colgroup>
+                <col className="w-[9.5rem]" />
+                <col className="hidden md:table-column w-[8.5rem]" />
+                <col className="hidden lg:table-column w-[7.5rem]" />
+                <col className="hidden xl:table-column w-[8rem]" />
+                <col className="w-[5.5rem]" />
+                <col className="w-[4.5rem]" />
+                <col className="hidden sm:table-column w-[7.5rem]" />
+                <col className="w-[7.5rem]" />
+                <col className="hidden lg:table-column w-[9rem]" />
+                <col className="w-[5.5rem]" />
+              </colgroup>
+              <thead className="border-b border-[var(--border)] bg-[var(--bg)]">
                 <tr>
-                  <th className="px-4 py-3 font-medium">IP</th>
-                  <th className="hidden px-4 py-3 font-medium md:table-cell">Устройство</th>
-                  <th className="hidden px-4 py-3 font-medium lg:table-cell">Источник</th>
-                  <th className="hidden px-4 py-3 font-medium xl:table-cell">UTM</th>
-                  <th className="px-4 py-3 font-medium">Тип</th>
-                  <th className="px-4 py-3 font-medium">Визитов</th>
-                  <th className="hidden px-4 py-3 font-medium sm:table-cell">Первый</th>
-                  <th className="px-4 py-3 font-medium">Последний</th>
-                  <th className="hidden px-4 py-3 font-medium lg:table-cell">Страницы</th>
-                  <th className="px-4 py-3 font-medium" />
+                  <th className={TH}>IP</th>
+                  <th className={`${TH} hidden md:table-cell`}>Устройство</th>
+                  <th className={`${TH} hidden lg:table-cell`}>Источник</th>
+                  <th className={`${TH} hidden xl:table-cell`}>UTM</th>
+                  <th className={`${TH} text-center`}>Тип</th>
+                  <th className={`${TH} text-center`}>Визитов</th>
+                  <th className={`${TH} hidden sm:table-cell`}>Первый</th>
+                  <th className={TH}>Последний</th>
+                  <th className={`${TH} hidden lg:table-cell`}>Страницы</th>
+                  <th className={`${TH} text-right`} />
                 </tr>
               </thead>
               <tbody>
@@ -176,73 +213,64 @@ function VisitsRow({
   return (
     <>
       <tr className="border-b border-[var(--border)] last:border-b-0">
-        <td className="px-4 py-3">
-          <div className="font-mono text-sm">{row.ipAddress}</div>
-          <p className="mt-1 text-xs text-[var(--muted)] md:hidden">
+        <td className={TD}>
+          <div className="truncate font-mono text-[11px]">{row.ipAddress}</div>
+          <p className="mt-1 truncate text-[10px] text-[var(--muted)] md:hidden">
             {row.device.summary}
           </p>
-          <p className="mt-1 text-xs text-[var(--muted)] lg:hidden">
+          <p className="mt-1 truncate text-[10px] text-[var(--muted)] lg:hidden">
             {row.referrer.label}
             {row.utm ? ` · ${row.utm}` : ""}
           </p>
         </td>
-        <td className="hidden px-4 py-3 md:table-cell">
-          <div className="space-y-1">
-            <p className="font-medium">{row.device.deviceLabel}</p>
-            <p className="text-xs text-[var(--muted)]">
-              {row.device.os} · {row.device.browser}
+        <td className={`${TD} hidden md:table-cell`}>
+          <p className="truncate font-medium">{row.device.deviceLabel}</p>
+          <p className="truncate text-[10px] text-[var(--muted)]">
+            {row.device.os} · {row.device.browser}
+          </p>
+        </td>
+        <td className={`${TD} hidden lg:table-cell`}>
+          <p className="truncate font-medium">{row.referrer.label}</p>
+          {row.referrer.raw ? (
+            <p className="truncate text-[10px] text-[var(--muted)]" title={row.referrer.raw}>
+              {row.referrer.raw}
             </p>
-          </div>
+          ) : null}
         </td>
-        <td className="hidden px-4 py-3 lg:table-cell">
-          <div className="space-y-1">
-            <p className="font-medium">{row.referrer.label}</p>
-            {row.referrer.raw ? (
-              <p
-                className="line-clamp-1 text-xs text-[var(--muted)]"
-                title={row.referrer.raw}
-              >
-                {row.referrer.raw}
-              </p>
-            ) : null}
-          </div>
-        </td>
-        <td className="hidden px-4 py-3 xl:table-cell">
+        <td className={`${TD} hidden xl:table-cell`}>
           {row.utm ? (
-            <span className="text-xs">{row.utm}</span>
+            <span className="block truncate text-[10px]">{row.utm}</span>
           ) : (
-            <span className="text-xs text-[var(--muted)]">—</span>
+            <span className="text-[10px] text-[var(--muted)]">—</span>
           )}
         </td>
-        <td className="px-4 py-3">
-          <Badge tone={row.lastIsReturning ? "neutral" : "success"}>
+        <td className={`${TD} text-center`}>
+          <CompactBadge tone={row.lastIsReturning ? "neutral" : "success"}>
             {visitorTypeLabel(row.lastIsReturning)}
-          </Badge>
+          </CompactBadge>
         </td>
-        <td className="px-4 py-3">
-          <div className="space-y-1">
-            <Badge tone={row.visitCount >= 10 ? "success" : "neutral"}>
-              {row.visitCount}
-            </Badge>
-            {row.visitCount > 1 ? (
-              <p className="text-[11px] text-[var(--muted)]">
-                {row.newVisits} нов · {row.returningVisits} повт
-              </p>
-            ) : null}
-          </div>
+        <td className={`${TD} text-center tabular-nums`}>
+          <CompactBadge tone={row.visitCount >= 10 ? "success" : "neutral"}>
+            {row.visitCount}
+          </CompactBadge>
+          {row.visitCount > 1 ? (
+            <p className="mt-1 text-[10px] leading-none text-[var(--muted)]">
+              {row.newVisits}/{row.returningVisits}
+            </p>
+          ) : null}
         </td>
-        <td className="hidden px-4 py-3 text-[var(--muted)] sm:table-cell">
+        <td className={`${TD} hidden whitespace-nowrap tabular-nums text-[10px] text-[var(--muted)] sm:table-cell`}>
           {formatDateTime(row.firstVisit)}
         </td>
-        <td className="px-4 py-3 text-[var(--muted)]">
+        <td className={`${TD} whitespace-nowrap tabular-nums text-[10px] text-[var(--muted)]`}>
           {formatDateTime(row.lastVisit)}
         </td>
-        <td className="hidden px-4 py-3 lg:table-cell">
+        <td className={`${TD} hidden lg:table-cell`}>
           <div className="flex flex-wrap gap-1">
             {row.topPaths.slice(0, 3).map((item) => (
               <span
                 key={`${row.ipAddress}-${item.path}`}
-                className="rounded-full bg-[var(--bg)] px-2 py-1 text-xs"
+                className="inline-flex max-w-full truncate rounded-full bg-[var(--bg)] px-2 py-0.5 text-[10px] leading-none"
                 title={`${item.path} · ${item.count}`}
               >
                 {pathLabel(item.path)} · {item.count}
@@ -250,63 +278,49 @@ function VisitsRow({
             ))}
           </div>
         </td>
-        <td className="px-4 py-3 text-right">
+        <td className={`${TD} text-right`}>
           <button
             type="button"
             onClick={onToggle}
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-[var(--brand)] hover:bg-[var(--brand-soft)]"
+            className="whitespace-nowrap rounded-lg px-2 py-1 text-[11px] font-medium text-[var(--brand)] hover:bg-[var(--brand-soft)]"
           >
-            {expanded ? "Скрыть" : "Подробнее"}
+            {expanded ? "Скрыть" : "Ещё"}
           </button>
         </td>
       </tr>
       {expanded ? (
         <tr className="border-b border-[var(--border)] bg-[var(--bg)]">
-          <td colSpan={10} className="px-4 py-4">
-            <div className="space-y-3">
-              <p className="text-sm font-medium">
-                Последние визиты с {row.ipAddress}
+          <td colSpan={10} className="px-3 py-3">
+            <div className="space-y-2 text-xs">
+              <p className="font-medium">
+                Последние визиты · {row.ipAddress}
               </p>
-              <p className="text-sm text-[var(--muted)]">
-                Последнее устройство: {row.device.summary}
+              <p className="text-[11px] text-[var(--muted)]">
+                {row.device.summary} · {row.referrer.label}
+                {row.utm ? ` · ${row.utm}` : ""}
               </p>
-              <p className="text-sm text-[var(--muted)]">
-                Последний источник: {row.referrer.label}
-                {row.utm ? ` · UTM: ${row.utm}` : ""}
-              </p>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {row.recentVisits.map((visit, index) => (
                   <div
                     key={`${visit.visitedAt}-${index}`}
-                    className="flex flex-col gap-1 rounded-xl bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    className="grid gap-2 rounded-xl bg-white px-3 py-2 sm:grid-cols-[minmax(0,1fr)_7.5rem] sm:items-center"
                   >
-                    <div>
+                    <div className="min-w-0 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium">{pathLabel(visit.path)}</p>
-                        <Badge tone={visit.isReturning ? "neutral" : "success"}>
+                        <p className="truncate font-medium">{pathLabel(visit.path)}</p>
+                        <CompactBadge tone={visit.isReturning ? "neutral" : "success"}>
                           {visitorTypeLabel(visit.isReturning)}
-                        </Badge>
+                        </CompactBadge>
                       </div>
-                      <p className="font-mono text-xs text-[var(--muted)]">
+                      <p className="truncate font-mono text-[10px] text-[var(--muted)]">
                         {visit.path}
                       </p>
-                      <p className="mt-1 text-xs text-[var(--muted)]">
-                        {visit.device.summary}
+                      <p className="truncate text-[10px] text-[var(--muted)]">
+                        {visit.device.summary} · {visit.referrer.label}
+                        {visit.utm ? ` · ${visit.utm}` : ""}
                       </p>
-                      <p className="mt-1 text-xs text-[var(--muted)]">
-                        {visit.referrer.label}
-                        {visit.utm ? ` · UTM: ${visit.utm}` : ""}
-                      </p>
-                      {visit.userAgent ? (
-                        <p
-                          className="mt-1 line-clamp-2 font-mono text-[11px] text-[var(--muted)]"
-                          title={visit.userAgent}
-                        >
-                          {visit.userAgent}
-                        </p>
-                      ) : null}
                     </div>
-                    <div className="text-sm text-[var(--muted)]">
+                    <div className="whitespace-nowrap tabular-nums text-[10px] text-[var(--muted)] sm:text-right">
                       {formatDateTime(visit.visitedAt)}
                     </div>
                   </div>
