@@ -7,27 +7,146 @@ import { ProductSpecsBlock } from "@/components/product-specs-block";
 import { Badge, Button, Card } from "@/components/ui";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
 import { formatRub } from "@/lib/calculations";
+import type { CatalogProduct } from "@/lib/catalog-product";
 import { hasListPrice } from "@/lib/pricing";
 
-export type CatalogProduct = {
-  id: string;
-  name: string;
-  description: string | null;
-  imageUrl: string | null;
-  listPrice: number | null;
-  stock: number;
-  weightGrams: number | null;
-  widthMm: number | null;
-  heightMm: number | null;
-  depthMm: number | null;
-  costPrice?: number;
-};
+export type { CatalogProduct };
+
+function ProductCard({
+  product,
+  showCost,
+  compact = false,
+  onSelect,
+}: {
+  product: CatalogProduct;
+  showCost: boolean;
+  compact?: boolean;
+  onSelect: (product: CatalogProduct) => void;
+}) {
+  const cardPriced = hasListPrice(product.listPrice);
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(product)}
+      className={`text-left ${compact ? "w-[17rem] shrink-0 sm:w-[19rem]" : "w-full"}`}
+    >
+      <Card
+        className={`h-full transition hover:border-[var(--brand)] hover:shadow-md ${
+          cardPriced ? "" : "border-red-300 bg-red-50/80"
+        }`}
+      >
+        <div className="space-y-3">
+          <ProductPhoto
+            src={product.imageUrl}
+            alt={product.name}
+            frameClassName={
+              compact
+                ? "aspect-[4/3] h-auto min-h-36"
+                : "aspect-[4/3] h-auto min-h-44 sm:min-h-48"
+            }
+          />
+          <div>
+            <div className="flex items-start justify-between gap-2">
+              <h2
+                className={`font-semibold ${compact ? "text-base" : "text-base sm:text-lg"}`}
+              >
+                {product.name}
+              </h2>
+              <Badge
+                tone={
+                  product.stock === 0
+                    ? "warning"
+                    : product.stock <= 2
+                      ? "neutral"
+                      : "success"
+                }
+              >
+                {product.stock === 0 ? "Нет" : `${product.stock} шт`}
+              </Badge>
+            </div>
+            {!compact && product.description ? (
+              <p className="mt-2 line-clamp-2 text-sm text-[var(--muted)]">
+                {product.description}
+              </p>
+            ) : null}
+            {cardPriced ? (
+              <p
+                className={`mt-2 font-bold text-[var(--brand)] ${
+                  compact ? "text-lg" : "text-xl"
+                }`}
+              >
+                {formatRub(product.listPrice as number)}
+              </p>
+            ) : (
+              <p className="mt-2 text-base font-semibold text-red-700">
+                Цена уточняется
+              </p>
+            )}
+            {showCost && product.costPrice !== undefined ? (
+              <p className="mt-1 text-sm text-[var(--muted)]">
+                Себестоимость {formatRub(product.costPrice)}
+              </p>
+            ) : null}
+            {!compact ? (
+              <p className="mt-3 text-sm font-medium text-[var(--brand)]">
+                Подробнее →
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </Card>
+    </button>
+  );
+}
+
+function HighlightStrip({
+  title,
+  badge,
+  products,
+  showCost,
+  onSelect,
+}: {
+  title: string;
+  badge: string;
+  products: CatalogProduct[];
+  showCost: boolean;
+  onSelect: (product: CatalogProduct) => void;
+}) {
+  if (products.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <Badge tone="warning">{badge}</Badge>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {products.map((product) => (
+          <ProductCard
+            key={product.id}
+            product={product}
+            showCost={showCost}
+            compact
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export function ProductCatalog({
   products,
+  newProducts = [],
+  popularProducts = [],
   showCost = false,
 }: {
   products: CatalogProduct[];
+  newProducts?: CatalogProduct[];
+  popularProducts?: CatalogProduct[];
   showCost?: boolean;
 }) {
   const [selected, setSelected] = useState<CatalogProduct | null>(null);
@@ -62,7 +181,10 @@ export function ProductCatalog({
     void fetch(`/api/products/${selected.id}/view`, { method: "POST" }).catch(() => {});
   }, [selected?.id]);
 
-  if (products.length === 0) {
+  const priced = selected ? hasListPrice(selected.listPrice) : false;
+  const hasHighlights = newProducts.length > 0 || popularProducts.length > 0;
+
+  if (products.length === 0 && !hasHighlights) {
     return (
       <Card>
         <p className="text-[var(--muted)]">Каталог пока пуст — скоро появятся новые игрушки.</p>
@@ -70,75 +192,42 @@ export function ProductCatalog({
     );
   }
 
-  const priced = selected ? hasListPrice(selected.listPrice) : false;
-
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {products.map((product) => {
-          const cardPriced = hasListPrice(product.listPrice);
-          return (
-            <button
-              key={product.id}
-              type="button"
-              onClick={() => setSelected(product)}
-              className="text-left"
-            >
-              <Card
-                className={`h-full transition hover:border-[var(--brand)] hover:shadow-md ${
-                  cardPriced ? "" : "border-red-300 bg-red-50/80"
-                }`}
-              >
-                <div className="space-y-4">
-                  <ProductPhoto
-                    src={product.imageUrl}
-                    alt={product.name}
-                    frameClassName="aspect-[4/3] h-auto min-h-44 sm:min-h-48"
-                  />
-                  <div>
-                    <div className="flex items-start justify-between gap-3">
-                      <h2 className="text-base font-semibold sm:text-lg">{product.name}</h2>
-                      <Badge
-                        tone={
-                          product.stock === 0
-                            ? "warning"
-                            : product.stock <= 2
-                              ? "neutral"
-                              : "success"
-                        }
-                      >
-                        {product.stock === 0 ? "Нет" : `${product.stock} шт`}
-                      </Badge>
-                    </div>
-                    {product.description ? (
-                      <p className="mt-2 line-clamp-2 text-sm text-[var(--muted)]">
-                        {product.description}
-                      </p>
-                    ) : null}
-                    {cardPriced ? (
-                      <p className="mt-3 text-xl font-bold text-[var(--brand)]">
-                        {formatRub(product.listPrice as number)}
-                      </p>
-                    ) : (
-                      <p className="mt-3 text-base font-semibold text-red-700">
-                        Цена уточняется
-                      </p>
-                    )}
-                    {showCost && product.costPrice !== undefined ? (
-                      <p className="mt-1 text-sm text-[var(--muted)]">
-                        Себестоимость {formatRub(product.costPrice)}
-                      </p>
-                    ) : null}
-                    <p className="mt-3 text-sm font-medium text-[var(--brand)]">
-                      Подробнее →
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            </button>
-          );
-        })}
-      </div>
+      {hasHighlights ? (
+        <div className="mb-8 space-y-6">
+          <HighlightStrip
+            title="Новинки"
+            badge="новое"
+            products={newProducts}
+            showCost={showCost}
+            onSelect={setSelected}
+          />
+          <HighlightStrip
+            title="Популярное"
+            badge="хит"
+            products={popularProducts}
+            showCost={showCost}
+            onSelect={setSelected}
+          />
+        </div>
+      ) : null}
+
+      {products.length > 0 ? (
+        <>
+          <h2 className="mb-4 text-lg font-semibold">Весь каталог</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {products.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                showCost={showCost}
+                onSelect={setSelected}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
 
       {selected ? (
         <div
@@ -165,7 +254,9 @@ export function ProductCatalog({
                         {formatRub(selected.listPrice as number)}
                       </p>
                     ) : (
-                      <p className="text-base font-semibold text-red-700">Цена уточняется</p>
+                      <p className="text-base font-semibold text-red-700">
+                        Цена уточняется
+                      </p>
                     )}
                     <Badge
                       tone={

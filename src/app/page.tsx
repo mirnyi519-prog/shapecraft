@@ -2,25 +2,18 @@ import { ProductCatalog } from "@/components/product-catalog";
 import { FeedbackForm } from "@/components/feedback-form";
 import { LocationBlock } from "@/components/location-block";
 import { PublicShell } from "@/components/public-shell";
-import { prisma } from "@/lib/db";
+import {
+  getActiveCatalogProducts,
+  getNewCatalogProducts,
+  getPopularCatalogProducts,
+} from "@/lib/catalog-product";
 
 export default async function HomePage() {
-  const products = await prisma.product.findMany({
-    where: { active: true },
-    orderBy: [{ stock: "desc" }, { name: "asc" }],
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      imageUrl: true,
-      listPrice: true,
-      stock: true,
-      weightGrams: true,
-      widthMm: true,
-      heightMm: true,
-      depthMm: true,
-    },
-  });
+  const [products, newProducts, popularProducts] = await Promise.all([
+    getActiveCatalogProducts(),
+    getNewCatalogProducts(6),
+    getPopularCatalogProducts(6),
+  ]);
 
   return (
     <PublicShell>
@@ -31,7 +24,11 @@ export default async function HomePage() {
             Актуальные цены и остатки в пекарне
           </p>
         </div>
-        <ProductCatalog products={products} />
+        <ProductCatalog
+          products={products}
+          newProducts={newProducts}
+          popularProducts={popularProducts}
+        />
         <LocationBlock />
         <FeedbackForm />
       </div>

@@ -82,6 +82,13 @@ const iconPaths: Record<NavIconName, ReactNode> = {
       <path d="m9.5 12 1.8 1.8L15 10" />
     </>
   ),
+  display: (
+    <>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8" />
+      <path d="M12 16v4" />
+    </>
+  ),
 };
 
 export function NavIcon({

@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/app-shell";
+import { PartnerExportButton } from "@/components/partner-export-button";
+import { SettlementPanel } from "@/components/settlement-panel";
 import { Card, StatCard } from "@/components/ui";
-import { SettlementButton } from "@/components/forms";
 import { formatDate, formatDateTime, formatRub } from "@/lib/calculations";
 import { getSession } from "@/lib/auth";
 import {
@@ -38,6 +39,10 @@ export default async function SettlementsPage() {
     },
   );
 
+  const zeroStockCount = await prisma.product.count({
+    where: { active: true, stock: 0 },
+  });
+
   const settlements = await prisma.settlement.findMany({
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { sales: true } } },
@@ -48,12 +53,20 @@ export default async function SettlementsPage() {
   return (
     <AppShell>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Расчёты</h1>
-          <p className="text-[var(--muted)]">
-            Текущий период
-            {lastSettlement ? ` после ${formatDate(lastSettlement.createdAt)}` : ""}
-          </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Расчёты</h1>
+            <p className="text-[var(--muted)]">
+              Текущий период
+              {lastSettlement ? ` после ${formatDate(lastSettlement.createdAt)}` : ""}
+            </p>
+          </div>
+          {pendingSales.length > 0 ? (
+            <PartnerExportButton
+              scope="current"
+              label="Скачать период (CSV)"
+            />
+          ) : null}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -83,7 +96,12 @@ export default async function SettlementsPage() {
               После проведения расчёта текущий период обнуляется, продажи уходят в архив.
               Перед этим передайте деньги партнёру.
             </p>
-            <SettlementButton />
+            <SettlementPanel
+              pendingSalesCount={pendingSales.length}
+              zeroStockCount={zeroStockCount}
+              partnerShare={totals.partnerShare}
+              totalRevenue={totals.totalRevenue}
+            />
           </Card>
         ) : null}
 
@@ -107,7 +125,7 @@ export default async function SettlementsPage() {
                         {formatRub(settlement.totalProfit)}
                       </p>
                     </div>
-                    <div className="text-right text-sm">
+                    <div className="flex flex-col items-end gap-2 text-right text-sm">
                       {(() => {
                         const lines = settlementShareLines(
                           formatRub(settlement.ownerShare),
@@ -120,6 +138,11 @@ export default async function SettlementsPage() {
                           </>
                         );
                       })()}
+                      <PartnerExportButton
+                        scope="settlement"
+                        settlementId={settlement.id}
+                        label="CSV для партнёра"
+                      />
                     </div>
                   </div>
                   {settlement.note ? (

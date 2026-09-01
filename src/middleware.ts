@@ -128,6 +128,7 @@ export async function middleware(request: NextRequest) {
 
   const isPublic =
     pathname === "/" ||
+    pathname === "/display" ||
     publicPaths.some((path) => pathname.startsWith(path)) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/uploads") ||

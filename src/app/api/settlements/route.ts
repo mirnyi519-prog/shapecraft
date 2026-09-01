@@ -27,7 +27,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
     }
 
-    const body = (await request.json()) as { note?: string };
+    const body = (await request.json()) as {
+      note?: string;
+      checklistConfirmed?: boolean;
+    };
+
+    if (!body.checklistConfirmed) {
+      return NextResponse.json(
+        { error: "Подтвердите чек-лист перед расчётом" },
+        { status: 400 },
+      );
+    }
+
     const pendingSales = await prisma.sale.findMany({
       where: { settlementId: null },
       orderBy: { soldAt: "asc" },
