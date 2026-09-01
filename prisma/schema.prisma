@@ -147,3 +147,30 @@ model BlockedIp {
 
   @@index([ipAddress])
 }
+
+model WorldTrendBatch {
+  id          String              @id @default(cuid())
+  weekLabel   String              @unique
+  generatedAt DateTime            @default(now())
+  source      String              @default("bot")
+  articles    WorldTrendArticle[]
+
+  @@index([generatedAt])
+}
+
+model WorldTrendArticle {
+  id          String          @id @default(cuid())
+  batchId     String
+  batch       WorldTrendBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  name        String
+  description String
+  imageUrl    String?
+  sourceUrl   String?
+  priceTier   String
+  priceLabel  String?
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+
+  @@index([batchId])
+  @@index([priceTier])
+}

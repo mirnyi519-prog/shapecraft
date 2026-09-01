@@ -10,7 +10,8 @@ export type NavIconName =
   | "visits"
   | "feedback"
   | "security"
-  | "display";
+  | "display"
+  | "world";
 
 export type AppNavItem = {
   href: string;
@@ -21,6 +22,7 @@ export type AppNavItem = {
 export function getAppNavItems(admin: boolean): AppNavItem[] {
   return [
     { href: "/", label: "Витрина", icon: "store" },
+    { href: "/world", label: "В мире", icon: "world" },
     { href: "/display", label: "Экран", icon: "display" },
     { href: "/dashboard", label: "Сводка", icon: "dashboard" },
     { href: "/products", label: "Товары", icon: "products" },

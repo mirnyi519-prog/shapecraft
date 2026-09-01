@@ -15,6 +15,9 @@ services:
       PARTNER_LOGIN: ${PARTNER_LOGIN:-partner}
       PARTNER_PASSWORD: ${PARTNER_PASSWORD:-shapecraft123}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      CRON_SECRET: ${CRON_SECRET:-}
       UPLOADS_DIR: /app/public/uploads
       NODE_ENV: production
     volumes:
