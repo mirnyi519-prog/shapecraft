@@ -35,7 +35,7 @@ export default async function WorldPage() {
         <div>
           <h1 className="text-2xl font-bold">В мире</h1>
           <p className="text-[var(--muted)]">
-            Еженедельная подборка актуальных игрушек для 3D-печати по миру
+            Еженедельная подборка актуальных сувениров для 3D-печати по миру
           </p>
         </div>
 

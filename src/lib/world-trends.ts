@@ -27,7 +27,7 @@ export const WORLD_TIER_LABELS: Record<WorldPriceTier, string> = {
 };
 
 export const WORLD_TIER_HINTS: Record<WorldPriceTier, string> = {
-  expensive: "Топ-5 дорогих игрушек для 3D-печати",
+  expensive: "Топ-5 дорогих сувениров для 3D-печати",
   medium: "Топ-5 моделей среднего ценового сегмента",
   cheap: "Топ-5 доступных и популярных моделей",
 };

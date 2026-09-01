@@ -12,7 +12,7 @@ export function LocationBlock() {
           <div>
             <h2 className="text-xl font-bold">Как добраться</h2>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Игрушки ShapeCraft можно купить в пекарне «У Светланы». Откройте
+              Сувениры ShapeCraft можно купить в пекарне «У Светланы». Откройте
               карту, чтобы построить маршрут.
             </p>
           </div>

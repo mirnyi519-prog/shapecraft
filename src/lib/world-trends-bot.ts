@@ -195,7 +195,7 @@ async function resolveArticleImage(
   for (const candidate of candidates) {
     const saved = await saveRemoteImage(
       candidate,
-      `${Date.now()}-${index}-${slugify(article.name) || "toy"}`,
+      `${Date.now()}-${index}-${slugify(article.name) || "souvenir"}`,
     );
     if (saved) {
       return saved;
