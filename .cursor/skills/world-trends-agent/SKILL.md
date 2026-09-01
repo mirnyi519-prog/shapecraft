@@ -9,7 +9,7 @@ description: >-
 
 # Агент подборки «В мире» (ShapeCraft)
 
-Бесплатная замена OpenAI-бота: аналитику делает агент Cursor, сайт импортирует JSON и сам подтягивает фото.
+Аналитику делает агент Cursor. Сайт сам подтягивает JSON с GitHub и фото с MakerWorld.
 
 ## Задача
 
@@ -50,52 +50,55 @@ description: >-
 
 Правила:
 - `description` — минимум 20 символов, на **русском**
-- `sourceUrl` — рабочая ссылка на страницу модели
-- `imageUrl` — можно `null`: сайт сам возьмёт cover через Bambu API (MakerWorld) и сохранит локально
+- `sourceUrl` — рабочая ссылка на страницу модели (для MakerWorld — с числовым id)
+- `imageUrl` — можно `null`: сайт сам возьмёт cover через Bambu API
 - Ровно **5 + 5 + 5** по tier
 
-4. **Импорт + автовыгрузка на shapecraft.ru**:
+4. **Коммит + push** в GitHub:
 
 ```bash
-npm run world:import -- --force --publish
+git add data/world-import.json
+git commit -m "Update world trends weekly batch."
+git push
 ```
 
-- `--force` — перезаписать подборку текущей недели
-- `--publish` — отправить JSON на prod (`WORLD_PUBLISH_URL`) с секретом `WORLD_IMPORT_SECRET`
-
-Локально без prod:
-
-```bash
-npm run world:import -- --force
-```
-
-Только выгрузка готового JSON:
+5. **Синхронизация на shapecraft.ru**:
 
 ```bash
 npm run world:publish -- --force
 ```
 
-5. **Проверка** — в ответе должно быть `imagesLoaded: 15` (или близко). Если меньше — проверьте `sourceUrl` (для MakerWorld нужен числовой id в URL).
+Или полный цикл локально + prod:
+
+```bash
+npm run world:import -- --force --publish
+```
+
+Сервер забирает JSON с GitHub (`WORLD_SYNC_URL`), скачивает фото, сохраняет в БД.
+
+6. **Админка** `/world` — если неделя устарела, синхронизация запускается **автоматически** при открытии страницы. Кнопка «Обновить подборку сейчас» — вручную.
 
 ## Настройка `.env` (один раз)
 
 ```env
 WORLD_IMPORT_SECRET=длинная-случайная-строка
 WORLD_PUBLISH_URL=https://shapecraft.ru/api/world/import
+WORLD_SYNC_URL=https://raw.githubusercontent.com/mirnyi519-prog/shapecraft/master/data/world-import.json
 ```
 
-Тот же `WORLD_IMPORT_SECRET` должен быть в `.env` на сервере (`/opt/shapecraft/.env`) и контейнер пересобран.
+Тот же `WORLD_IMPORT_SECRET` — в `/opt/shapecraft/.env` на сервере.
 
-## Альтернатива: импорт через админку
+**Cron на сервере** (понедельник 9:00):
 
-1. Сгенерировать JSON (шаг 3).
-2. Админ → `/world` → вставить JSON → **Импортировать подборку**.
+```bash
+0 9 * * 1 /opt/shapecraft/scripts/world-trends-sync.sh >> /var/log/shapecraft-world.log 2>&1
+```
 
 ## Проверка
 
 - `npm run build` — без ошибок
+- Ответ sync: `imagesLoaded: 15`
 - В админке `/world` — 3 блока по 5 карточек **с фото**
-- У статей есть описание и ссылка «Источник»
 
 ## Шаблон
 

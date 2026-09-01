@@ -6,7 +6,7 @@ import {
 } from "@/components/world-trends-view";
 import { getSession, isAdmin } from "@/lib/auth";
 import type { WorldTrendBatchView } from "@/lib/world-trends";
-import { isWorldPriceTier } from "@/lib/world-trends";
+import { getWeekLabel, isWorldPriceTier } from "@/lib/world-trends";
 import { getLatestWorldTrendBatch } from "@/lib/world-trends-bot";
 
 function mapBatch(
@@ -41,6 +41,13 @@ export default async function WorldPage() {
 
   const latest = await getLatestWorldTrendBatch();
   const batch = latest ? mapBatch(latest) : null;
+  const currentWeek = getWeekLabel();
+  const imagesLoaded =
+    batch?.articles.filter((item) => item.imageUrl).length ?? 0;
+  const needsSync =
+    !batch ||
+    batch.articles.length === 0 ||
+    batch.weekLabel !== currentWeek;
 
   return (
     <AppShell>
@@ -52,7 +59,14 @@ export default async function WorldPage() {
           </p>
         </div>
 
-        <WorldTrendsAdmin lastGenerated={batch?.generatedAt ?? null} />
+        <WorldTrendsAdmin
+          lastGenerated={batch?.generatedAt ?? null}
+          weekLabel={batch?.weekLabel ?? null}
+          articleCount={batch?.articles.length ?? 0}
+          imagesLoaded={imagesLoaded}
+          needsSync={needsSync}
+          currentWeek={currentWeek}
+        />
         <WorldTrendsView batch={batch} />
       </div>
     </AppShell>

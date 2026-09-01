@@ -409,6 +409,88 @@ export async function publishWorldTrendsPayload(input: {
   };
 }
 
+export function getWorldSyncSourceUrl(): string {
+  return (
+    process.env.WORLD_SYNC_URL?.trim() ||
+    "https://raw.githubusercontent.com/mirnyi519-prog/shapecraft/master/data/world-import.json"
+  );
+}
+
+export async function syncWorldTrendsFromSource(input?: {
+  force?: boolean;
+  sourceUrl?: string;
+}): Promise<ImportWorldTrendsResult> {
+  const sourceUrl = input?.sourceUrl ?? getWorldSyncSourceUrl();
+  const response = await fetch(sourceUrl, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "ShapeCraftWorldAgent/1.0 (+https://shapecraft.ru)",
+    },
+    signal: AbortSignal.timeout(30_000),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Не удалось загрузить подборку (${response.status})`);
+  }
+
+  const payload = (await response.json()) as unknown;
+  const articles = parseImportArticles(payload);
+
+  return importWorldTrends({
+    articles,
+    force: input?.force ?? true,
+    source: "github-sync",
+  });
+}
+
+export async function triggerRemoteWorldSync(input?: {
+  force?: boolean;
+  baseUrl?: string;
+  secret?: string;
+}): Promise<ImportWorldTrendsResult & { published: true }> {
+  const publishUrl = process.env.WORLD_PUBLISH_URL?.trim();
+  const baseUrl =
+    input?.baseUrl ??
+    (publishUrl
+      ? publishUrl.replace(/\/api\/world\/import\/?$/, "")
+      : "https://shapecraft.ru");
+  const secret = input?.secret ?? process.env.WORLD_IMPORT_SECRET;
+
+  if (!secret) {
+    throw new Error(
+      "WORLD_IMPORT_SECRET не задан — добавьте секрет в .env локально и на сервере",
+    );
+  }
+
+  const response = await fetch(`${baseUrl}/api/world/sync`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${secret}`,
+    },
+    body: JSON.stringify({ force: input?.force ?? true }),
+    signal: AbortSignal.timeout(120_000),
+  });
+
+  const data = (await response.json()) as ImportWorldTrendsResult & {
+    error?: string;
+    ok?: boolean;
+  };
+
+  if (!response.ok) {
+    throw new Error(data.error ?? `Ошибка синхронизации (${response.status})`);
+  }
+
+  return {
+    batchId: data.batchId,
+    weekLabel: data.weekLabel,
+    articleCount: data.articleCount,
+    imagesLoaded: data.imagesLoaded ?? 0,
+    published: true,
+  };
+}
+
 export async function getLatestWorldTrendBatch() {
   return prisma.worldTrendBatch.findFirst({
     orderBy: { generatedAt: "desc" },

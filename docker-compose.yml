@@ -17,6 +17,7 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       UPLOADS_DIR: /app/public/uploads
       WORLD_IMPORT_SECRET: ${WORLD_IMPORT_SECRET:-}
+      WORLD_SYNC_URL: ${WORLD_SYNC_URL:-https://raw.githubusercontent.com/mirnyi519-prog/shapecraft/master/data/world-import.json}
       NODE_ENV: production
     volumes:
       - shapecraft_data:/app/data

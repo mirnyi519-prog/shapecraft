@@ -14,6 +14,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "world:import": "tsx scripts/import-world-trends.ts",
     "world:publish": "tsx scripts/publish-world-trends.ts",
+    "world:publish:admin": "tsx scripts/publish-world-trends-admin.ts",
     "db:setup": "prisma migrate dev --name init && tsx prisma/seed.ts",
     "postinstall": "prisma generate"
   },

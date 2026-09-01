@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
 import {
   WORLD_TIER_HINTS,
@@ -67,7 +67,8 @@ export function WorldTrendsView({
     return (
       <Card>
         <p className="text-[var(--muted)]">
-          Подборка пока не готова. Админ может запустить еженедельный бот вручную.
+          Подборка пока не готова. Откройте эту страницу — синхронизация с GitHub
+          запустится автоматически.
         </p>
       </Card>
     );
@@ -112,34 +113,34 @@ export function WorldTrendsView({
 
 export function WorldTrendsAdmin({
   lastGenerated,
+  weekLabel,
+  articleCount,
+  imagesLoaded,
+  needsSync,
+  currentWeek,
 }: {
   lastGenerated: string | null;
+  weekLabel: string | null;
+  articleCount: number;
+  imagesLoaded: number;
+  needsSync: boolean;
+  currentWeek: string;
 }) {
   const router = useRouter();
-  const [json, setJson] = useState("");
-  const [force, setForce] = useState(false);
+  const autoSyncStarted = useRef(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  async function handleImport() {
+  async function handleSync(isAuto = false) {
     setLoading(true);
     setError("");
-    setMessage("");
+    setMessage(isAuto ? "Автосинхронизация..." : "");
 
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(json);
-    } catch {
-      setError("Некорректный JSON");
-      setLoading(false);
-      return;
-    }
-
-    const response = await fetch("/api/world/import", {
+    const response = await fetch("/api/world/sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ articles: parsed, force }),
+      body: JSON.stringify({ force: true }),
     });
 
     const data = (await response.json()) as {
@@ -150,63 +151,83 @@ export function WorldTrendsAdmin({
     };
 
     if (!response.ok) {
-      setError(data.error ?? "Ошибка импорта");
+      setError(data.error ?? "Ошибка синхронизации");
       setLoading(false);
       return;
     }
 
     setMessage(
-      `Подборка ${data.weekLabel} импортирована: ${data.articleCount ?? 0} статей, фото: ${data.imagesLoaded ?? 0}`,
+      `Подборка ${data.weekLabel} обновлена: ${data.articleCount ?? 0} статей, фото: ${data.imagesLoaded ?? 0}`,
     );
     setLoading(false);
     router.refresh();
   }
 
+  useEffect(() => {
+    if (!needsSync || autoSyncStarted.current) {
+      return;
+    }
+
+    autoSyncStarted.current = true;
+    void handleSync(true);
+  }, [needsSync]);
+
   return (
-    <Card title="Импорт от агента Cursor">
+    <Card title="Автоматизация подборки">
       <p className="mb-3 text-sm text-[var(--muted)]">
-        Платный OpenAI больше не нужен. Попросите в Cursor:{" "}
-        <strong>«Обнови подборку В мире»</strong> — агент соберёт JSON, подтянет
-        фото с MakerWorld и выгрузит на сайт командой{" "}
-        <code className="rounded bg-[var(--brand-soft)] px-1.5 py-0.5 text-xs">
-          npm run world:import -- --force --publish
-        </code>
-        . Или вставьте JSON ниже вручную.
+        Подборка подтягивается с GitHub, фото — с MakerWorld. В Cursor достаточно
+        написать <strong>«Обнови подборку В мире»</strong>: агент обновит JSON,
+        запушит в репозиторий и синхронизирует сайт.
       </p>
-      {lastGenerated ? (
-        <p className="mb-3 text-sm text-[var(--muted)]">
-          Последнее обновление:{" "}
-          {new Date(lastGenerated).toLocaleString("ru-RU", {
-            day: "2-digit",
-            month: "long",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
+
+      <dl className="mb-4 grid gap-2 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-[var(--muted)]">Текущая неделя</dt>
+          <dd className="font-medium">{currentWeek}</dd>
+        </div>
+        <div>
+          <dt className="text-[var(--muted)]">Неделя в базе</dt>
+          <dd className="font-medium">{weekLabel ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-[var(--muted)]">Статей / фото</dt>
+          <dd className="font-medium">
+            {articleCount} / {imagesLoaded}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[var(--muted)]">Последнее обновление</dt>
+          <dd className="font-medium">
+            {lastGenerated
+              ? new Date(lastGenerated).toLocaleString("ru-RU", {
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "—"}
+          </dd>
+        </div>
+      </dl>
+
+      {needsSync ? (
+        <p className="mb-3 text-sm text-amber-700">
+          Подборка устарела или пустая — идёт автоматическая синхронизация с GitHub.
         </p>
-      ) : null}
-      <label className="mb-3 block space-y-2">
-        <span className="text-sm font-medium">JSON подборки (15 статей)</span>
-        <textarea
-          value={json}
-          onChange={(event) => setJson(event.target.value)}
-          placeholder='{"articles":[{"name":"...","description":"...","priceTier":"expensive","priceLabel":"3000 ₽","sourceUrl":"https://..."}]}'
-          className="min-h-48 w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 font-mono text-xs outline-none ring-[var(--brand)] focus:ring-2"
-        />
-      </label>
-      <label className="mb-4 flex cursor-pointer items-center gap-2 text-sm">
-        <input
-          type="checkbox"
-          checked={force}
-          onChange={(event) => setForce(event.target.checked)}
-          className="h-4 w-4 rounded border-[var(--border)]"
-        />
-        Перезаписать подборку текущей недели
-      </label>
+      ) : (
+        <p className="mb-3 text-sm text-green-700">Подборка актуальна для этой недели.</p>
+      )}
+
       {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
       {message ? <p className="mb-3 text-sm text-green-700">{message}</p> : null}
-      <Button type="button" disabled={loading || !json.trim()} onClick={() => void handleImport()}>
-        {loading ? "Импорт..." : "Импортировать подборку"}
+
+      <Button
+        type="button"
+        disabled={loading}
+        onClick={() => void handleSync(false)}
+      >
+        {loading ? "Синхронизация..." : "Обновить подборку сейчас"}
       </Button>
     </Card>
   );

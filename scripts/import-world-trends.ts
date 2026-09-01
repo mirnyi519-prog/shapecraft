@@ -1,9 +1,12 @@
 import { readFile } from "fs/promises";
 import path from "path";
+import { loadProjectEnv } from "./load-env";
+
+loadProjectEnv();
 import {
   importWorldTrends,
   parseImportArticles,
-  publishWorldTrendsPayload,
+  triggerRemoteWorldSync,
 } from "../src/lib/world-trends-bot";
 import { prisma } from "../src/lib/db";
 
@@ -30,10 +33,7 @@ async function main() {
   console.log(JSON.stringify({ local: result }, null, 2));
 
   if (publish) {
-    const remote = await publishWorldTrendsPayload({
-      payload: parsed,
-      force,
-    });
+    const remote = await triggerRemoteWorldSync({ force });
     console.log(JSON.stringify({ remote }, null, 2));
   }
 }
