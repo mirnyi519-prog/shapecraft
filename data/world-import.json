@@ -1,0 +1,124 @@
+{
+  "articles": [
+    {
+      "name": "Articulated Crystal Dragon by Saber3D",
+      "description": "Легендарный кристаллический дракон — один из самых скачиваемых flexi-моделей на MakerWorld (200k+ загрузок). Идеален для multicolor-печати: гранёные сегменты красиво играют на silk и marble-филаментах. Отличный подарок и витринная модель.",
+      "priceTier": "expensive",
+      "priceLabel": "3200–4800 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/55289-articulated-crystal-dragon-by-saber3d",
+      "imageUrl": null
+    },
+    {
+      "name": "Infinity Serpent — длинный articulated-дракон",
+      "description": "Серпентинный дракон длиной до 127 см — wow-эффект на полке или в витрине. Модульная чешуйчатая структура, print-in-place без поддержек. Долгая печать, но высокая маржа при продаже как премиум-фигуры.",
+      "priceTier": "expensive",
+      "priceLabel": "3800–5500 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2111820-infinity-serpent-long-articulated-dragon",
+      "imageUrl": null
+    },
+    {
+      "name": "ShardStorm — крылатый crystal-дракон",
+      "description": "Крылатый кристаллический дракон с подвижной челюстью — сложная, но эффектная модель (~33 см). Два размера в профилях, хорошо смотрится в металлик и silk PLA. Популярен у коллекционеров fantasy-тематики.",
+      "priceTier": "expensive",
+      "priceLabel": "2800–4200 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/1591630-shardstorm-winged-articulated-crystal-dragon",
+      "imageUrl": null
+    },
+    {
+      "name": "Flexi Dragon 55 см (print-in-place)",
+      "description": "Крупный подвижный дракон ~55 см без сборки — классика flexi-сегмента. Не рекомендуется уменьшать масштаб из-за шарниров. Хороший баланс «впечатляет размером» и относительно предсказуемой печати.",
+      "priceTier": "expensive",
+      "priceLabel": "2600–3900 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/1875121-print-in-place-fully-articulated-flexi-dragon",
+      "imageUrl": null
+    },
+    {
+      "name": "Articulated Crystal Spine Dragon",
+      "description": "Дракон с острыми «кристаллическими» сегментами позвоночника — свежий хит конца 2025 года. Отлично раскрывается в multicolor и marble-филаментах, без поддержек. Альтернатива классическому Crystal Dragon с более «бронированным» силуэтом.",
+      "priceTier": "expensive",
+      "priceLabel": "2500–3800 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2142966-articulated-crystal-spine-dragon",
+      "imageUrl": null
+    },
+    {
+      "name": "Flexi Squirrel — articulated белка",
+      "description": "Одна из самых обсуждаемых flexi-моделей: подвижное тело и хвост, текстура «шишек» на спине. Сотни отзывов на MakerWorld — проверенный хит для fidget и подарков. Есть multicolor-профили под AMS.",
+      "priceTier": "medium",
+      "priceLabel": "1200–2000 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2409925-flexi-squirrel",
+      "imageUrl": null
+    },
+    {
+      "name": "Flexi Cat Keychain — articulated кот",
+      "description": "Милый кот с языком и гибким хвостом — print-in-place, готов сразу после печати. Работает как брелок, баг-чarm или настольная игрушка. Стабильный спрос у любителей кошек и kawaii-эстетики.",
+      "priceTier": "medium",
+      "priceLabel": "900–1500 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2583729-flexi-cat-keychain",
+      "imageUrl": null
+    },
+    {
+      "name": "Flexi BabyDino — multicolor динозаврик",
+      "description": "Малыш-динозавр с подвижной головой, лапами и хвостом — давний фаворит MakerWorld. Отлично смотрится в ярких цветах и AMS-сборках. Универсальный подарок детям и «office desk toy».",
+      "priceTier": "medium",
+      "priceLabel": "1000–1800 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/145947-flexi-babydino-multicolor",
+      "imageUrl": null
+    },
+    {
+      "name": "Happy Little Flexi Octopus",
+      "description": "Серия «счастливых» octopus-flexi с модульными щупальцами и версиями Gentleman/Cowboy. Быстрая печать, приятная тактильность — хит для импульсных покупок и наборов «несколько штук в подарок».",
+      "priceTier": "medium",
+      "priceLabel": "800–1400 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/936354-happy-little-flexi-octopus",
+      "imageUrl": null
+    },
+    {
+      "name": "Pocket Pet — Flexi Baby Parrot",
+      "description": "Карманный попугай с уникальными articulated-крыльями — серия Pocket Pet от MakerWorld. Компактный, яркий, без поддержек. Хорошо дополняет линейку flexi-животных в среднем ценовом сегменте.",
+      "priceTier": "medium",
+      "priceLabel": "1100–1700 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/725641-pocket-pet-flexi-baby-parrot-keychain-variant",
+      "imageUrl": null
+    },
+    {
+      "name": "Gear Shift Fidget V2 — print-in-place",
+      "description": "Механический fidget «коробка передач» с щелчками — обновлённая V2 с прочнее пружиной и вариантом-брелком. Печатается за ~1–2 часа, высокая оборачиваемость как недорогой антистресс.",
+      "priceTier": "cheap",
+      "priceLabel": "450–750 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/1548507-gear-shift-fidget-toy-v2-print-in-place",
+      "imageUrl": null
+    },
+    {
+      "name": "Mini Gearbox Keychain Fidget",
+      "description": "Компактная «коробка передач» на ключи — satisfying gear action в карманном формате. Single/dual color профили, press-fit без клея. Идеальна для кассы «мелочь у кассы» и наборов брелков.",
+      "priceTier": "cheap",
+      "priceLabel": "350–600 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/3003605-mini-gearbox-keychain-fidget",
+      "imageUrl": null
+    },
+    {
+      "name": "Pikachu Mini Flexi — keychain",
+      "description": "Мини Pikachu из популярной коллекции Mini Flexi — articulated, print-in-place, несколько цветовых пластин. Стабильный спрос на персонажную тематику; отличный upsell к другим mini flexi.",
+      "priceTier": "cheap",
+      "priceLabel": "350–550 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2287081-pikachu-mini-flexi-articulated-keychain-figure",
+      "imageUrl": null
+    },
+    {
+      "name": "Skull Key Switch Fidget (+Keychain)",
+      "description": "Fidget на механическом переключателе клавиатуры — быстрая печать (~30 мин), кликовая тактильность. Есть вариант с отверстием под брелок. Популярен у геймеров и IT-аудитории.",
+      "priceTier": "cheap",
+      "priceLabel": "400–650 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/633808-skull-key-switch-fidget-toy-keychain",
+      "imageUrl": null
+    },
+    {
+      "name": "Keychain Textured Fidget Spinner",
+      "description": "Текстурный спиннер-брелок — классика fidget-сегмента в обновлённом виде. Простая печать 0.2 mm, низкая себестоимость, хорошо продаётся наборами и как дополнение к заказу.",
+      "priceTier": "cheap",
+      "priceLabel": "280–480 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/706708-keychain-textured-fidget-spinner",
+      "imageUrl": null
+    }
+  ]
+}

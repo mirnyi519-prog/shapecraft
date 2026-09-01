@@ -146,6 +146,7 @@ export function WorldTrendsAdmin({
       error?: string;
       articleCount?: number;
       weekLabel?: string;
+      imagesLoaded?: number;
     };
 
     if (!response.ok) {
@@ -155,7 +156,7 @@ export function WorldTrendsAdmin({
     }
 
     setMessage(
-      `Подборка ${data.weekLabel} импортирована: ${data.articleCount ?? 0} статей`,
+      `Подборка ${data.weekLabel} импортирована: ${data.articleCount ?? 0} статей, фото: ${data.imagesLoaded ?? 0}`,
     );
     setLoading(false);
     router.refresh();
@@ -165,8 +166,12 @@ export function WorldTrendsAdmin({
     <Card title="Импорт от агента Cursor">
       <p className="mb-3 text-sm text-[var(--muted)]">
         Платный OpenAI больше не нужен. Попросите в Cursor:{" "}
-        <strong>«Обнови подборку В мире»</strong> — агент найдёт тренды,
-        соберёт JSON и импортирует. Или вставьте JSON ниже вручную.
+        <strong>«Обнови подборку В мире»</strong> — агент соберёт JSON, подтянет
+        фото с MakerWorld и выгрузит на сайт командой{" "}
+        <code className="rounded bg-[var(--brand-soft)] px-1.5 py-0.5 text-xs">
+          npm run world:import -- --force --publish
+        </code>
+        . Или вставьте JSON ниже вручную.
       </p>
       {lastGenerated ? (
         <p className="mb-3 text-sm text-[var(--muted)]">

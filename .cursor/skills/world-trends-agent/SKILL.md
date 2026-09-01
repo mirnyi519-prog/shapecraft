@@ -9,7 +9,7 @@ description: >-
 
 # Агент подборки «В мире» (ShapeCraft)
 
-Бесплатная замена OpenAI-бота: аналитику делает агент Cursor, сайт только импортирует JSON.
+Бесплатная замена OpenAI-бота: аналитику делает агент Cursor, сайт импортирует JSON и сам подтягивает фото.
 
 ## Задача
 
@@ -41,7 +41,7 @@ description: >-
       "description": "2–4 предложения на русском: что это, почему в тренде, кому подойдёт.",
       "priceTier": "expensive",
       "priceLabel": "3000–4500 ₽",
-      "sourceUrl": "https://...",
+      "sourceUrl": "https://makerworld.com/en/models/123456-...",
       "imageUrl": null
     }
   ]
@@ -51,41 +51,50 @@ description: >-
 Правила:
 - `description` — минимум 20 символов, на **русском**
 - `sourceUrl` — рабочая ссылка на страницу модели
-- `imageUrl` — можно `null` (сайт подтянет og:image сам)
+- `imageUrl` — можно `null`: сайт сам возьмёт cover через Bambu API (MakerWorld) и сохранит локально
 - Ровно **5 + 5 + 5** по tier
 
-4. **Импорт локально**:
+4. **Импорт + автовыгрузка на shapecraft.ru**:
+
+```bash
+npm run world:import -- --force --publish
+```
+
+- `--force` — перезаписать подборку текущей недели
+- `--publish` — отправить JSON на prod (`WORLD_PUBLISH_URL`) с секретом `WORLD_IMPORT_SECRET`
+
+Локально без prod:
 
 ```bash
 npm run world:import -- --force
 ```
 
-Файл по умолчанию: `data/world-import.json`. Другой путь:
+Только выгрузка готового JSON:
 
 ```bash
-npm run world:import -- data/my-batch.json --force
+npm run world:publish -- --force
 ```
 
-5. **Деплой** (если нужно на shapecraft.ru):
+5. **Проверка** — в ответе должно быть `imagesLoaded: 15` (или близко). Если меньше — проверьте `sourceUrl` (для MakerWorld нужен числовой id в URL).
 
-```bash
-git add data/world-import.json
-git commit -m "Update world trends weekly batch."
-git push
+## Настройка `.env` (один раз)
+
+```env
+WORLD_IMPORT_SECRET=длинная-случайная-строка
+WORLD_PUBLISH_URL=https://shapecraft.ru/api/world/import
 ```
 
-На сервере: `update-on-server.sh`, **или** в админке **В мире → вставить JSON → Импортировать**.
+Тот же `WORLD_IMPORT_SECRET` должен быть в `.env` на сервере (`/opt/shapecraft/.env`) и контейнер пересобран.
 
 ## Альтернатива: импорт через админку
 
 1. Сгенерировать JSON (шаг 3).
-2. Админ → https://shapecraft.ru/world → блок «Импорт от агента Cursor».
-3. Вставить JSON → **Импортировать подборку** (галочка «Перезаписать неделю» при необходимости).
+2. Админ → `/world` → вставить JSON → **Импортировать подборку**.
 
 ## Проверка
 
 - `npm run build` — без ошибок
-- В админке `/world` — 3 блока по 5 карточек
+- В админке `/world` — 3 блока по 5 карточек **с фото**
 - У статей есть описание и ссылка «Источник»
 
 ## Шаблон

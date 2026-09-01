@@ -21,10 +21,26 @@ export type ImportWorldTrendsResult = {
   batchId: string;
   weekLabel: string;
   articleCount: number;
+  imagesLoaded: number;
 };
 
 const TIER_LIMIT = 5;
 const KEEP_BATCHES = 8;
+const MAKERWORLD_MODEL_ID_RE = /\/models\/(\d+)/;
+const MAKERWORLD_CDN_HOSTS = ["makerworld.bblmw.com", "public-cdn.bblmw.com"];
+const IMAGE_EXT_TO_MIME: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+};
+
+const FETCH_HEADERS = {
+  "User-Agent": "ShapeCraftWorldAgent/1.0 (+https://shapecraft.ru)",
+  Accept: "text/html,application/xhtml+xml,application/json",
+  Referer: "https://makerworld.com/",
+};
 
 function slugify(value: string): string {
   return value
@@ -34,13 +50,62 @@ function slugify(value: string): string {
     .slice(0, 48);
 }
 
+function mimeFromImageUrl(url: string): string | null {
+  const path = url.split("?")[0]?.toLowerCase() ?? "";
+  for (const [ext, mime] of Object.entries(IMAGE_EXT_TO_MIME)) {
+    if (path.endsWith(ext)) {
+      return mime;
+    }
+  }
+  return null;
+}
+
+function isAllowedRemoteImageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") {
+      return false;
+    }
+    if (MAKERWORLD_CDN_HOSTS.some((host) => parsed.hostname === host)) {
+      return true;
+    }
+    return Boolean(mimeFromImageUrl(url));
+  } catch {
+    return false;
+  }
+}
+
+async function fetchMakerWorldCoverUrl(sourceUrl: string): Promise<string | null> {
+  const match = sourceUrl.match(MAKERWORLD_MODEL_ID_RE);
+  if (!match?.[1]) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(
+      `https://api.bambulab.com/v1/design-service/design/${match[1]}`,
+      {
+        headers: FETCH_HEADERS,
+        signal: AbortSignal.timeout(12_000),
+      },
+    );
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = (await response.json()) as { coverUrl?: string };
+    const coverUrl = data.coverUrl?.trim();
+    return coverUrl && isAllowedRemoteImageUrl(coverUrl) ? coverUrl : null;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchOgImage(url: string): Promise<string | null> {
   try {
     const response = await fetch(url, {
-      headers: {
-        "User-Agent": "ShapeCraftWorldAgent/1.0",
-        Accept: "text/html,application/xhtml+xml",
-      },
+      headers: FETCH_HEADERS,
       signal: AbortSignal.timeout(12_000),
       redirect: "follow",
     });
@@ -73,9 +138,13 @@ async function saveRemoteImage(
   imageUrl: string,
   filenameStem: string,
 ): Promise<string | null> {
+  if (!isAllowedRemoteImageUrl(imageUrl)) {
+    return null;
+  }
+
   try {
     const response = await fetch(imageUrl, {
-      headers: { "User-Agent": "ShapeCraftWorldAgent/1.0" },
+      headers: FETCH_HEADERS,
       signal: AbortSignal.timeout(15_000),
       redirect: "follow",
     });
@@ -84,13 +153,16 @@ async function saveRemoteImage(
       return null;
     }
 
-    const contentType = response.headers.get("content-type") ?? "image/jpeg";
-    if (!contentType.startsWith("image/")) {
-      return null;
-    }
+    const headerType =
+      response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() ??
+      "";
+    const contentType =
+      headerType.startsWith("image/") && headerType !== "image/svg+xml"
+        ? headerType
+        : mimeFromImageUrl(imageUrl) ?? "image/jpeg";
 
     const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.length < 512 || buffer.length > 5_000_000) {
+    if (buffer.length < 512 || buffer.length > 25_000_000) {
       return null;
     }
 
@@ -109,8 +181,14 @@ async function resolveArticleImage(
   article: WorldTrendImportArticle,
   index: number,
 ): Promise<string | null> {
+  const makerWorldCover =
+    article.sourceUrl.includes("makerworld.com")
+      ? await fetchMakerWorldCoverUrl(article.sourceUrl)
+      : null;
+
   const candidates = [
     article.imageUrl?.trim(),
+    makerWorldCover,
     article.sourceUrl ? await fetchOgImage(article.sourceUrl) : null,
   ].filter(Boolean) as string[];
 
@@ -121,6 +199,10 @@ async function resolveArticleImage(
     );
     if (saved) {
       return saved;
+    }
+
+    if (isAllowedRemoteImageUrl(candidate)) {
+      return candidate;
     }
   }
 
@@ -215,12 +297,15 @@ export async function importWorldTrends(input: {
   });
 
   if (existing && !input.force) {
+    const articles = await prisma.worldTrendArticle.findMany({
+      where: { batchId: existing.id },
+      select: { imageUrl: true },
+    });
     return {
       batchId: existing.id,
       weekLabel,
-      articleCount: await prisma.worldTrendArticle.count({
-        where: { batchId: existing.id },
-      }),
+      articleCount: articles.length,
+      imagesLoaded: articles.filter((item) => Boolean(item.imageUrl)).length,
     };
   }
 
@@ -270,6 +355,57 @@ export async function importWorldTrends(input: {
     batchId: batch.id,
     weekLabel,
     articleCount: normalized.length,
+    imagesLoaded: images.filter(Boolean).length,
+  };
+}
+
+export async function publishWorldTrendsPayload(input: {
+  payload: unknown;
+  force?: boolean;
+  publishUrl?: string;
+  secret?: string;
+}): Promise<ImportWorldTrendsResult & { published: true }> {
+  const publishUrl =
+    input.publishUrl ??
+    process.env.WORLD_PUBLISH_URL ??
+    "https://shapecraft.ru/api/world/import";
+  const secret = input.secret ?? process.env.WORLD_IMPORT_SECRET;
+
+  if (!secret) {
+    throw new Error(
+      "WORLD_IMPORT_SECRET не задан — добавьте секрет в .env локально и на сервере",
+    );
+  }
+
+  const articles = parseImportArticles(input.payload);
+  const response = await fetch(publishUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${secret}`,
+    },
+    body: JSON.stringify({
+      articles,
+      force: Boolean(input.force),
+    }),
+    signal: AbortSignal.timeout(120_000),
+  });
+
+  const data = (await response.json()) as ImportWorldTrendsResult & {
+    error?: string;
+    ok?: boolean;
+  };
+
+  if (!response.ok) {
+    throw new Error(data.error ?? `Ошибка выгрузки (${response.status})`);
+  }
+
+  return {
+    batchId: data.batchId,
+    weekLabel: data.weekLabel,
+    articleCount: data.articleCount,
+    imagesLoaded: data.imagesLoaded ?? 0,
+    published: true,
   };
 }
 

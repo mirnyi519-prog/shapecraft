@@ -16,6 +16,7 @@ services:
       PARTNER_PASSWORD: ${PARTNER_PASSWORD:-shapecraft123}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       UPLOADS_DIR: /app/public/uploads
+      WORLD_IMPORT_SECRET: ${WORLD_IMPORT_SECRET:-}
       NODE_ENV: production
     volumes:
       - shapecraft_data:/app/data

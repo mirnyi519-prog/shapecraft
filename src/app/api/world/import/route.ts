@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
+import { isWorldImportAuthorized } from "@/lib/world-import-auth";
 import {
   getLatestWorldTrendBatch,
   importWorldTrends,
@@ -8,18 +9,20 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireAdmin();
+    if (!isWorldImportAuthorized(request)) {
+      await requireAdmin();
+    }
 
     const body = (await request.json()) as {
       articles?: unknown;
       force?: boolean;
     };
 
-    const articles = parseImportArticles(body.articles);
+    const articles = parseImportArticles(body.articles ?? body);
     const result = await importWorldTrends({
       articles,
       force: Boolean(body.force),
-      source: "admin-import",
+      source: isWorldImportAuthorized(request) ? "cursor-agent-remote" : "admin-import",
     });
 
     return NextResponse.json({ ok: true, ...result });
