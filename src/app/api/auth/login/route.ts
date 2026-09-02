@@ -5,8 +5,14 @@ import {
   signSessionToken,
   verifyPassword,
 } from "@/lib/auth";
+import { verifyCaptchaChallenge } from "@/lib/captcha";
 import { prisma } from "@/lib/db";
 import { isIpBlocked } from "@/lib/access-control";
+import {
+  clearLoginFailures,
+  isCaptchaRequired,
+  recordLoginFailure,
+} from "@/lib/login-guard";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   clientIpFromRequest,
@@ -54,10 +60,25 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       login?: string;
       password?: string;
+      captchaId?: string;
+      captchaAnswer?: string;
     };
 
     const login = body.login?.trim().toLowerCase();
     const password = body.password;
+    const captchaRequired = isCaptchaRequired(ip);
+
+    if (captchaRequired) {
+      if (!verifyCaptchaChallenge(body.captchaId ?? "", body.captchaAnswer)) {
+        return NextResponse.json(
+          {
+            error: "Неверный ответ на проверку",
+            captchaRequired: true,
+          },
+          { status: 400 },
+        );
+      }
+    }
 
     if (!login || !password) {
       return NextResponse.json(
@@ -68,6 +89,8 @@ export async function POST(request: NextRequest) {
 
     const user = await prisma.user.findUnique({ where: { login } });
     if (!user || !(await verifyPassword(password, user.password))) {
+      recordLoginFailure(ip);
+
       void logSecurityEvent({
         type: SECURITY_EVENT_TYPES.LOGIN_FAIL,
         ipAddress: ip,
@@ -85,10 +108,15 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(
-        { error: "Неверный логин или пароль" },
+        {
+          error: "Неверный логин или пароль",
+          captchaRequired: true,
+        },
         { status: 401 },
       );
     }
+
+    clearLoginFailures(ip);
 
     const sessionUser = {
       id: user.id,

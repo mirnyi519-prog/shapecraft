@@ -6,60 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { ProductPhoto } from "@/components/product-photo";
 import { Button, Input, Textarea } from "@/components/ui";
 
-export function LoginForm() {
-  const router = useRouter();
-  const [login, setLogin] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
-    setLoading(true);
-    setError("");
-
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ login, password }),
-    });
-
-    if (!response.ok) {
-      const data = (await response.json()) as { error?: string };
-      setError(data.error ?? "Ошибка входа");
-      setLoading(false);
-      return;
-    }
-
-    router.push("/dashboard");
-    router.refresh();
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <Input
-        label="Логин"
-        type="text"
-        autoComplete="username"
-        value={login}
-        onChange={(event) => setLogin(event.target.value)}
-        required
-      />
-      <Input
-        label="Пароль"
-        type="password"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-        required
-      />
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <Button type="submit" className="min-h-11 w-full" disabled={loading}>
-        {loading ? "Вход..." : "Войти"}
-      </Button>
-    </form>
-  );
-}
+export { LoginForm } from "@/components/login-form";
 
 export function ProductForm({
   initial,
