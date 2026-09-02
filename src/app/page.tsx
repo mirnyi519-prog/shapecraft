@@ -34,7 +34,6 @@ export default async function HomePage() {
             Актуальные цены и остатки в пекарне
           </p>
         </div>
-        <WorldTrendsStrip articles={worldTrendArticles} />
         <ProductCatalog
           products={products}
           newProducts={newProducts}
@@ -42,6 +41,7 @@ export default async function HomePage() {
         />
         <LocationBlock />
         <FeedbackForm />
+        <WorldTrendsStrip articles={worldTrendArticles} />
       </div>
     </PublicShell>
   );
