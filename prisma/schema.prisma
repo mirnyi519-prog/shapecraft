@@ -112,6 +112,15 @@ model AppSetting {
   sessionEpoch      Int    @default(0)
 }
 
+model StoreBanner {
+  id        String   @id @default("default")
+  title     String   @default("")
+  text      String   @default("")
+  imageUrl  String?
+  active    Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+}
+
 model StockReceipt {
   id          String   @id @default(cuid())
   productId   String

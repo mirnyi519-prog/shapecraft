@@ -100,6 +100,18 @@ async function main() {
     });
   }
 
+  await prisma.storeBanner.upsert({
+    where: { id: "default" },
+    update: {},
+    create: {
+      id: "default",
+      title: "",
+      text: "",
+      imageUrl: null,
+      active: false,
+    },
+  });
+
   console.log("Seed complete");
   console.log(`Admin: ${adminLogin} / ${adminPassword}`);
   console.log(`Partner: ${partnerLogin} / ${partnerPassword}`);

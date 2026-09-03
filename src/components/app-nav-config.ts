@@ -3,6 +3,7 @@ export type NavIconName =
   | "dashboard"
   | "products"
   | "categories"
+  | "banner"
   | "sales"
   | "sale-new"
   | "settlements"
@@ -29,6 +30,7 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
     ...(admin
       ? [{ href: "/categories", label: "Разделы", icon: "categories" as const }]
       : []),
+    ...(admin ? [{ href: "/banner", label: "Баннер", icon: "banner" as const }] : []),
     { href: "/sales", label: "Продажи", icon: "sales" },
     { href: "/sales/new", label: "+ Продажа", icon: "sale-new" },
     { href: "/settlements", label: "Расчёты", icon: "settlements" },

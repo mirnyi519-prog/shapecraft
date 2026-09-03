@@ -32,6 +32,13 @@ const iconPaths: Record<NavIconName, ReactNode> = {
       <circle cx="19" cy="18" r="2" />
     </>
   ),
+  banner: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 10h18" />
+      <path d="M8 14h5" />
+    </>
+  ),
   sales: (
     <>
       <path d="M6 2h9l3 3v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" />
