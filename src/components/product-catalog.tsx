@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FeedbackModal } from "@/components/feedback-modal";
 import { ProductPhoto } from "@/components/product-photo";
 import { ProductSpecsBlock } from "@/components/product-specs-block";
 import { Badge, Button, Card } from "@/components/ui";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
 import { formatRub } from "@/lib/calculations";
+import type { CatalogCategory } from "@/lib/categories";
 import type { CatalogProduct } from "@/lib/catalog-product";
 import { hasListPrice } from "@/lib/pricing";
 
@@ -65,6 +66,18 @@ function ProductCard({
                 {product.stock === 0 ? "Нет" : `${product.stock} шт`}
               </Badge>
             </div>
+            {!compact && product.categories.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {product.categories.map((category) => (
+                  <span
+                    key={category.id}
+                    className="rounded-full bg-[var(--bg)] px-2 py-0.5 text-[11px] text-[var(--muted)]"
+                  >
+                    {category.name}
+                  </span>
+                ))}
+              </div>
+            ) : null}
             {!compact && product.description ? (
               <p className="mt-2 line-clamp-2 text-sm text-[var(--muted)]">
                 {product.description}
@@ -140,17 +153,20 @@ function HighlightStrip({
 
 export function ProductCatalog({
   products,
+  categories = [],
   newProducts = [],
   popularProducts = [],
   showCost = false,
 }: {
   products: CatalogProduct[];
+  categories?: CatalogCategory[];
   newProducts?: CatalogProduct[];
   popularProducts?: CatalogProduct[];
   showCost?: boolean;
 }) {
   const [selected, setSelected] = useState<CatalogProduct | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [categoryId, setCategoryId] = useState<string | null>(null);
 
   useScrollLock(Boolean(selected));
 
@@ -181,8 +197,18 @@ export function ProductCatalog({
     void fetch(`/api/products/${selected.id}/view`, { method: "POST" }).catch(() => {});
   }, [selected?.id]);
 
+  const filteredProducts = useMemo(() => {
+    if (!categoryId) {
+      return products;
+    }
+    return products.filter((product) =>
+      product.categories.some((category) => category.id === categoryId),
+    );
+  }, [products, categoryId]);
+
   const priced = selected ? hasListPrice(selected.listPrice) : false;
-  const hasHighlights = newProducts.length > 0 || popularProducts.length > 0;
+  const hasHighlights =
+    !categoryId && (newProducts.length > 0 || popularProducts.length > 0);
 
   if (products.length === 0 && !hasHighlights) {
     return (
@@ -194,6 +220,39 @@ export function ProductCatalog({
 
   return (
     <>
+      {categories.length > 0 ? (
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            type="button"
+            onClick={() => setCategoryId(null)}
+            className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition ${
+              categoryId === null
+                ? "bg-[var(--brand)] text-white"
+                : "border border-[var(--border)] bg-white text-[var(--text)] hover:bg-[var(--bg)]"
+            }`}
+          >
+            Все
+          </button>
+          {categories.map((category) => {
+            const active = categoryId === category.id;
+            return (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => setCategoryId(category.id)}
+                className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition ${
+                  active
+                    ? "bg-[var(--brand)] text-white"
+                    : "border border-[var(--border)] bg-white text-[var(--text)] hover:bg-[var(--bg)]"
+                }`}
+              >
+                {category.name}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
       {hasHighlights ? (
         <div className="mb-8 space-y-6">
           <HighlightStrip
@@ -213,11 +272,15 @@ export function ProductCatalog({
         </div>
       ) : null}
 
-      {products.length > 0 ? (
+      {filteredProducts.length > 0 ? (
         <>
-          <h2 className="mb-4 text-lg font-semibold">Все сувениры</h2>
+          <h2 className="mb-4 text-lg font-semibold">
+            {categoryId
+              ? categories.find((item) => item.id === categoryId)?.name ?? "Раздел"
+              : "Все сувениры"}
+          </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {products.map((product) => (
+            {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
@@ -227,7 +290,13 @@ export function ProductCatalog({
             ))}
           </div>
         </>
-      ) : null}
+      ) : (
+        <Card>
+          <p className="text-[var(--muted)]">
+            В этом разделе пока нет сувениров.
+          </p>
+        </Card>
+      )}
 
       {selected ? (
         <div
@@ -248,6 +317,18 @@ export function ProductCatalog({
                   <h2 id="product-dialog-title" className="text-2xl font-bold">
                     {selected.name}
                   </h2>
+                  {selected.categories.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {selected.categories.map((category) => (
+                        <span
+                          key={category.id}
+                          className="rounded-full bg-[var(--bg)] px-2 py-0.5 text-xs text-[var(--muted)]"
+                        >
+                          {category.name}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     {priced ? (
                       <p className="text-xl font-bold text-[var(--brand)]">

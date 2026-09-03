@@ -38,6 +38,30 @@ model Product {
   receipts         StockReceipt[]
   priceHistory     PriceHistory[]
   feedbackMessages FeedbackMessage[]
+  categories       ProductCategory[]
+}
+
+model Category {
+  id        String            @id @default(cuid())
+  name      String            @unique
+  slug      String            @unique
+  sortOrder Int               @default(0)
+  active    Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  products  ProductCategory[]
+
+  @@index([active, sortOrder])
+}
+
+model ProductCategory {
+  productId  String
+  categoryId String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@index([categoryId])
 }
 
 model PriceHistory {

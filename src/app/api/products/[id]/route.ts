@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { parseCategoryIds } from "@/lib/categories";
+import { syncProductCategories } from "@/lib/categories-data";
 import { parseOptionalNumber } from "@/lib/product-specs";
 import { parseOptionalPrice } from "@/lib/pricing";
 
@@ -23,6 +25,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         priceHistory: {
           orderBy: { changedAt: "desc" },
           take: 50,
+        },
+        categories: {
+          include: {
+            category: {
+              select: { id: true, name: true, slug: true, active: true },
+            },
+          },
         },
       },
     });
@@ -60,6 +69,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       widthMm?: number | null;
       heightMm?: number | null;
       depthMm?: number | null;
+      categoryIds?: string[];
     };
 
     const existing = await prisma.product.findUnique({ where: { id } });
@@ -75,6 +85,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const priceChanged =
       listPriceProvided &&
       (existing.listPrice ?? null) !== (nextListPrice ?? null);
+
+    const categoryIdsProvided = Object.prototype.hasOwnProperty.call(
+      body,
+      "categoryIds",
+    );
+    const categoryIds = categoryIdsProvided
+      ? parseCategoryIds(body.categoryIds)
+      : null;
 
     const product = await prisma.$transaction(async (tx) => {
       const updated = await tx.product.update({
@@ -122,7 +140,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return updated;
     });
 
-    return NextResponse.json(product);
+    if (categoryIds) {
+      await syncProductCategories(id, categoryIds);
+    }
+
+    const withCategories = await prisma.product.findUnique({
+      where: { id: product.id },
+      include: {
+        categories: {
+          include: { category: true },
+        },
+      },
+    });
+
+    return NextResponse.json(withCategories);
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 });

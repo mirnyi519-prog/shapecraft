@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { parseCategoryIds } from "@/lib/categories";
+import { syncProductCategories } from "@/lib/categories-data";
 import { parseOptionalNumber } from "@/lib/product-specs";
 import { parseOptionalPrice } from "@/lib/pricing";
 
@@ -11,6 +13,13 @@ export async function GET() {
       orderBy: { updatedAt: "desc" },
       include: {
         _count: { select: { sales: true } },
+        categories: {
+          include: {
+            category: {
+              select: { id: true, name: true, slug: true, active: true },
+            },
+          },
+        },
       },
     });
     return NextResponse.json(products);
@@ -40,6 +49,7 @@ export async function POST(request: NextRequest) {
       widthMm?: number | null;
       heightMm?: number | null;
       depthMm?: number | null;
+      categoryIds?: string[];
     };
 
     if (!body.name?.trim()) {
@@ -54,6 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     const listPrice = parseOptionalPrice(body.listPrice);
+    const categoryIds = parseCategoryIds(body.categoryIds);
 
     const product = await prisma.$transaction(async (tx) => {
       const created = await tx.product.create({
@@ -85,7 +96,18 @@ export async function POST(request: NextRequest) {
       return created;
     });
 
-    return NextResponse.json(product, { status: 201 });
+    await syncProductCategories(product.id, categoryIds);
+
+    const withCategories = await prisma.product.findUnique({
+      where: { id: product.id },
+      include: {
+        categories: {
+          include: { category: true },
+        },
+      },
+    });
+
+    return NextResponse.json(withCategories, { status: 201 });
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 });

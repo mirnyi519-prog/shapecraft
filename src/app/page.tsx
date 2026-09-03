@@ -3,6 +3,7 @@ import { FeedbackForm } from "@/components/feedback-form";
 import { LocationBlock } from "@/components/location-block";
 import { PublicShell } from "@/components/public-shell";
 import { WorldTrendsStrip } from "@/components/world-trends-strip";
+import { listActiveCategories } from "@/lib/categories-data";
 import {
   getActiveCatalogProducts,
   getNewCatalogProducts,
@@ -14,12 +15,14 @@ import {
 } from "@/lib/world-trends-data";
 
 export default async function HomePage() {
-  const [products, newProducts, popularProducts, worldBatch] = await Promise.all([
-    getActiveCatalogProducts(),
-    getNewCatalogProducts(6),
-    getPopularCatalogProducts(6),
-    getLatestWorldTrendBatchView(),
-  ]);
+  const [products, newProducts, popularProducts, categories, worldBatch] =
+    await Promise.all([
+      getActiveCatalogProducts(),
+      getNewCatalogProducts(6),
+      getPopularCatalogProducts(6),
+      listActiveCategories(),
+      getLatestWorldTrendBatchView(),
+    ]);
 
   const worldTrendArticles = worldBatch
     ? pickWorldTrendHighlights(worldBatch.articles, 6)
@@ -36,6 +39,7 @@ export default async function HomePage() {
         </div>
         <ProductCatalog
           products={products}
+          categories={categories}
           newProducts={newProducts}
           popularProducts={popularProducts}
         />

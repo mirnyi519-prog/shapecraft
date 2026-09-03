@@ -21,19 +21,33 @@ export default async function ProductDetailPage({ params }: PageProps) {
   }
 
   const { id } = await params;
-  const product = await prisma.product.findUnique({
-    where: { id },
-    include: {
-      sales: {
-        orderBy: { soldAt: "desc" },
-        take: 10,
+  const [product, categoryOptions] = await Promise.all([
+    prisma.product.findUnique({
+      where: { id },
+      include: {
+        sales: {
+          orderBy: { soldAt: "desc" },
+          take: 10,
+        },
+        priceHistory: {
+          orderBy: { changedAt: "desc" },
+          take: 30,
+        },
+        categories: {
+          include: {
+            category: {
+              select: { id: true, name: true, active: true },
+            },
+          },
+        },
       },
-      priceHistory: {
-        orderBy: { changedAt: "desc" },
-        take: 30,
-      },
-    },
-  });
+    }),
+    prisma.category.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: { id: true, name: true },
+    }),
+  ]);
 
   if (!product) {
     notFound();
@@ -110,6 +124,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
         >
           <ProductForm
             canEditCost
+            categories={categoryOptions}
             initial={{
               id: product.id,
               name: product.name,
@@ -137,6 +152,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
                 product.depthMm === null || product.depthMm === undefined
                   ? ""
                   : String(product.depthMm),
+              categoryIds: product.categories.map((item) => item.category.id),
             }}
           />
         </Card>

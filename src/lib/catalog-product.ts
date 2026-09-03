@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getTopSoldProducts } from "@/lib/sales-stats";
+import type { CatalogCategory } from "@/lib/categories";
 
 export const catalogProductSelect = {
   id: true,
@@ -14,6 +15,13 @@ export const catalogProductSelect = {
   depthMm: true,
   createdAt: true,
   viewCount: true,
+  categories: {
+    include: {
+      category: {
+        select: { id: true, name: true, slug: true, active: true, sortOrder: true },
+      },
+    },
+  },
 } as const;
 
 export type CatalogProduct = {
@@ -30,6 +38,7 @@ export type CatalogProduct = {
   createdAt?: string;
   viewCount?: number;
   costPrice?: number;
+  categories: CatalogCategory[];
 };
 
 type DbProduct = {
@@ -45,6 +54,15 @@ type DbProduct = {
   depthMm: number | null;
   createdAt: Date;
   viewCount: number;
+  categories: {
+    category: {
+      id: string;
+      name: string;
+      slug: string;
+      active: boolean;
+      sortOrder: number;
+    };
+  }[];
 };
 
 function mapProduct(product: DbProduct): CatalogProduct {
@@ -61,6 +79,15 @@ function mapProduct(product: DbProduct): CatalogProduct {
     depthMm: product.depthMm,
     createdAt: product.createdAt?.toISOString(),
     viewCount: product.viewCount,
+    categories: product.categories
+      .map((item) => item.category)
+      .filter((category) => category.active)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "ru"))
+      .map((category) => ({
+        id: category.id,
+        name: category.name,
+        slug: category.slug,
+      })),
   };
 }
 

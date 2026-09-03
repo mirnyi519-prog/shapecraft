@@ -76,6 +76,30 @@ async function main() {
     },
   });
 
+  const starterCategories = [
+    { name: "Кликеры", slug: "klikery", sortOrder: 10 },
+    { name: "Хэллоуин", slug: "hellouin", sortOrder: 20 },
+    { name: "Антистресс", slug: "antistress", sortOrder: 30 },
+    { name: "Коллекционные", slug: "kollektsionnye", sortOrder: 40 },
+  ];
+
+  for (const category of starterCategories) {
+    await prisma.category.upsert({
+      where: { slug: category.slug },
+      update: {
+        name: category.name,
+        sortOrder: category.sortOrder,
+        active: true,
+      },
+      create: {
+        name: category.name,
+        slug: category.slug,
+        sortOrder: category.sortOrder,
+        active: true,
+      },
+    });
+  }
+
   console.log("Seed complete");
   console.log(`Admin: ${adminLogin} / ${adminPassword}`);
   console.log(`Partner: ${partnerLogin} / ${partnerPassword}`);

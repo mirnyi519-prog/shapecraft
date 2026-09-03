@@ -3,6 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui";
 import { ProductForm } from "@/components/forms";
 import { getSession } from "@/lib/auth";
+import { listCategoryOptions } from "@/lib/categories-data";
 
 export default async function NewProductPage() {
   const session = await getSession();
@@ -14,6 +15,8 @@ export default async function NewProductPage() {
     redirect("/products");
   }
 
+  const categories = await listCategoryOptions();
+
   return (
     <AppShell>
       <div className="mx-auto max-w-2xl space-y-6">
@@ -22,7 +25,10 @@ export default async function NewProductPage() {
           <p className="text-[var(--muted)]">Карточка сувенира для учёта и продаж</p>
         </div>
         <Card>
-          <ProductForm canEditCost />
+          <ProductForm
+            canEditCost
+            categories={categories.map((item) => ({ id: item.id, name: item.name }))}
+          />
         </Card>
       </div>
     </AppShell>

@@ -11,9 +11,11 @@ export { LoginForm } from "@/components/login-form";
 export function ProductForm({
   initial,
   canEditCost = false,
+  categories = [],
 }: {
   initial?: ProductFormValues;
   canEditCost?: boolean;
+  categories?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [values, setValues] = useState<ProductFormValues>(
@@ -28,6 +30,7 @@ export function ProductForm({
       widthMm: "",
       heightMm: "",
       depthMm: "",
+      categoryIds: [],
     },
   );
   const [uploading, setUploading] = useState(false);
@@ -114,7 +117,7 @@ export function ProductForm({
     setLoading(true);
     setError("");
 
-    const payload: Record<string, string | number | null | undefined> = {
+    const payload: Record<string, string | number | string[] | null | undefined> = {
       name: values.name,
       description: values.description,
       imageUrl: values.imageUrl || undefined,
@@ -126,6 +129,7 @@ export function ProductForm({
       widthMm: values.widthMm.trim() === "" ? null : Number(values.widthMm),
       heightMm: values.heightMm.trim() === "" ? null : Number(values.heightMm),
       depthMm: values.depthMm.trim() === "" ? null : Number(values.depthMm),
+      categoryIds: values.categoryIds,
     };
 
     if (canEditCost) {
@@ -177,6 +181,44 @@ export function ProductForm({
           setValues({ ...values, description: event.target.value })
         }
       />
+      {categories.length > 0 ? (
+        <div className="space-y-2">
+          <span className="text-sm font-medium">Разделы витрины</span>
+          <p className="text-sm text-[var(--muted)]">
+            Можно выбрать несколько. Клиент фильтрует по ним на витрине.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((category) => {
+              const selected = values.categoryIds.includes(category.id);
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() =>
+                    setValues((current) => ({
+                      ...current,
+                      categoryIds: selected
+                        ? current.categoryIds.filter((id) => id !== category.id)
+                        : [...current.categoryIds, category.id],
+                    }))
+                  }
+                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                    selected
+                      ? "bg-[var(--brand)] text-white"
+                      : "border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] hover:bg-white"
+                  }`}
+                >
+                  {category.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <p className="rounded-xl bg-[var(--bg)] px-4 py-3 text-sm text-[var(--muted)]">
+          Разделы пока не созданы. Добавьте их в меню «Разделы».
+        </p>
+      )}
       <div className="space-y-2">
         <span className="text-sm font-medium">Фото</span>
         <input
@@ -371,6 +413,7 @@ export type ProductFormValues = {
   widthMm: string;
   heightMm: string;
   depthMm: string;
+  categoryIds: string[];
 };
 
 type ProductOption = {

@@ -24,6 +24,14 @@ const iconPaths: Record<NavIconName, ReactNode> = {
       <path d="M12 12 3 8" />
     </>
   ),
+  categories: (
+    <>
+      <path d="M4 6h16" />
+      <path d="M4 12h16" />
+      <path d="M4 18h10" />
+      <circle cx="19" cy="18" r="2" />
+    </>
+  ),
   sales: (
     <>
       <path d="M6 2h9l3 3v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" />
