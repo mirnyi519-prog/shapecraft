@@ -13,7 +13,6 @@ import {
 } from "@/lib/catalog-product";
 import {
   getLatestWorldTrendBatchView,
-  pickWorldTrendHighlights,
 } from "@/lib/world-trends-data";
 
 export default async function HomePage() {
@@ -27,9 +26,7 @@ export default async function HomePage() {
       getLatestWorldTrendBatchView(),
     ]);
 
-  const worldTrendArticles = worldBatch
-    ? pickWorldTrendHighlights(worldBatch.articles, 6)
-    : [];
+  const worldTrendArticles = worldBatch?.articles ?? [];
 
   return (
     <PublicShell>

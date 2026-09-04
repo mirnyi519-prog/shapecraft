@@ -1,10 +1,16 @@
 import Image from "next/image";
 import { Badge, Card } from "@/components/ui";
-import type { WorldTrendArticleView } from "@/lib/world-trends";
+import {
+  WORLD_TIER_HINTS,
+  WORLD_TIER_LABELS,
+  WORLD_TIER_ORDER,
+  groupArticlesByTier,
+  type WorldTrendArticleView,
+} from "@/lib/world-trends";
 
 function WorldTrendCard({ article }: { article: WorldTrendArticleView }) {
   return (
-    <Card className="h-full w-[17rem] shrink-0 overflow-hidden p-0 sm:w-[19rem]">
+    <Card className="h-full overflow-hidden p-0">
       <div className="relative aspect-[4/3] bg-[var(--brand-soft)]">
         {article.imageUrl ? (
           <Image
@@ -12,7 +18,7 @@ function WorldTrendCard({ article }: { article: WorldTrendArticleView }) {
             alt={article.name}
             fill
             className="object-cover"
-            sizes="19rem"
+            sizes="(max-width: 768px) 100vw, 33vw"
             unoptimized
           />
         ) : (
@@ -45,22 +51,41 @@ export function WorldTrendsStrip({
     return null;
   }
 
+  const grouped = groupArticlesByTier(articles);
+
   return (
-    <section className="space-y-3">
+    <section className="space-y-6">
       <div>
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-lg font-semibold">Сейчас в тренде у 3D-мейкеров</h2>
           <Badge tone="neutral">мир</Badge>
         </div>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Подборка идей, которые сейчас популярны у 3D-печатников по всему миру
+          Подборка идей, которые сейчас популярны у 3D-печатников по всему миру ·{" "}
+          {articles.length} моделей
         </p>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {articles.map((article) => (
-          <WorldTrendCard key={article.id} article={article} />
-        ))}
-      </div>
+
+      {WORLD_TIER_ORDER.map((tier) => {
+        const tierArticles = grouped[tier];
+        if (tierArticles.length === 0) {
+          return null;
+        }
+
+        return (
+          <div key={tier} className="space-y-3">
+            <div>
+              <h3 className="text-base font-semibold">{WORLD_TIER_LABELS[tier]}</h3>
+              <p className="text-sm text-[var(--muted)]">{WORLD_TIER_HINTS[tier]}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {tierArticles.map((article) => (
+                <WorldTrendCard key={article.id} article={article} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </section>
   );
 }
