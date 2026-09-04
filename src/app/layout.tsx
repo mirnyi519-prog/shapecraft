@@ -8,7 +8,7 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "ShapeCraft — учёт 3D-печати",
+  title: "ShapeCraft — 3D-печать",
   description: "Учёт товаров, продаж и расчётов ShapeCraft",
 };
 
