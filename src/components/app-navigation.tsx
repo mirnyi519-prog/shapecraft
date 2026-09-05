@@ -175,7 +175,7 @@ export function MobileAppNav({ items }: { items: AppNavItem[] }) {
         return (
           <div
             key={`${item.href}-children`}
-            className="mt-2 flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="mt-2 flex flex-col gap-1"
           >
             {item.children.map((child) => {
               const active = isNavItemActive(pathname, child.href, search);
@@ -183,7 +183,7 @@ export function MobileAppNav({ items }: { items: AppNavItem[] }) {
                 <Link
                   key={child.href}
                   href={child.href}
-                  className={mobileLinkClass(active)}
+                  className={`${mobileLinkClass(active)} w-full text-left`}
                   aria-current={active ? "page" : undefined}
                 >
                   {child.label}
