@@ -7,10 +7,10 @@ import {
 } from "@/lib/auth";
 import { verifyCaptchaChallenge } from "@/lib/captcha";
 import { prisma } from "@/lib/db";
-import { isIpBlocked } from "@/lib/access-control";
+import { blockIpAddress, isIpBlocked } from "@/lib/access-control";
 import {
+  LOGIN_FAIL_LOCK_THRESHOLD,
   clearLoginFailures,
-  isCaptchaRequired,
   recordLoginFailure,
 } from "@/lib/login-guard";
 import { rateLimit } from "@/lib/rate-limit";
@@ -24,6 +24,20 @@ import {
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 8;
 
+export async function GET(request: NextRequest) {
+  try {
+    const ip = clientIpFromRequest(request);
+    const blocked = await isIpBlocked(ip);
+    return NextResponse.json({
+      ok: true,
+      loginBlocked: blocked,
+      captchaRequired: true,
+    });
+  } catch {
+    return NextResponse.json({ error: "Ошибка проверки" }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const ip = clientIpFromRequest(request);
@@ -35,7 +49,13 @@ export async function POST(request: NextRequest) {
         path: "/api/auth/login",
         detail: "Попытка входа с заблокированного IP",
       });
-      return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
+      return NextResponse.json(
+        {
+          error: "Доступ запрещён. Слишком много неудачных попыток входа.",
+          loginBlocked: true,
+        },
+        { status: 403 },
+      );
     }
 
     const attemptLimit = rateLimit({
@@ -66,18 +86,15 @@ export async function POST(request: NextRequest) {
 
     const login = body.login?.trim().toLowerCase();
     const password = body.password;
-    const captchaRequired = isCaptchaRequired(ip);
 
-    if (captchaRequired) {
-      if (!verifyCaptchaChallenge(body.captchaId ?? "", body.captchaAnswer)) {
-        return NextResponse.json(
-          {
-            error: "Неверный ответ на проверку",
-            captchaRequired: true,
-          },
-          { status: 400 },
-        );
-      }
+    if (!verifyCaptchaChallenge(body.captchaId ?? "", body.captchaAnswer)) {
+      return NextResponse.json(
+        {
+          error: "Неверный ответ на проверку",
+          captchaRequired: true,
+        },
+        { status: 400 },
+      );
     }
 
     if (!login || !password) {
@@ -89,14 +106,37 @@ export async function POST(request: NextRequest) {
 
     const user = await prisma.user.findUnique({ where: { login } });
     if (!user || !(await verifyPassword(password, user.password))) {
-      recordLoginFailure(ip);
+      const failCount = recordLoginFailure(ip);
 
       void logSecurityEvent({
         type: SECURITY_EVENT_TYPES.LOGIN_FAIL,
         ipAddress: ip,
         path: "/api/auth/login",
-        detail: `Логин: ${login}`,
+        detail: `Логин: ${login}; попытка ${failCount}/${LOGIN_FAIL_LOCK_THRESHOLD}`,
       });
+
+      if (failCount >= LOGIN_FAIL_LOCK_THRESHOLD) {
+        await blockIpAddress(
+          ip,
+          `Автоблок: ${LOGIN_FAIL_LOCK_THRESHOLD} неудачных входа`,
+        );
+        void logSecurityEvent({
+          type: SECURITY_EVENT_TYPES.LOGIN_LOCK,
+          ipAddress: ip,
+          path: "/api/auth/login",
+          detail: `IP заблокирован после ${LOGIN_FAIL_LOCK_THRESHOLD} ошибок (${login})`,
+        });
+
+        return NextResponse.json(
+          {
+            error:
+              "Доступ запрещён. Слишком много неудачных попыток входа.",
+            loginBlocked: true,
+            captchaRequired: true,
+          },
+          { status: 403 },
+        );
+      }
 
       if (attemptLimit.remaining === 0) {
         void logSecurityEvent({
@@ -111,6 +151,7 @@ export async function POST(request: NextRequest) {
         {
           error: "Неверный логин или пароль",
           captchaRequired: true,
+          attemptsLeft: LOGIN_FAIL_LOCK_THRESHOLD - failCount,
         },
         { status: 401 },
       );

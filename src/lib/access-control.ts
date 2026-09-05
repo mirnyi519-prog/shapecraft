@@ -55,6 +55,27 @@ export async function listBlockedIps(): Promise<
   return merged;
 }
 
+export async function blockIpAddress(
+  ip: string,
+  reason?: string | null,
+): Promise<void> {
+  const trimmed = ip.trim();
+  if (!trimmed || trimmed === "unknown") {
+    return;
+  }
+
+  await prisma.blockedIp.upsert({
+    where: { ipAddress: trimmed },
+    update: {
+      reason: reason?.trim() || null,
+    },
+    create: {
+      ipAddress: trimmed,
+      reason: reason?.trim() || null,
+    },
+  });
+}
+
 export async function getSessionEpoch(): Promise<number> {
   const setting = await prisma.appSetting.findUnique({
     where: { id: "default" },

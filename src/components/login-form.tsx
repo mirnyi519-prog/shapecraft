@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button, Input } from "@/components/ui";
 
 type CaptchaState = {
@@ -9,13 +9,13 @@ type CaptchaState = {
   question: string;
 };
 
-export function LoginForm() {
+export function LoginForm({ initiallyBlocked = false }: { initiallyBlocked?: boolean }) {
   const router = useRouter();
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [captchaAnswer, setCaptchaAnswer] = useState("");
   const [captcha, setCaptcha] = useState<CaptchaState | null>(null);
-  const [captchaRequired, setCaptchaRequired] = useState(false);
+  const [loginBlocked, setLoginBlocked] = useState(initiallyBlocked);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -31,8 +31,19 @@ export function LoginForm() {
     setCaptchaAnswer("");
   }, []);
 
+  useEffect(() => {
+    if (loginBlocked) {
+      return;
+    }
+    void loadCaptcha();
+  }, [loadCaptcha, loginBlocked]);
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (loginBlocked) {
+      return;
+    }
+
     setLoading(true);
     setError("");
 
@@ -44,29 +55,52 @@ export function LoginForm() {
         login,
         password,
         captchaId: captcha?.id,
-        captchaAnswer: captchaRequired ? captchaAnswer : undefined,
+        captchaAnswer,
       }),
     });
 
     const data = (await response.json()) as {
       error?: string;
       captchaRequired?: boolean;
+      loginBlocked?: boolean;
+      attemptsLeft?: number;
     };
 
     if (!response.ok) {
-      setError(data.error ?? "Ошибка входа");
-
-      if (data.captchaRequired) {
-        setCaptchaRequired(true);
-        await loadCaptcha();
+      if (data.loginBlocked) {
+        setLoginBlocked(true);
+        setError(
+          data.error ??
+            "Доступ запрещён. Слишком много неудачных попыток входа.",
+        );
+        setLoading(false);
+        return;
       }
 
+      setError(
+        data.attemptsLeft !== undefined
+          ? `${data.error ?? "Ошибка входа"} Осталось попыток: ${data.attemptsLeft}.`
+          : (data.error ?? "Ошибка входа"),
+      );
+      await loadCaptcha();
       setLoading(false);
       return;
     }
 
     router.push("/dashboard");
     router.refresh();
+  }
+
+  if (loginBlocked) {
+    return (
+      <div className="space-y-3 rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-800">
+        <p className="font-medium">Вход для этого устройства заблокирован</p>
+        <p>
+          Слишком много неудачных попыток. Кнопка «Вход» скрыта. Разблокировку
+          может сделать администратор в разделе «Безопасность».
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -87,11 +121,14 @@ export function LoginForm() {
         onChange={(event) => setPassword(event.target.value)}
         required
       />
-      {captchaRequired && captcha ? (
+      {captcha ? (
         <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] px-4 py-3">
           <p className="text-sm font-medium">Проверка</p>
           <p className="text-sm text-[var(--muted)]">
-            Решите пример: <span className="font-semibold text-[var(--text)]">{captcha.question}</span>
+            Решите пример:{" "}
+            <span className="font-semibold text-[var(--text)]">
+              {captcha.question}
+            </span>
           </p>
           <Input
             label="Ответ"
@@ -110,9 +147,15 @@ export function LoginForm() {
             Другой пример
           </button>
         </div>
-      ) : null}
+      ) : (
+        <p className="text-sm text-[var(--muted)]">Загрузка проверки…</p>
+      )}
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      <Button type="submit" className="min-h-11 w-full" disabled={loading}>
+      <Button
+        type="submit"
+        className="min-h-11 w-full"
+        disabled={loading || !captcha}
+      >
         {loading ? "Вход..." : "Войти"}
       </Button>
     </form>

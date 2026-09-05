@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
+import { isIpBlocked } from "@/lib/access-control";
+import { getRequestIp } from "@/lib/request-ip";
 import { LogoutButton } from "@/components/logout-button";
 import { ShopMark } from "@/components/shop-mark";
 import { Button } from "@/components/ui";
 
 export async function PublicShell({ children }: { children: React.ReactNode }) {
   const session = await getSession();
+  const ip = await getRequestIp();
+  const loginBlocked = !session ? await isIpBlocked(ip) : false;
 
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
@@ -35,7 +39,7 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
                 </Link>
                 <LogoutButton />
               </>
-            ) : (
+            ) : loginBlocked ? null : (
               <ShopMark href="/login" label="Вход" />
             )}
           </div>

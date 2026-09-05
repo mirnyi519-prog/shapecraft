@@ -14,6 +14,7 @@ export type ProductCardData = {
   costPrice: number;
   stock: number;
   active: boolean;
+  categories: { id: string; name: string }[];
 };
 
 export function ProductAdminCard({
@@ -77,6 +78,18 @@ export function ProductAdminCard({
             <p className="mt-2 line-clamp-2 text-sm text-[var(--muted)]">
               {product.description}
             </p>
+          ) : null}
+          {product.categories.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {product.categories.map((category) => (
+                <span
+                  key={category.id}
+                  className="rounded-full bg-[var(--bg)] px-2 py-0.5 text-[11px] text-[var(--muted)]"
+                >
+                  {category.name}
+                </span>
+              ))}
+            </div>
           ) : null}
         </div>
         <div className="flex flex-col gap-2">

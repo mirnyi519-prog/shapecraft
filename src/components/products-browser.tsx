@@ -26,7 +26,8 @@ function scoreProduct(product: ProductCardData, tokens: string[]): number {
 
   const name = normalize(product.name);
   const description = normalize(product.description ?? "");
-  const haystack = `${name} ${description}`;
+  const categories = normalize(product.categories.map((item) => item.name).join(" "));
+  const haystack = `${name} ${description} ${categories}`;
   const priced = hasListPrice(product.listPrice);
   let score = 0;
 
@@ -96,6 +97,9 @@ function scoreProduct(product: ProductCardData, tokens: string[]): number {
     } else if (name.includes(token)) {
       matched = true;
       score += 5;
+    } else if (categories.includes(token)) {
+      matched = true;
+      score += 6;
     } else if (description.includes(token)) {
       matched = true;
       score += 3;
@@ -123,13 +127,16 @@ const CHIPS: { id: FilterChip; label: string; adminOnly?: boolean }[] = [
 
 export function ProductsBrowser({
   products,
+  categories = [],
   isAdmin,
 }: {
   products: ProductCardData[];
+  categories?: { id: string; name: string }[];
   isAdmin: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [chip, setChip] = useState<FilterChip>("all");
+  const [categoryId, setCategoryId] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query);
 
   const filtered = useMemo(() => {
@@ -150,8 +157,13 @@ export function ProductsBrowser({
       }
     });
 
+    const byCategory = categoryId
+      ? byChip.filter((product) =>
+          product.categories.some((category) => category.id === categoryId),
+        )
+      : byChip;
+
     const normalized = normalize(deferredQuery);
-    // «без цены» / «нет прайса» как один токен
     const compact = normalized
       .replace(/\bбез\s+цены\b/g, "безцены")
       .replace(/\bбез\s+прайса\b/g, "безпрайса")
@@ -163,10 +175,10 @@ export function ProductsBrowser({
 
     const tokens = compact.split(" ").filter(Boolean);
     if (tokens.length === 0) {
-      return byChip;
+      return byCategory;
     }
 
-    return byChip
+    return byCategory
       .map((product) => ({
         product,
         score: scoreProduct(product, tokens),
@@ -174,7 +186,7 @@ export function ProductsBrowser({
       .filter((row) => row.score > 0)
       .sort((a, b) => b.score - a.score)
       .map((row) => row.product);
-  }, [products, chip, deferredQuery]);
+  }, [products, chip, categoryId, deferredQuery]);
 
   return (
     <div className="space-y-4">
@@ -185,7 +197,7 @@ export function ProductsBrowser({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Название, описание, цена, «без прайса», «мало»…"
+            placeholder="Название, раздел, описание, цена, «без прайса», «мало»…"
             className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base outline-none ring-[var(--brand)] focus:ring-2"
             autoComplete="off"
           />
@@ -209,6 +221,41 @@ export function ProductsBrowser({
             );
           })}
         </div>
+        {categories.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Раздел</p>
+            <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <button
+                type="button"
+                onClick={() => setCategoryId(null)}
+                className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition ${
+                  categoryId === null
+                    ? "bg-[var(--brand)] text-white"
+                    : "border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] hover:bg-white"
+                }`}
+              >
+                Все разделы
+              </button>
+              {categories.map((category) => {
+                const active = categoryId === category.id;
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => setCategoryId(category.id)}
+                    className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition ${
+                      active
+                        ? "bg-[var(--brand)] text-white"
+                        : "border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] hover:bg-white"
+                    }`}
+                  >
+                    {category.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
         <p className="text-sm text-[var(--muted)]">
           Найдено: {filtered.length} из {products.length}
         </p>

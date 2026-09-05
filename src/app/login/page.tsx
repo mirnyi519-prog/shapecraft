@@ -2,8 +2,13 @@ import Link from "next/link";
 import { Card } from "@/components/ui";
 import { LoginForm } from "@/components/forms";
 import { ShopMarkIcon } from "@/components/shop-mark";
+import { isIpBlocked } from "@/lib/access-control";
+import { getRequestIp } from "@/lib/request-ip";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const ip = await getRequestIp();
+  const loginBlocked = await isIpBlocked(ip);
+
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-8 sm:py-10">
       <div className="w-full max-w-md">
@@ -16,7 +21,7 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-[var(--muted)]">Вход по логину</p>
         </div>
         <Card title="Вход">
-          <LoginForm />
+          <LoginForm initiallyBlocked={loginBlocked} />
         </Card>
         <p className="mt-4 text-center">
           <Link href="/" className="text-sm text-[var(--muted)] underline-offset-2 hover:underline">

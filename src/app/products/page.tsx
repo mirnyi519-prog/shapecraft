@@ -3,6 +3,7 @@ import { AppShell } from "@/components/app-shell";
 import { ProductsBrowser } from "@/components/products-browser";
 import { Button, Card } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
+import { listActiveCategories } from "@/lib/categories-data";
 import { prisma } from "@/lib/db";
 
 export default async function ProductsPage() {
@@ -13,10 +14,22 @@ export default async function ProductsPage() {
 
   const admin = isAdmin(session.role);
 
-  const products = await prisma.product.findMany({
-    where: admin ? undefined : { active: true },
-    orderBy: [{ active: "desc" }, { updatedAt: "desc" }],
-  });
+  const [products, categories] = await Promise.all([
+    prisma.product.findMany({
+      where: admin ? undefined : { active: true },
+      orderBy: [{ active: "desc" }, { updatedAt: "desc" }],
+      include: {
+        categories: {
+          include: {
+            category: {
+              select: { id: true, name: true, active: true, sortOrder: true },
+            },
+          },
+        },
+      },
+    }),
+    listActiveCategories(),
+  ]);
 
   return (
     <AppShell>
@@ -40,7 +53,28 @@ export default async function ProductsPage() {
             <p className="text-[var(--muted)]">Каталог пуст. Добавьте первый товар.</p>
           </Card>
         ) : (
-          <ProductsBrowser products={products} isAdmin={admin} />
+          <ProductsBrowser
+            isAdmin={admin}
+            categories={categories.map((item) => ({ id: item.id, name: item.name }))}
+            products={products.map((product) => ({
+              id: product.id,
+              name: product.name,
+              description: product.description,
+              imageUrl: product.imageUrl,
+              listPrice: product.listPrice,
+              costPrice: product.costPrice,
+              stock: product.stock,
+              active: product.active,
+              categories: product.categories
+                .map((item) => item.category)
+                .filter((category) => category.active)
+                .sort(
+                  (a, b) =>
+                    a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "ru"),
+                )
+                .map((category) => ({ id: category.id, name: category.name })),
+            }))}
+          />
         )}
       </div>
     </AppShell>
