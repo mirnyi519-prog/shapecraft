@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 import type { AppNavItem } from "@/components/app-nav-config";
 import {
   DesktopAppSidebar,
@@ -31,7 +32,9 @@ export function AppShellFrame({
 
   return (
     <>
-      <DesktopAppSidebar items={navItems} userName={sessionName} />
+      <Suspense fallback={null}>
+        <DesktopAppSidebar items={navItems} userName={sessionName} />
+      </Suspense>
 
       <div className={showFeedbackPanel ? "lg:pl-60 lg:pr-80" : "lg:pl-60"}>
         <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-white/95 backdrop-blur lg:border-b-0 lg:bg-transparent lg:backdrop-blur-none">
@@ -54,7 +57,9 @@ export function AppShellFrame({
               <LogoutButton />
             </div>
           </div>
-          <MobileAppNav items={navItems} />
+          <Suspense fallback={null}>
+            <MobileAppNav items={navItems} />
+          </Suspense>
         </header>
 
         <main className="mx-auto max-w-6xl px-4 py-4 pb-10 sm:py-6">{children}</main>

@@ -2,13 +2,14 @@
 
 import { useDeferredValue, useMemo, useState } from "react";
 import {
+  type ProductsView,
+} from "@/components/app-nav-config";
+import {
   ProductAdminCard,
   type ProductCardData,
 } from "@/components/product-admin-card";
 import { Card } from "@/components/ui";
 import { hasListPrice } from "@/lib/pricing";
-
-type FilterChip = "all" | "archive" | "no-price" | "low-stock" | "in-stock" | "out";
 
 function normalize(text: string): string {
   return text
@@ -116,52 +117,42 @@ function scoreProduct(product: ProductCardData, tokens: string[]): number {
   return score;
 }
 
-const CHIPS: { id: FilterChip; label: string; adminOnly?: boolean }[] = [
-  { id: "all", label: "На витрине" },
-  { id: "archive", label: "Архив", adminOnly: true },
-  { id: "no-price", label: "Без прайса" },
-  { id: "low-stock", label: "Мало" },
-  { id: "in-stock", label: "В наличии" },
-  { id: "out", label: "Нет в наличии" },
-];
+function matchesView(product: ProductCardData, view: ProductsView): boolean {
+  switch (view) {
+    case "archive":
+      return !product.active;
+    case "no-price":
+      return product.active && !hasListPrice(product.listPrice);
+    case "out":
+      return product.active && product.stock === 0;
+    default:
+      return product.active;
+  }
+}
 
 export function ProductsBrowser({
   products,
   categories = [],
   isAdmin,
+  view = "all",
 }: {
   products: ProductCardData[];
   categories?: { id: string; name: string }[];
   isAdmin: boolean;
+  view?: ProductsView;
 }) {
   const [query, setQuery] = useState("");
-  const [chip, setChip] = useState<FilterChip>("all");
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query);
 
   const filtered = useMemo(() => {
-    const byChip = products.filter((product) => {
-      switch (chip) {
-        case "archive":
-          return !product.active;
-        case "no-price":
-          return product.active && !hasListPrice(product.listPrice);
-        case "low-stock":
-          return product.active && product.stock > 0 && product.stock <= 2;
-        case "in-stock":
-          return product.active && product.stock > 0;
-        case "out":
-          return product.active && product.stock === 0;
-        default:
-          return product.active;
-      }
-    });
+    const byView = products.filter((product) => matchesView(product, view));
 
     const byCategory = categoryId
-      ? byChip.filter((product) =>
+      ? byView.filter((product) =>
           product.categories.some((category) => category.id === categoryId),
         )
-      : byChip;
+      : byView;
 
     const normalized = normalize(deferredQuery);
     const compact = normalized
@@ -186,7 +177,7 @@ export function ProductsBrowser({
       .filter((row) => row.score > 0)
       .sort((a, b) => b.score - a.score)
       .map((row) => row.product);
-  }, [products, chip, categoryId, deferredQuery]);
+  }, [products, view, categoryId, deferredQuery]);
 
   return (
     <div className="space-y-4">
@@ -197,31 +188,12 @@ export function ProductsBrowser({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Название, раздел, описание, цена, «без прайса», «мало»…"
+            placeholder="Название, раздел, описание, цена…"
             className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base outline-none ring-[var(--brand)] focus:ring-2"
             autoComplete="off"
           />
         </label>
-        <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {CHIPS.filter((item) => !item.adminOnly || isAdmin).map((item) => {
-            const active = chip === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setChip(item.id)}
-                className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition ${
-                  active
-                    ? "bg-[var(--brand)] text-white"
-                    : "border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] hover:bg-white"
-                }`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-        {categories.length > 0 ? (
+        {categories.length > 0 && view !== "archive" ? (
           <div className="space-y-2">
             <p className="text-sm font-medium">Раздел</p>
             <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -257,14 +229,14 @@ export function ProductsBrowser({
           </div>
         ) : null}
         <p className="text-sm text-[var(--muted)]">
-          Найдено: {filtered.length} из {products.length}
+          Найдено: {filtered.length}
         </p>
       </div>
 
       {filtered.length === 0 ? (
         <Card>
           <p className="text-[var(--muted)]">
-            Ничего не найдено. Попробуйте другое слово или сбросьте фильтр.
+            Ничего не найдено. Попробуйте другое слово или смените раздел.
           </p>
         </Card>
       ) : (

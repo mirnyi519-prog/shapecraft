@@ -1,18 +1,31 @@
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
+import {
+  parseProductsView,
+  productsViewTitle,
+} from "@/components/app-nav-config";
 import { ProductsBrowser } from "@/components/products-browser";
 import { Button, Card } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
 import { listActiveCategories } from "@/lib/categories-data";
 import { prisma } from "@/lib/db";
 
-export default async function ProductsPage() {
+export default async function ProductsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
   const session = await getSession();
   if (!session) {
     return null;
   }
 
   const admin = isAdmin(session.role);
+  const params = await searchParams;
+  let view = parseProductsView(params.view);
+  if (view === "archive" && !admin) {
+    view = "all";
+  }
 
   const [products, categories] = await Promise.all([
     prisma.product.findMany({
@@ -36,7 +49,7 @@ export default async function ProductsPage() {
       <div className="space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold">Товары</h1>
+            <h1 className="text-2xl font-bold">{productsViewTitle(view)}</h1>
             <p className="text-[var(--muted)]">
               Сувениры и остатки. Красные карточки — без прайса.
             </p>
@@ -55,6 +68,7 @@ export default async function ProductsPage() {
         ) : (
           <ProductsBrowser
             isAdmin={admin}
+            view={view}
             categories={categories.map((item) => ({ id: item.id, name: item.name }))}
             products={products.map((product) => ({
               id: product.id,
