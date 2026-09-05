@@ -159,7 +159,7 @@ export function MobileAppNav({ items }: { items: AppNavItem[] }) {
                   current === item.href ? null : item.href,
                 )
               }
-              className={`${mobileLinkClass(groupActive)} inline-flex items-center gap-1`}
+              className={`${mobileLinkClass(open || groupActive)} inline-flex items-center gap-1`}
               aria-expanded={open}
             >
               {item.label}
