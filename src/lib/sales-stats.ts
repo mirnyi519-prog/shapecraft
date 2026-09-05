@@ -21,9 +21,14 @@ export type SalesChartPoint = {
 
 export type SalesChartSeries = {
   period: SalesChartPeriod;
+  label: string;
   points: SalesChartPoint[];
   totalRevenue: number;
   totalQuantity: number;
+  totalCost: number;
+  ownerShare: number;
+  partnerShare: number;
+  saleCount: number;
 };
 
 export type TopSoldProduct = {
@@ -96,28 +101,33 @@ function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+function startOfWeekMonday(date: Date): Date {
+  const start = startOfLocalDay(date);
+  const weekday = start.getDay();
+  const offset = weekday === 0 ? 6 : weekday - 1;
+  start.setDate(start.getDate() - offset);
+  return start;
+}
+
 function buildBuckets(period: SalesChartPeriod, now: Date): SalesChartPoint[] {
   if (period === "day") {
     return Array.from({ length: 24 }, (_, hour) => ({
       key: `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}T${pad2(hour)}`,
-      label: `${pad2(hour)}:00`,
+      label: `${pad2(hour)}`,
       revenue: 0,
       quantity: 0,
     }));
   }
 
   if (period === "week") {
-    const start = startOfLocalDay(now);
-    start.setDate(start.getDate() - 6);
+    const start = startOfWeekMonday(now);
+    const weekdayLabels = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
     return Array.from({ length: 7 }, (_, index) => {
       const day = new Date(start);
       day.setDate(start.getDate() + index);
       return {
         key: `${day.getFullYear()}-${pad2(day.getMonth() + 1)}-${pad2(day.getDate())}`,
-        label: new Intl.DateTimeFormat("ru-RU", {
-          day: "2-digit",
-          month: "2-digit",
-        }).format(day),
+        label: weekdayLabels[index],
         revenue: 0,
         quantity: 0,
       };
@@ -125,31 +135,23 @@ function buildBuckets(period: SalesChartPeriod, now: Date): SalesChartPoint[] {
   }
 
   if (period === "month") {
-    const start = startOfLocalDay(now);
-    start.setDate(start.getDate() - 29);
-    return Array.from({ length: 30 }, (_, index) => {
-      const day = new Date(start);
-      day.setDate(start.getDate() + index);
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    return Array.from({ length: daysInMonth }, (_, index) => {
+      const day = index + 1;
       return {
-        key: `${day.getFullYear()}-${pad2(day.getMonth() + 1)}-${pad2(day.getDate())}`,
-        label: new Intl.DateTimeFormat("ru-RU", {
-          day: "2-digit",
-          month: "2-digit",
-        }).format(day),
+        key: `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(day)}`,
+        label: String(day),
         revenue: 0,
         quantity: 0,
       };
     });
   }
 
-  const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
   return Array.from({ length: 12 }, (_, index) => {
-    const month = new Date(start.getFullYear(), start.getMonth() + index, 1);
+    const month = new Date(now.getFullYear(), index, 1);
     return {
-      key: `${month.getFullYear()}-${pad2(month.getMonth() + 1)}`,
-      label: new Intl.DateTimeFormat("ru-RU", {
-        month: "short",
-      }).format(month),
+      key: `${now.getFullYear()}-${pad2(index + 1)}`,
+      label: new Intl.DateTimeFormat("ru-RU", { month: "short" }).format(month),
       revenue: 0,
       quantity: 0,
     };
@@ -171,16 +173,56 @@ function rangeStart(period: SalesChartPeriod, now: Date): Date {
     return startOfLocalDay(now);
   }
   if (period === "week") {
-    const start = startOfLocalDay(now);
-    start.setDate(start.getDate() - 6);
-    return start;
+    return startOfWeekMonday(now);
   }
   if (period === "month") {
-    const start = startOfLocalDay(now);
-    start.setDate(start.getDate() - 29);
-    return start;
+    return new Date(now.getFullYear(), now.getMonth(), 1);
   }
-  return new Date(now.getFullYear(), now.getMonth() - 11, 1);
+  return new Date(now.getFullYear(), 0, 1);
+}
+
+function rangeEnd(period: SalesChartPeriod, now: Date): Date {
+  if (period === "day") {
+    const end = startOfLocalDay(now);
+    end.setDate(end.getDate() + 1);
+    return end;
+  }
+  if (period === "week") {
+    const end = startOfWeekMonday(now);
+    end.setDate(end.getDate() + 7);
+    return end;
+  }
+  if (period === "month") {
+    return new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  }
+  return new Date(now.getFullYear() + 1, 0, 1);
+}
+
+export function salesChartPeriodLabel(period: SalesChartPeriod, now = new Date()): string {
+  if (period === "day") {
+    return new Intl.DateTimeFormat("ru-RU", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(now);
+  }
+  if (period === "week") {
+    const start = startOfWeekMonday(now);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    const fmt = new Intl.DateTimeFormat("ru-RU", {
+      day: "numeric",
+      month: "short",
+    });
+    return `${fmt.format(start)} — ${fmt.format(end)}`;
+  }
+  if (period === "month") {
+    return new Intl.DateTimeFormat("ru-RU", {
+      month: "long",
+      year: "numeric",
+    }).format(now);
+  }
+  return String(now.getFullYear());
 }
 
 export function parseSalesChartPeriod(
@@ -197,16 +239,28 @@ export async function getSalesChartSeries(
 ): Promise<SalesChartSeries> {
   const now = new Date();
   const from = rangeStart(period, now);
+  const to = rangeEnd(period, now);
   const points = buildBuckets(period, now);
 
   const sales = await prisma.sale.findMany({
-    where: { soldAt: { gte: from } },
-    select: { soldAt: true, amount: true, quantity: true },
+    where: { soldAt: { gte: from, lt: to } },
+    select: {
+      soldAt: true,
+      amount: true,
+      quantity: true,
+      costTotal: true,
+      ownerShare: true,
+      partnerShare: true,
+    },
   });
 
   const index = new Map(points.map((point, i) => [point.key, i]));
   let totalRevenue = 0;
   let totalQuantity = 0;
+  let totalCost = 0;
+  let ownerShare = 0;
+  let partnerShare = 0;
+  let saleCount = 0;
 
   for (const sale of sales) {
     const key = bucketKey(period, sale.soldAt);
@@ -218,7 +272,21 @@ export async function getSalesChartSeries(
     points[pointIndex].quantity += sale.quantity;
     totalRevenue += sale.amount;
     totalQuantity += sale.quantity;
+    totalCost += sale.costTotal;
+    ownerShare += sale.ownerShare;
+    partnerShare += sale.partnerShare;
+    saleCount += 1;
   }
 
-  return { period, points, totalRevenue, totalQuantity };
+  return {
+    period,
+    label: salesChartPeriodLabel(period, now),
+    points,
+    totalRevenue,
+    totalQuantity,
+    totalCost,
+    ownerShare,
+    partnerShare,
+    saleCount,
+  };
 }

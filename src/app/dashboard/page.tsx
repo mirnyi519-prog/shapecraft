@@ -96,7 +96,12 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <SalesChart initialData={salesChart} />
+        <SalesChart
+          initialData={salesChart}
+          role={session.role}
+          selfShareLabel={selfShareLabel(session.role)}
+          otherShareLabel={otherShareLabel(session.role)}
+        />
 
         <section className="space-y-4">
           <div>
