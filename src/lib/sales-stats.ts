@@ -109,49 +109,89 @@ function startOfWeekMonday(date: Date): Date {
   return start;
 }
 
-function buildBuckets(period: SalesChartPeriod, now: Date): SalesChartPoint[] {
-  if (period === "day") {
-    return Array.from({ length: 24 }, (_, hour) => ({
-      key: `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}T${pad2(hour)}`,
-      label: `${pad2(hour)}`,
+function dayKey(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+function weekKey(monday: Date): string {
+  return `W${dayKey(monday)}`;
+}
+
+function monthKey(date: Date): string {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
+}
+
+function yearKey(date: Date): string {
+  return String(date.getFullYear());
+}
+
+function buildDayBuckets(now: Date): SalesChartPoint[] {
+  const year = now.getFullYear();
+  const start = new Date(year, 0, 1);
+  const end = startOfLocalDay(now);
+  const points: SalesChartPoint[] = [];
+  const cursor = new Date(start);
+
+  while (cursor <= end) {
+    points.push({
+      key: dayKey(cursor),
+      label: `${cursor.getDate()}.${pad2(cursor.getMonth() + 1)}`,
       revenue: 0,
       quantity: 0,
-    }));
+    });
+    cursor.setDate(cursor.getDate() + 1);
   }
 
-  if (period === "week") {
-    const start = startOfWeekMonday(now);
-    const weekdayLabels = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"];
-    return Array.from({ length: 7 }, (_, index) => {
-      const day = new Date(start);
-      day.setDate(start.getDate() + index);
-      return {
-        key: `${day.getFullYear()}-${pad2(day.getMonth() + 1)}-${pad2(day.getDate())}`,
-        label: weekdayLabels[index],
+  return points;
+}
+
+function buildWeekBuckets(now: Date): SalesChartPoint[] {
+  const year = now.getFullYear();
+  const end = startOfWeekMonday(now);
+  let cursor = startOfWeekMonday(new Date(year, 0, 1));
+  const points: SalesChartPoint[] = [];
+  let weekNum = 1;
+
+  while (cursor <= end) {
+    const weekEnd = new Date(cursor);
+    weekEnd.setDate(cursor.getDate() + 6);
+    if (weekEnd.getFullYear() >= year && cursor.getFullYear() <= year) {
+      points.push({
+        key: weekKey(cursor),
+        label: `н${weekNum}`,
         revenue: 0,
         quantity: 0,
-      };
-    });
+      });
+      weekNum += 1;
+    }
+    cursor = new Date(cursor);
+    cursor.setDate(cursor.getDate() + 7);
   }
 
-  if (period === "month") {
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    return Array.from({ length: daysInMonth }, (_, index) => {
-      const day = index + 1;
-      return {
-        key: `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(day)}`,
-        label: String(day),
-        revenue: 0,
-        quantity: 0,
-      };
-    });
-  }
+  return points;
+}
 
+function buildMonthBuckets(now: Date): SalesChartPoint[] {
+  const year = now.getFullYear();
   return Array.from({ length: 12 }, (_, index) => {
-    const month = new Date(now.getFullYear(), index, 1);
+    const month = new Date(year, index, 1);
     return {
-      key: `${now.getFullYear()}-${pad2(index + 1)}`,
+      key: monthKey(month),
       label: new Intl.DateTimeFormat("ru-RU", { month: "short" }).format(month),
+      revenue: 0,
+      quantity: 0,
+    };
+  });
+}
+
+function buildYearBuckets(fromYear: number, toYear: number): SalesChartPoint[] {
+  const start = Math.min(fromYear, toYear);
+  const end = Math.max(fromYear, toYear);
+  return Array.from({ length: end - start + 1 }, (_, index) => {
+    const year = start + index;
+    return {
+      key: String(year),
+      label: String(year),
       revenue: 0,
       quantity: 0,
     };
@@ -160,69 +200,47 @@ function buildBuckets(period: SalesChartPeriod, now: Date): SalesChartPoint[] {
 
 function bucketKey(period: SalesChartPeriod, soldAt: Date): string {
   if (period === "day") {
-    return `${soldAt.getFullYear()}-${pad2(soldAt.getMonth() + 1)}-${pad2(soldAt.getDate())}T${pad2(soldAt.getHours())}`;
+    return dayKey(soldAt);
   }
+  if (period === "week") {
+    return weekKey(startOfWeekMonday(soldAt));
+  }
+  if (period === "month") {
+    return monthKey(soldAt);
+  }
+  return yearKey(soldAt);
+}
+
+function rangeForPeriod(
+  period: SalesChartPeriod,
+  now: Date,
+  earliestYear: number,
+): { from: Date | null; to: Date | null } {
   if (period === "year") {
-    return `${soldAt.getFullYear()}-${pad2(soldAt.getMonth() + 1)}`;
+    return {
+      from: new Date(earliestYear, 0, 1),
+      to: new Date(now.getFullYear() + 1, 0, 1),
+    };
   }
-  return `${soldAt.getFullYear()}-${pad2(soldAt.getMonth() + 1)}-${pad2(soldAt.getDate())}`;
-}
 
-function rangeStart(period: SalesChartPeriod, now: Date): Date {
-  if (period === "day") {
-    return startOfLocalDay(now);
-  }
-  if (period === "week") {
-    return startOfWeekMonday(now);
-  }
-  if (period === "month") {
-    return new Date(now.getFullYear(), now.getMonth(), 1);
-  }
-  return new Date(now.getFullYear(), 0, 1);
-}
-
-function rangeEnd(period: SalesChartPeriod, now: Date): Date {
-  if (period === "day") {
-    const end = startOfLocalDay(now);
-    end.setDate(end.getDate() + 1);
-    return end;
-  }
-  if (period === "week") {
-    const end = startOfWeekMonday(now);
-    end.setDate(end.getDate() + 7);
-    return end;
-  }
-  if (period === "month") {
-    return new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  }
-  return new Date(now.getFullYear() + 1, 0, 1);
+  return {
+    from: new Date(now.getFullYear(), 0, 1),
+    to: new Date(now.getFullYear() + 1, 0, 1),
+  };
 }
 
 export function salesChartPeriodLabel(period: SalesChartPeriod, now = new Date()): string {
+  const year = now.getFullYear();
   if (period === "day") {
-    return new Intl.DateTimeFormat("ru-RU", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }).format(now);
+    return `По дням · ${year}`;
   }
   if (period === "week") {
-    const start = startOfWeekMonday(now);
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    const fmt = new Intl.DateTimeFormat("ru-RU", {
-      day: "numeric",
-      month: "short",
-    });
-    return `${fmt.format(start)} — ${fmt.format(end)}`;
+    return `По неделям · ${year}`;
   }
   if (period === "month") {
-    return new Intl.DateTimeFormat("ru-RU", {
-      month: "long",
-      year: "numeric",
-    }).format(now);
+    return `По месяцам · ${year}`;
   }
-  return String(now.getFullYear());
+  return "По годам";
 }
 
 export function parseSalesChartPeriod(
@@ -238,12 +256,31 @@ export async function getSalesChartSeries(
   period: SalesChartPeriod = "month",
 ): Promise<SalesChartSeries> {
   const now = new Date();
-  const from = rangeStart(period, now);
-  const to = rangeEnd(period, now);
-  const points = buildBuckets(period, now);
+
+  const firstSale = await prisma.sale.findFirst({
+    orderBy: { soldAt: "asc" },
+    select: { soldAt: true },
+  });
+  const earliestYear = firstSale?.soldAt.getFullYear() ?? now.getFullYear();
+
+  const points =
+    period === "day"
+      ? buildDayBuckets(now)
+      : period === "week"
+        ? buildWeekBuckets(now)
+        : period === "month"
+          ? buildMonthBuckets(now)
+          : buildYearBuckets(earliestYear, now.getFullYear());
+
+  const { from, to } = rangeForPeriod(period, now, earliestYear);
 
   const sales = await prisma.sale.findMany({
-    where: { soldAt: { gte: from, lt: to } },
+    where: {
+      soldAt: {
+        ...(from ? { gte: from } : {}),
+        ...(to ? { lt: to } : {}),
+      },
+    },
     select: {
       soldAt: true,
       amount: true,
