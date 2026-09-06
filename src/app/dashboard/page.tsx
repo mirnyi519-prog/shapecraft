@@ -48,6 +48,21 @@ async function getDashboardData(role: "admin" | "partner") {
     take: 5,
   });
 
+  const inventory =
+    role === "admin"
+      ? await prisma.product.findMany({
+          where: { stock: { gt: 0 } },
+          select: { stock: true, costPrice: true, active: true },
+        })
+      : [];
+
+  const inventoryStock = inventory.reduce((sum, item) => sum + item.stock, 0);
+  const inventoryCost = inventory.reduce(
+    (sum, item) => sum + item.stock * item.costPrice,
+    0,
+  );
+  const inventorySku = inventory.length;
+
   const productViews =
     role === "admin"
       ? await prisma.product.findMany({
@@ -68,6 +83,9 @@ async function getDashboardData(role: "admin" | "partner") {
     recentSales: pendingSales.slice(0, 8),
     lowStock,
     productViews,
+    inventoryStock,
+    inventoryCost,
+    inventorySku,
     periodFrom: lastSettlement?.createdAt ?? null,
   };
 }
@@ -389,6 +407,32 @@ export default async function DashboardPage() {
             )}
           </Card>
         </section>
+
+        {session.role === "admin" ? (
+          <section className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold">Остаток по себестоимости</h2>
+              <p className="text-sm text-[var(--muted)]">
+                Сумма остатков на складе по себестоимости товаров
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <StatCard
+                label="Остаток по себестоимости"
+                value={formatRub(data.inventoryCost)}
+                accent
+              />
+              <StatCard
+                label="Штук на складе"
+                value={String(data.inventoryStock)}
+              />
+              <StatCard
+                label="Позиций с остатком"
+                value={String(data.inventorySku)}
+              />
+            </div>
+          </section>
+        ) : null}
       </div>
     </AppShell>
   );
