@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
+import { PriceListPrint } from "@/components/price-list-print";
 import { ProductThumb } from "@/components/product-thumb";
 import { SalesChart } from "@/components/sales-chart";
 import { Badge, Button, Card, StatCard } from "@/components/ui";
@@ -98,21 +99,31 @@ export default async function DashboardPage() {
 
   const data = await getDashboardData(session.role);
   const visitStats = isAdmin(session.role) ? await getVisitStats() : null;
-  const [allTimeTotals, topSoldProducts, salesChart] = await Promise.all([
-    getAllTimeSalesTotals(),
-    getTopSoldProducts(10),
-    getSalesChartSeries("month"),
-  ]);
+  const [allTimeTotals, topSoldProducts, salesChart, priceListProducts] =
+    await Promise.all([
+      getAllTimeSalesTotals(),
+      getTopSoldProducts(10),
+      getSalesChartSeries("month"),
+      prisma.product.findMany({
+        where: { active: true },
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          imageUrl: true,
+          listPrice: true,
+          stock: true,
+        },
+      }),
+    ]);
 
   return (
     <AppShell>
       <div className="space-y-6">
-        <div>
+        <PriceListPrint products={priceListProducts}>
           <h1 className="text-2xl font-bold">Сводка</h1>
-          <p className="text-[var(--muted)]">
-            Обзор продаж и остатков
-          </p>
-        </div>
+          <p className="text-[var(--muted)]">Обзор продаж и остатков</p>
+        </PriceListPrint>
 
         <SalesChart
           initialData={salesChart}
