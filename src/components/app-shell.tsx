@@ -1,4 +1,5 @@
-import { getSession, isAdmin } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getSession, isAdmin, destroySession } from "@/lib/auth";
 import { getAppNavItems } from "@/components/app-nav-config";
 import { AppShellFrame } from "@/components/app-shell-frame";
 import { mapFeedbackMessage } from "@/lib/feedback";
@@ -21,7 +22,12 @@ async function loadFeedbackPreview() {
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await getSession();
-  const admin = session ? isAdmin(session.role) : false;
+  if (!session) {
+    await destroySession();
+    redirect("/login");
+  }
+
+  const admin = isAdmin(session.role);
   const navItems = getAppNavItems(admin);
   const feedback = admin
     ? await loadFeedbackPreview()
@@ -31,7 +37,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
       <AppShellFrame
         admin={admin}
-        sessionName={session?.name}
+        sessionName={session.name}
         navItems={navItems}
         feedbackMessages={feedback.messages}
         feedbackUnreadCount={feedback.unreadCount}

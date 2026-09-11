@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import {
+  requireAdmin,
+  SESSION_COOKIE,
+  getSessionCookieOptions,
+} from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { listBlockedIps, revokeAllSessions } from "@/lib/access-control";
 import { logSecurityEvent } from "@/lib/security";
@@ -40,7 +44,12 @@ export async function POST(request: NextRequest) {
         path: "/api/security/blocks",
         detail: `Админ ${session.login} сбросил сессии, epoch=${epoch}`,
       });
-      return NextResponse.json({ ok: true, sessionEpoch: epoch });
+      const response = NextResponse.json({ ok: true, sessionEpoch: epoch });
+      response.cookies.set(SESSION_COOKIE, "", {
+        ...getSessionCookieOptions(),
+        maxAge: 0,
+      });
+      return response;
     }
 
     const ip = body.ipAddress?.trim();

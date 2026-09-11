@@ -54,7 +54,7 @@ export function SecurityControls({
       setEpoch(data.sessionEpoch);
     }
     setBusy(false);
-    router.refresh();
+    window.location.href = "/login";
   }
 
   async function addIp(event: React.FormEvent) {

@@ -1,11 +1,25 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { Card } from "@/components/ui";
 import { LoginForm } from "@/components/forms";
 import { ShopMarkIcon } from "@/components/shop-mark";
 import { isIpBlocked } from "@/lib/access-control";
+import { destroySession, getSession, SESSION_COOKIE } from "@/lib/auth";
 import { getRequestIp } from "@/lib/request-ip";
 
 export default async function LoginPage() {
+  const session = await getSession();
+  if (session) {
+    redirect("/dashboard");
+  }
+
+  // Старая cookie после сброса сессий: JWT ещё есть, epoch уже нет
+  const cookieStore = await cookies();
+  if (cookieStore.get(SESSION_COOKIE)?.value) {
+    await destroySession();
+  }
+
   const ip = await getRequestIp();
   const loginBlocked = await isIpBlocked(ip);
 

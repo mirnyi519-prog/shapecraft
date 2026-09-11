@@ -81,7 +81,15 @@ export async function getSessionEpoch(): Promise<number> {
     where: { id: "default" },
   });
   const fromDb = setting?.sessionEpoch ?? 0;
-  return Number.isFinite(fromDb) ? fromDb : 0;
+  if (!Number.isFinite(fromDb) || fromDb <= 0) {
+    return 0;
+  }
+  // Защита от «залипшего» epoch в будущем (ломает все новые входы)
+  const now = Math.floor(Date.now() / 1000);
+  if (fromDb > now + 60) {
+    return 0;
+  }
+  return fromDb;
 }
 
 export async function revokeAllSessions(): Promise<number> {

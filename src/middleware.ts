@@ -188,10 +188,9 @@ export async function middleware(request: NextRequest) {
   let response: NextResponse;
 
   if (isPublic) {
-    if (pathname.startsWith("/login") && (await hasValidSession(request))) {
-      response = NextResponse.redirect(new URL("/dashboard", request.url));
-      return withSecurityHeaders(response);
-    }
+    // Не редиректим /login по JWT: после «Сбросить сессии» cookie ещё
+    // криптографически валидна, но epoch уже сбросил сессию — иначе петля
+    // login → dashboard → пустая страница → login.
     const tracking = trackPageVisit(request, pathname);
     response = NextResponse.next();
     applyVisitorCookie(response, tracking.visitorId, tracking.isNewVisitor);
@@ -202,7 +201,6 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", pathname);
     response = NextResponse.redirect(loginUrl);
-    // Сбрасываем протухшую cookie
     response.cookies.delete(SESSION_COOKIE);
     return withSecurityHeaders(response);
   }
