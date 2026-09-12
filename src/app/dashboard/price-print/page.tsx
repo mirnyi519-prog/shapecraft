@@ -24,29 +24,39 @@ export default async function PricePrintPage() {
 
   return (
     <div className="min-h-screen bg-white text-[var(--text)]">
-      <div className="no-print border-b border-[var(--border)] bg-[var(--bg)] px-4 py-3">
-        <div className="mx-auto flex max-w-4xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-[var(--muted)]">ShapeCraft</p>
-            <h1 className="text-lg font-semibold">Прайс для печати</h1>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:flex">
+      <div className="border-b border-[var(--border)] bg-[var(--bg)] px-4 py-3">
+        <div className="mx-auto flex max-w-4xl flex-col gap-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm text-[var(--muted)]">ShapeCraft</p>
+              <h1 className="text-lg font-semibold">Прайс для печати</h1>
+            </div>
             <Link
               href="/dashboard"
-              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--border)] bg-white px-4 text-sm font-medium"
+              className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-white px-4 text-sm font-medium"
             >
               Назад
             </Link>
-            <PricePrintClient />
+          </div>
+
+          <PricePrintClient products={products} />
+
+          <div className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-xs text-[var(--muted)] sm:text-sm">
+            <p className="font-medium text-[var(--text)]">Как распечатать с телефона</p>
+            <ol className="mt-1 list-decimal space-y-1 pl-4">
+              <li>
+                Нажмите <span className="font-medium text-[var(--text)]">Поделиться PDF</span>{" "}
+                или <span className="font-medium text-[var(--text)]">Открыть PDF</span>.
+              </li>
+              <li>В открывшемся PDF нажмите «Поделиться» / меню.</li>
+              <li>Выберите «Печать».</li>
+            </ol>
           </div>
         </div>
-        <p className="mx-auto mt-2 max-w-4xl text-xs text-[var(--muted)] sm:text-sm">
-          На iPhone: если диалог не открылся — кнопка «Поделиться» → «Печать».
-        </p>
       </div>
 
       <div className="mx-auto max-w-4xl px-4 py-5">
-        <div className="mb-4 print:mb-3">
+        <div className="mb-4">
           <h2 className="text-xl font-bold">ShapeCraft — прайс</h2>
           <p className="text-sm text-[var(--muted)]">
             {new Intl.DateTimeFormat("ru-RU", {
@@ -54,7 +64,7 @@ export default async function PricePrintPage() {
               month: "long",
               year: "numeric",
             }).format(new Date())}{" "}
-            · {products.length} поз.
+            · {products.length} поз. · предпросмотр
           </p>
         </div>
 
@@ -84,7 +94,7 @@ export default async function PricePrintPage() {
                         alt=""
                         width={48}
                         height={48}
-                        className="h-12 w-12 rounded-md object-contain bg-[var(--brand-soft)]"
+                        className="h-12 w-12 rounded-md bg-[var(--brand-soft)] object-contain"
                       />
                     ) : (
                       <div className="flex h-12 w-12 items-center justify-center rounded-md bg-[var(--bg)] text-xs text-[var(--muted)]">
@@ -93,7 +103,7 @@ export default async function PricePrintPage() {
                     )}
                   </td>
                   <td className="py-2 pr-2 font-medium">{product.name}</td>
-                  <td className="py-2 pl-2 text-right whitespace-nowrap font-semibold">
+                  <td className="py-2 pl-2 text-right font-semibold whitespace-nowrap">
                     {product.listPrice != null && Number.isFinite(product.listPrice)
                       ? new Intl.NumberFormat("ru-RU", {
                           style: "currency",

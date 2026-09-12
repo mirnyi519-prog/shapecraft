@@ -114,7 +114,7 @@ export function PriceListPrint({
                 className="min-h-11 w-full sm:w-auto"
                 onClick={handlePrint}
               >
-                Печать
+                Печать / PDF
               </Button>
             </div>
           </div>
