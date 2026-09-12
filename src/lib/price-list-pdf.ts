@@ -18,74 +18,22 @@ function formatPrice(listPrice: number | null): string {
   }).format(listPrice);
 }
 
-function absoluteUrl(src: string): string {
-  if (/^https?:\/\//i.test(src)) {
-    return src;
-  }
-  return new URL(src, window.location.origin).toString();
+function fileName(): string {
+  const stamp = new Intl.DateTimeFormat("sv-SE").format(new Date());
+  return `shapecraft-price-${stamp}.pdf`;
 }
 
-async function loadThumbDataUrl(src: string | null): Promise<string | null> {
-  if (!src) {
-    return null;
-  }
-
-  const work = async (): Promise<string | null> => {
-    try {
-      const response = await fetch(absoluteUrl(src), {
-        credentials: "same-origin",
-        cache: "force-cache",
-      });
-      if (!response.ok) {
-        return null;
-      }
-      const blob = await response.blob();
-      const bitmap = await createImageBitmap(blob);
-      const size = 56;
-      const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) {
-        return null;
-      }
-      ctx.fillStyle = "#fff3eb";
-      ctx.fillRect(0, 0, size, size);
-      const scale = Math.min(size / bitmap.width, size / bitmap.height);
-      const w = bitmap.width * scale;
-      const h = bitmap.height * scale;
-      ctx.drawImage(bitmap, (size - w) / 2, (size - h) / 2, w, h);
-      bitmap.close();
-      return canvas.toDataURL("image/jpeg", 0.72);
-    } catch {
-      return null;
-    }
-  };
-
-  return Promise.race([
-    work(),
-    new Promise<null>((resolve) => {
-      window.setTimeout(() => resolve(null), 2000);
-    }),
-  ]);
-}
-
-async function buildDocDefinition(
-  products: PricePdfProduct[],
-): Promise<TDocumentDefinitions> {
+function buildDocDefinition(products: PricePdfProduct[]): TDocumentDefinitions {
   const dateLabel = new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
     month: "long",
     year: "numeric",
   }).format(new Date());
 
-  const thumbs = await Promise.all(
-    products.map((product) => loadThumbDataUrl(product.imageUrl)),
-  );
-
+  // Без картинок: на телефоне загрузка фото подвешивала генерацию.
   const tableBody: Content[][] = [
     [
-      { text: "Фото", style: "tableHeader", alignment: "center" },
+      { text: "№", style: "tableHeader", alignment: "center" },
       { text: "Название", style: "tableHeader" },
       { text: "Прайс", style: "tableHeader", alignment: "right" },
       { text: "Остаток", style: "tableHeader", alignment: "right" },
@@ -93,22 +41,17 @@ async function buildDocDefinition(
   ];
 
   products.forEach((product, index) => {
-    const thumb = thumbs[index];
     tableBody.push([
-      thumb
-        ? { image: thumb, width: 28, height: 28, alignment: "center" }
-        : { text: "—", alignment: "center", color: "#808081" },
-      { text: product.name, margin: [0, 6, 0, 0] },
+      { text: String(index + 1), alignment: "center" },
+      { text: product.name },
       {
         text: formatPrice(product.listPrice),
         alignment: "right",
         bold: true,
-        margin: [0, 6, 0, 0],
       },
       {
         text: `${product.stock} шт`,
         alignment: "right",
-        margin: [0, 6, 0, 0],
       },
     ]);
   });
@@ -118,7 +61,7 @@ async function buildDocDefinition(
     pageMargins: [24, 28, 24, 28],
     defaultStyle: {
       font: "Roboto",
-      fontSize: 9,
+      fontSize: 10,
       color: "#1f2937",
     },
     styles: {
@@ -135,17 +78,18 @@ async function buildDocDefinition(
       {
         table: {
           headerRows: 1,
-          widths: [34, "*", 72, 48],
+          widths: [28, "*", 72, 48],
           body: tableBody,
         },
         layout: {
-          hLineWidth: (i, node) => (i === 0 || i === 1 || i === node.table.body.length ? 1 : 0.5),
+          hLineWidth: (i, node) =>
+            i === 0 || i === 1 || i === node.table.body.length ? 1 : 0.5,
           vLineWidth: () => 0,
           hLineColor: () => "#d1d5db",
           paddingLeft: () => 4,
           paddingRight: () => 4,
-          paddingTop: () => 5,
-          paddingBottom: () => 5,
+          paddingTop: () => 6,
+          paddingBottom: () => 6,
         },
       },
     ],
@@ -160,35 +104,31 @@ async function getPdfMake() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const vfs = (vfsFonts as any).default ?? vfsFonts;
   pdfMake.vfs = vfs;
-  return pdfMake as {
-    createPdf: (doc: TDocumentDefinitions) => {
-      download: (name?: string) => void;
-      getBlob: (cb: (blob: Blob) => void) => void;
-    };
-  };
+  return pdfMake;
 }
 
-function fileName(): string {
-  const stamp = new Intl.DateTimeFormat("sv-SE").format(new Date());
-  return `shapecraft-price-${stamp}.pdf`;
-}
-
-/** На телефоне надёжнее открыть blob URL, чем полагаться на download(). */
-export async function openPriceListPdf(
-  products: PricePdfProduct[],
-): Promise<void> {
+async function createPdfBlob(products: PricePdfProduct[]): Promise<Blob> {
   const pdfMake = await getPdfMake();
-  const doc = await buildDocDefinition(products);
+  const doc = buildDocDefinition(products);
+  const pdf = pdfMake.createPdf(doc);
 
-  const blob = await new Promise<Blob>((resolve, reject) => {
+  // В актуальном pdfmake getBlob() возвращает Promise.
+  // Старый код ждал только callback — на телефоне это давало вечный «Готовим PDF».
+  const result = pdf.getBlob();
+  if (result && typeof result.then === "function") {
+    return (await result) as Blob;
+  }
+
+  return await new Promise<Blob>((resolve, reject) => {
     try {
-      pdfMake.createPdf(doc).getBlob((value) => resolve(value));
+      pdf.getBlob((blob: Blob) => resolve(blob));
     } catch (error) {
       reject(error);
     }
   });
+}
 
-  const name = fileName();
+function deliverBlob(blob: Blob, name: string): void {
   const url = URL.createObjectURL(blob);
   const opened = window.open(url, "_blank");
 
@@ -205,20 +145,17 @@ export async function openPriceListPdf(
   window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+export async function openPriceListPdf(
+  products: PricePdfProduct[],
+): Promise<void> {
+  const blob = await createPdfBlob(products);
+  deliverBlob(blob, fileName());
+}
+
 export async function shareOrOpenPriceListPdf(
   products: PricePdfProduct[],
 ): Promise<"shared" | "opened"> {
-  const pdfMake = await getPdfMake();
-  const doc = await buildDocDefinition(products);
-
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    try {
-      pdfMake.createPdf(doc).getBlob((value) => resolve(value));
-    } catch (error) {
-      reject(error);
-    }
-  });
-
+  const blob = await createPdfBlob(products);
   const name = fileName();
   const file = new File([blob], name, { type: "application/pdf" });
 
@@ -242,6 +179,6 @@ export async function shareOrOpenPriceListPdf(
     }
   }
 
-  pdfMake.createPdf(doc).download(name);
+  deliverBlob(blob, name);
   return "opened";
 }
