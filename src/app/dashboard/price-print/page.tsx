@@ -42,13 +42,14 @@ export default async function PricePrintPage() {
           <PricePrintClient products={products} />
 
           <div className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-xs text-[var(--muted)] sm:text-sm">
-            <p className="font-medium text-[var(--text)]">Как распечатать с телефона</p>
+            <p className="font-medium text-[var(--text)]">Печать с телефона</p>
             <ol className="mt-1 list-decimal space-y-1 pl-4">
               <li>
-                Нажмите <span className="font-medium text-[var(--text)]">Поделиться PDF</span>{" "}
-                или <span className="font-medium text-[var(--text)]">Открыть PDF</span>.
+                Нажмите{" "}
+                <span className="font-medium text-[var(--text)]">Открыть PDF</span>
+                .
               </li>
-              <li>В открывшемся PDF нажмите «Поделиться» / меню.</li>
+              <li>В PDF нажмите кнопку «Поделиться» (квадрат со стрелкой).</li>
               <li>Выберите «Печать».</li>
             </ol>
           </div>

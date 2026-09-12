@@ -30,35 +30,44 @@ async function loadThumbDataUrl(src: string | null): Promise<string | null> {
     return null;
   }
 
-  try {
-    const response = await fetch(absoluteUrl(src), {
-      credentials: "same-origin",
-      cache: "force-cache",
-    });
-    if (!response.ok) {
+  const work = async (): Promise<string | null> => {
+    try {
+      const response = await fetch(absoluteUrl(src), {
+        credentials: "same-origin",
+        cache: "force-cache",
+      });
+      if (!response.ok) {
+        return null;
+      }
+      const blob = await response.blob();
+      const bitmap = await createImageBitmap(blob);
+      const size = 56;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        return null;
+      }
+      ctx.fillStyle = "#fff3eb";
+      ctx.fillRect(0, 0, size, size);
+      const scale = Math.min(size / bitmap.width, size / bitmap.height);
+      const w = bitmap.width * scale;
+      const h = bitmap.height * scale;
+      ctx.drawImage(bitmap, (size - w) / 2, (size - h) / 2, w, h);
+      bitmap.close();
+      return canvas.toDataURL("image/jpeg", 0.72);
+    } catch {
       return null;
     }
-    const blob = await response.blob();
-    const bitmap = await createImageBitmap(blob);
-    const size = 56;
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      return null;
-    }
-    ctx.fillStyle = "#fff3eb";
-    ctx.fillRect(0, 0, size, size);
-    const scale = Math.min(size / bitmap.width, size / bitmap.height);
-    const w = bitmap.width * scale;
-    const h = bitmap.height * scale;
-    ctx.drawImage(bitmap, (size - w) / 2, (size - h) / 2, w, h);
-    bitmap.close();
-    return canvas.toDataURL("image/jpeg", 0.72);
-  } catch {
-    return null;
-  }
+  };
+
+  return Promise.race([
+    work(),
+    new Promise<null>((resolve) => {
+      window.setTimeout(() => resolve(null), 2000);
+    }),
+  ]);
 }
 
 async function buildDocDefinition(
@@ -164,13 +173,36 @@ function fileName(): string {
   return `shapecraft-price-${stamp}.pdf`;
 }
 
-/** На iPhone download() открывает PDF в системном просмотрщике — оттуда Печать. */
+/** На телефоне надёжнее открыть blob URL, чем полагаться на download(). */
 export async function openPriceListPdf(
   products: PricePdfProduct[],
 ): Promise<void> {
   const pdfMake = await getPdfMake();
   const doc = await buildDocDefinition(products);
-  pdfMake.createPdf(doc).download(fileName());
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    try {
+      pdfMake.createPdf(doc).getBlob((value) => resolve(value));
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+  const name = fileName();
+  const url = URL.createObjectURL(blob);
+  const opened = window.open(url, "_blank");
+
+  if (!opened) {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = name;
+    anchor.rel = "noopener";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  }
+
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 export async function shareOrOpenPriceListPdf(

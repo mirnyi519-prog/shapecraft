@@ -99,28 +99,16 @@ export default async function DashboardPage() {
 
   const data = await getDashboardData(session.role);
   const visitStats = isAdmin(session.role) ? await getVisitStats() : null;
-  const [allTimeTotals, topSoldProducts, salesChart, priceListProducts] =
-    await Promise.all([
-      getAllTimeSalesTotals(),
-      getTopSoldProducts(10),
-      getSalesChartSeries("month"),
-      prisma.product.findMany({
-        where: { active: true },
-        orderBy: { name: "asc" },
-        select: {
-          id: true,
-          name: true,
-          imageUrl: true,
-          listPrice: true,
-          stock: true,
-        },
-      }),
-    ]);
+  const [allTimeTotals, topSoldProducts, salesChart] = await Promise.all([
+    getAllTimeSalesTotals(),
+    getTopSoldProducts(10),
+    getSalesChartSeries("month"),
+  ]);
 
   return (
     <AppShell>
       <div className="space-y-6">
-        <PriceListPrint products={priceListProducts}>
+        <PriceListPrint>
           <h1 className="text-2xl font-bold">Сводка</h1>
           <p className="text-[var(--muted)]">Обзор продаж и остатков</p>
         </PriceListPrint>
