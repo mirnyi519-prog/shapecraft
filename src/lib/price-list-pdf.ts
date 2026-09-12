@@ -23,17 +23,125 @@ function fileName(): string {
   return `shapecraft-price-${stamp}.pdf`;
 }
 
-function buildDocDefinition(products: PricePdfProduct[]): TDocumentDefinitions {
+function absoluteUrl(src: string): string {
+  if (/^https?:\/\//i.test(src)) {
+    return src;
+  }
+  return new URL(src, window.location.origin).toString();
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        resolve(fallback);
+      }
+    }, ms);
+    promise
+      .then((value) => {
+        if (!settled) {
+          settled = true;
+          window.clearTimeout(timer);
+          resolve(value);
+        }
+      })
+      .catch(() => {
+        if (!settled) {
+          settled = true;
+          window.clearTimeout(timer);
+          resolve(fallback);
+        }
+      });
+  });
+}
+
+async function loadThumbDataUrl(src: string | null): Promise<string | null> {
+  if (!src) {
+    return null;
+  }
+
+  const work = async (): Promise<string | null> => {
+    const response = await fetch(absoluteUrl(src), {
+      credentials: "same-origin",
+      cache: "force-cache",
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const blob = await response.blob();
+    if (!blob.type.startsWith("image/")) {
+      return null;
+    }
+
+    const bitmap = await createImageBitmap(blob);
+    try {
+      const size = 48;
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        return null;
+      }
+      ctx.fillStyle = "#fff3eb";
+      ctx.fillRect(0, 0, size, size);
+      const scale = Math.min(size / bitmap.width, size / bitmap.height);
+      const w = bitmap.width * scale;
+      const h = bitmap.height * scale;
+      ctx.drawImage(bitmap, (size - w) / 2, (size - h) / 2, w, h);
+      return canvas.toDataURL("image/jpeg", 0.7);
+    } finally {
+      bitmap.close();
+    }
+  };
+
+  return withTimeout(work(), 1500, null);
+}
+
+async function loadThumbsInBatches(
+  products: PricePdfProduct[],
+  concurrency = 4,
+): Promise<(string | null)[]> {
+  const results: (string | null)[] = Array.from(
+    { length: products.length },
+    () => null,
+  );
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < products.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await loadThumbDataUrl(products[index]?.imageUrl ?? null);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, Math.max(products.length, 1)) },
+    () => worker(),
+  );
+
+  // Общий лимит: не ждём картинки дольше 8 сек — PDF уйдёт с тем, что успело.
+  await withTimeout(Promise.all(workers).then(() => null), 8000, null);
+  return results;
+}
+
+async function buildDocDefinition(
+  products: PricePdfProduct[],
+): Promise<TDocumentDefinitions> {
   const dateLabel = new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
     month: "long",
     year: "numeric",
   }).format(new Date());
 
-  // Без картинок: на телефоне загрузка фото подвешивала генерацию.
+  const thumbs = await loadThumbsInBatches(products);
+
   const tableBody: Content[][] = [
     [
-      { text: "№", style: "tableHeader", alignment: "center" },
+      { text: "Фото", style: "tableHeader", alignment: "center" },
       { text: "Название", style: "tableHeader" },
       { text: "Прайс", style: "tableHeader", alignment: "right" },
       { text: "Остаток", style: "tableHeader", alignment: "right" },
@@ -41,17 +149,22 @@ function buildDocDefinition(products: PricePdfProduct[]): TDocumentDefinitions {
   ];
 
   products.forEach((product, index) => {
+    const thumb = thumbs[index];
     tableBody.push([
-      { text: String(index + 1), alignment: "center" },
-      { text: product.name },
+      thumb
+        ? { image: thumb, width: 28, height: 28, alignment: "center" }
+        : { text: "—", alignment: "center", color: "#808081", fontSize: 9 },
+      { text: product.name, margin: [0, 8, 0, 0] },
       {
         text: formatPrice(product.listPrice),
         alignment: "right",
         bold: true,
+        margin: [0, 8, 0, 0],
       },
       {
         text: `${product.stock} шт`,
         alignment: "right",
+        margin: [0, 8, 0, 0],
       },
     ]);
   });
@@ -78,7 +191,7 @@ function buildDocDefinition(products: PricePdfProduct[]): TDocumentDefinitions {
       {
         table: {
           headerRows: 1,
-          widths: [28, "*", 72, 48],
+          widths: [36, "*", 72, 48],
           body: tableBody,
         },
         layout: {
@@ -88,8 +201,8 @@ function buildDocDefinition(products: PricePdfProduct[]): TDocumentDefinitions {
           hLineColor: () => "#d1d5db",
           paddingLeft: () => 4,
           paddingRight: () => 4,
-          paddingTop: () => 6,
-          paddingBottom: () => 6,
+          paddingTop: () => 5,
+          paddingBottom: () => 5,
         },
       },
     ],
@@ -109,11 +222,9 @@ async function getPdfMake() {
 
 async function createPdfBlob(products: PricePdfProduct[]): Promise<Blob> {
   const pdfMake = await getPdfMake();
-  const doc = buildDocDefinition(products);
+  const doc = await buildDocDefinition(products);
   const pdf = pdfMake.createPdf(doc);
 
-  // В актуальном pdfmake getBlob() возвращает Promise.
-  // Старый код ждал только callback — на телефоне это давало вечный «Готовим PDF».
   const result = pdf.getBlob();
   if (result && typeof result.then === "function") {
     return (await result) as Blob;
