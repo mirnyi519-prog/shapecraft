@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { BuyIntentModal } from "@/components/buy-intent-modal";
 import { FeedbackModal } from "@/components/feedback-modal";
 import { ProductPhoto } from "@/components/product-photo";
 import { ProductSpecsBlock } from "@/components/product-specs-block";
@@ -168,13 +169,25 @@ export function ProductCatalog({
 }) {
   const [selected, setSelected] = useState<CatalogProduct | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [buyOpen, setBuyOpen] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
 
-  useScrollLock(Boolean(selected));
+  useScrollLock(Boolean(selected) && !buyOpen);
 
   function closeProduct() {
     setFeedbackOpen(false);
+    setBuyOpen(false);
     setSelected(null);
+  }
+
+  async function handleBuyClick() {
+    if (!selected) {
+      return;
+    }
+    setBuyOpen(true);
+    void fetch(`/api/products/${selected.id}/buy-click`, { method: "POST" }).catch(
+      () => {},
+    );
   }
 
   useEffect(() => {
@@ -183,14 +196,14 @@ export function ProductCatalog({
     }
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !feedbackOpen) {
+      if (event.key === "Escape" && !feedbackOpen && !buyOpen) {
         closeProduct();
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selected, feedbackOpen]);
+  }, [selected, feedbackOpen, buyOpen]);
 
   useEffect(() => {
     if (!selected) {
@@ -391,17 +404,17 @@ export function ProductCatalog({
                 <Button
                   type="button"
                   className="min-h-11 flex-1"
-                  onClick={() => setFeedbackOpen(true)}
+                  onClick={() => void handleBuyClick()}
                 >
-                  Обратная связь
+                  Купить
                 </Button>
                 <Button
                   type="button"
                   variant="secondary"
                   className="min-h-11 flex-1"
-                  onClick={closeProduct}
+                  onClick={() => setFeedbackOpen(true)}
                 >
-                  Закрыть
+                  Обратная связь
                 </Button>
               </div>
             </div>
@@ -414,6 +427,12 @@ export function ProductCatalog({
         onClose={() => setFeedbackOpen(false)}
         productId={selected?.id}
         productName={selected?.name}
+      />
+
+      <BuyIntentModal
+        open={buyOpen}
+        productName={selected?.name}
+        onClose={() => setBuyOpen(false)}
       />
     </>
   );

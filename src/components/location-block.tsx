@@ -1,8 +1,8 @@
-const MAPS_URL =
-  "https://yandex.ru/maps/org/u_svetlany/232447380240/?ll=36.954661%2C55.184921&z=16";
-
-const MAP_WIDGET_URL =
-  "https://yandex.ru/map-widget/v1/?ll=36.954661%2C55.184921&z=16&pt=36.954661,55.184921,pm2rdm&l=map";
+import {
+  PICKUP_MAPS_URL,
+  PICKUP_MAP_WIDGET_URL,
+  PICKUP_TITLE,
+} from "@/lib/store-contact";
 
 export function LocationBlock() {
   return (
@@ -17,13 +17,13 @@ export function LocationBlock() {
             </p>
           </div>
           <div className="rounded-xl bg-[var(--bg)] px-4 py-3 text-sm">
-            <p className="font-medium">Пекарня «У Светланы»</p>
+            <p className="font-medium">{PICKUP_TITLE}</p>
             <p className="mt-1 text-[var(--muted)]">
               Точка выдачи на Яндекс.Картах
             </p>
           </div>
           <a
-            href={MAPS_URL}
+            href={PICKUP_MAPS_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[var(--brand)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--brand-dark)] sm:w-auto"
@@ -34,7 +34,7 @@ export function LocationBlock() {
         <div className="relative min-h-56 border-t border-[var(--border)] bg-[var(--bg)] lg:min-h-full lg:border-l lg:border-t-0">
           <iframe
             title="Карта: пекарня У Светланы"
-            src={MAP_WIDGET_URL}
+            src={PICKUP_MAP_WIDGET_URL}
             className="absolute inset-0 h-full w-full border-0"
             loading="lazy"
             allowFullScreen

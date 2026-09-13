@@ -123,6 +123,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
           value={String(product.viewCount)}
           hint="Считается при открытии карточки"
         />
+        <StatCard
+          label="Клики «Купить»"
+          value={String(product.buyClickCount)}
+          hint="Нажатия кнопки на витрине"
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr]">

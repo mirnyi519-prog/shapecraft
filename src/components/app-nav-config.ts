@@ -10,6 +10,7 @@ export type NavIconName =
   | "receipts"
   | "users"
   | "visits"
+  | "views"
   | "feedback"
   | "security"
   | "display"
@@ -81,6 +82,7 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
     ...(admin ? [{ href: "/receipts", label: "Приход", icon: "receipts" as const }] : []),
     ...(admin ? [{ href: "/users", label: "Пользователи", icon: "users" as const }] : []),
     ...(admin ? [{ href: "/visits", label: "Посещения", icon: "visits" as const }] : []),
+    ...(admin ? [{ href: "/views", label: "Просмотры", icon: "views" as const }] : []),
     ...(admin ? [{ href: "/feedback", label: "Обратная связь", icon: "feedback" as const }] : []),
     ...(admin ? [{ href: "/world", label: "В мире", icon: "world" as const }] : []),
     ...(admin ? [{ href: "/security", label: "Безопасность", icon: "security" as const }] : []),

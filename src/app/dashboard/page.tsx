@@ -73,6 +73,7 @@ async function getDashboardData(role: "admin" | "partner") {
             name: true,
             imageUrl: true,
             viewCount: true,
+            buyClickCount: true,
             active: true,
           },
         })
@@ -243,7 +244,14 @@ export default async function DashboardPage() {
           </div>
 
           {session.role === "admin" ? (
-            <Card title="Просмотры товаров на витрине">
+            <Card
+              title="Просмотры на витрине"
+              action={
+                <Link href="/views" className="text-sm font-medium text-[var(--brand)]">
+                  Открыть →
+                </Link>
+              }
+            >
               {data.productViews.length === 0 ? (
                 <p className="text-[var(--muted)]">
                   Пока нет данных — просмотры считаются при открытии карточки на витрине.
@@ -257,10 +265,11 @@ export default async function DashboardPage() {
                           <th className="px-4 py-3 font-medium">Фото</th>
                           <th className="px-4 py-3 font-medium">Название</th>
                           <th className="px-4 py-3 font-medium text-right">Просмотры</th>
+                          <th className="px-4 py-3 font-medium text-right">«Купить»</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.productViews.map((product) => (
+                        {data.productViews.slice(0, 8).map((product) => (
                           <tr
                             key={product.id}
                             className="relative border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg)]"
@@ -284,6 +293,9 @@ export default async function DashboardPage() {
                             </td>
                             <td className="px-4 py-3 text-right font-semibold">
                               {product.viewCount}
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold">
+                              {product.buyClickCount}
                             </td>
                             <Link
                               href={`/products/${product.id}`}

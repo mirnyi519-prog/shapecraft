@@ -84,6 +84,14 @@ const iconPaths: Record<NavIconName, ReactNode> = {
       <circle cx="12" cy="12" r="2.5" />
     </>
   ),
+  views: (
+    <>
+      <path d="M4 6h16" />
+      <path d="M4 12h10" />
+      <path d="M4 18h13" />
+      <circle cx="18" cy="12" r="2" />
+    </>
+  ),
   feedback: (
     <>
       <path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H8l-4 3V6a1 1 0 0 1 1-1Z" />

@@ -34,6 +34,7 @@ model Product {
   heightMm         Float?
   depthMm          Float?
   viewCount        Int               @default(0)
+  buyClickCount    Int               @default(0)
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   sales            Sale[]
@@ -41,6 +42,7 @@ model Product {
   priceHistory     PriceHistory[]
   feedbackMessages FeedbackMessage[]
   categories       ProductCategory[]
+  buyClicks        ProductBuyClick[]
 
   @@index([catalogLine, active])
 }
@@ -151,6 +153,21 @@ model SiteVisit {
 
   @@index([ipAddress])
   @@index([visitedAt])
+  @@index([visitorId])
+}
+
+model ProductBuyClick {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ipAddress String
+  userAgent String?
+  visitorId String?
+  clickedAt DateTime @default(now())
+
+  @@index([productId, clickedAt])
+  @@index([clickedAt])
+  @@index([ipAddress])
   @@index([visitorId])
 }
 
