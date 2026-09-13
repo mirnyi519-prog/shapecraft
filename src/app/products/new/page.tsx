@@ -22,7 +22,7 @@ export default async function NewProductPage() {
       <div className="mx-auto max-w-2xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Новый товар</h1>
-          <p className="text-[var(--muted)]">Карточка сувенира для учёта и продаж</p>
+          <p className="text-[var(--muted)]">Карточка товара для учёта и продаж</p>
         </div>
         <Card>
           <ProductForm

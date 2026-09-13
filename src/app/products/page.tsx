@@ -51,7 +51,7 @@ export default async function ProductsPage({
           <div>
             <h1 className="text-2xl font-bold">{productsViewTitle(view)}</h1>
             <p className="text-[var(--muted)]">
-              Сувениры и остатки. Красные карточки — без прайса.
+              Товары и остатки. Красные карточки — без прайса.
             </p>
           </div>
           {admin ? (
@@ -79,6 +79,7 @@ export default async function ProductsPage({
               costPrice: product.costPrice,
               stock: product.stock,
               active: product.active,
+              catalogLine: product.catalogLine,
               categories: product.categories
                 .map((item) => item.category)
                 .filter((category) => category.active)

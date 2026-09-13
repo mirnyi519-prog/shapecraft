@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { ProductPhoto } from "@/components/product-photo";
 import { Button, Input, Textarea } from "@/components/ui";
+import {
+  CATALOG_LINE_LABELS,
+  CATALOG_LINES,
+  type CatalogLine,
+} from "@/lib/catalog-line";
 
 export { LoginForm } from "@/components/login-form";
 
@@ -30,6 +35,7 @@ export function ProductForm({
       widthMm: "",
       heightMm: "",
       depthMm: "",
+      catalogLine: "souvenir",
       categoryIds: [],
     },
   );
@@ -129,6 +135,7 @@ export function ProductForm({
       widthMm: values.widthMm.trim() === "" ? null : Number(values.widthMm),
       heightMm: values.heightMm.trim() === "" ? null : Number(values.heightMm),
       depthMm: values.depthMm.trim() === "" ? null : Number(values.depthMm),
+      catalogLine: values.catalogLine,
       categoryIds: values.categoryIds,
     };
 
@@ -181,11 +188,38 @@ export function ProductForm({
           setValues({ ...values, description: event.target.value })
         }
       />
+      <div className="space-y-2">
+        <span className="text-sm font-medium">Направление витрины</span>
+        <p className="text-sm text-[var(--muted)]">
+          Товар попадёт в раздел «Сувениры» или «Для дома» на публичной витрине.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {CATALOG_LINES.map((line) => {
+            const selected = values.catalogLine === line;
+            return (
+              <button
+                key={line}
+                type="button"
+                onClick={() =>
+                  setValues((current) => ({ ...current, catalogLine: line }))
+                }
+                className={`rounded-full px-3 py-2 text-sm font-medium transition ${
+                  selected
+                    ? "bg-[var(--brand)] text-white"
+                    : "border border-[var(--border)] bg-white text-[var(--text)] hover:bg-[var(--bg)]"
+                }`}
+              >
+                {CATALOG_LINE_LABELS[line]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
       {categories.length > 0 ? (
         <div className="space-y-2">
           <span className="text-sm font-medium">Разделы витрины</span>
           <p className="text-sm text-[var(--muted)]">
-            Можно выбрать несколько. Клиент фильтрует по ним на витрине.
+            Можно выбрать несколько. Клиент фильтрует по ним внутри выбранного направления.
           </p>
           <div className="flex flex-wrap gap-2">
             {categories.map((category) => {
@@ -413,6 +447,7 @@ export type ProductFormValues = {
   widthMm: string;
   heightMm: string;
   depthMm: string;
+  catalogLine: CatalogLine;
   categoryIds: string[];
 };
 

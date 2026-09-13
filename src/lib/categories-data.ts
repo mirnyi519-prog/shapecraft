@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { CatalogCategory, CategoryOption } from "@/lib/categories";
+import type { CatalogLine } from "@/lib/catalog-line";
 
 export async function listAdminCategories(): Promise<
   (CategoryOption & { productCount: number })[]
@@ -24,6 +25,29 @@ export async function listAdminCategories(): Promise<
 export async function listActiveCategories(): Promise<CatalogCategory[]> {
   const categories = await prisma.category.findMany({
     where: { active: true },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true, slug: true },
+  });
+
+  return categories;
+}
+
+/** Активные разделы, в которых есть товары выбранного направления витрины. */
+export async function listActiveCategoriesForCatalogLine(
+  catalogLine: CatalogLine,
+): Promise<CatalogCategory[]> {
+  const categories = await prisma.category.findMany({
+    where: {
+      active: true,
+      products: {
+        some: {
+          product: {
+            active: true,
+            catalogLine,
+          },
+        },
+      },
+    },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     select: { id: true, name: true, slug: true },
   });

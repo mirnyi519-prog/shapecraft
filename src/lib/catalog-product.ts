@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getTopSoldProducts } from "@/lib/sales-stats";
 import type { CatalogCategory } from "@/lib/categories";
+import type { CatalogLine } from "@/lib/catalog-line";
 
 export const catalogProductSelect = {
   id: true,
@@ -9,6 +10,7 @@ export const catalogProductSelect = {
   imageUrl: true,
   listPrice: true,
   stock: true,
+  catalogLine: true,
   weightGrams: true,
   widthMm: true,
   heightMm: true,
@@ -31,6 +33,7 @@ export type CatalogProduct = {
   imageUrl: string | null;
   listPrice: number | null;
   stock: number;
+  catalogLine?: string;
   weightGrams: number | null;
   widthMm: number | null;
   heightMm: number | null;
@@ -48,6 +51,7 @@ type DbProduct = {
   imageUrl: string | null;
   listPrice: number | null;
   stock: number;
+  catalogLine: string;
   weightGrams: number | null;
   widthMm: number | null;
   heightMm: number | null;
@@ -65,6 +69,13 @@ type DbProduct = {
   }[];
 };
 
+function storefrontWhere(catalogLine?: CatalogLine) {
+  return {
+    active: true as const,
+    ...(catalogLine ? { catalogLine } : {}),
+  };
+}
+
 function mapProduct(product: DbProduct): CatalogProduct {
   return {
     id: product.id,
@@ -73,6 +84,7 @@ function mapProduct(product: DbProduct): CatalogProduct {
     imageUrl: product.imageUrl,
     listPrice: product.listPrice,
     stock: product.stock,
+    catalogLine: product.catalogLine,
     weightGrams: product.weightGrams,
     widthMm: product.widthMm,
     heightMm: product.heightMm,
@@ -91,9 +103,11 @@ function mapProduct(product: DbProduct): CatalogProduct {
   };
 }
 
-export async function getActiveCatalogProducts(): Promise<CatalogProduct[]> {
+export async function getActiveCatalogProducts(
+  catalogLine?: CatalogLine,
+): Promise<CatalogProduct[]> {
   const products = await prisma.product.findMany({
-    where: { active: true },
+    where: storefrontWhere(catalogLine),
     orderBy: [{ stock: "desc" }, { name: "asc" }],
     select: catalogProductSelect,
   });
@@ -101,9 +115,12 @@ export async function getActiveCatalogProducts(): Promise<CatalogProduct[]> {
   return products.map(mapProduct);
 }
 
-export async function getNewCatalogProducts(limit = 6): Promise<CatalogProduct[]> {
+export async function getNewCatalogProducts(
+  limit = 6,
+  catalogLine?: CatalogLine,
+): Promise<CatalogProduct[]> {
   const products = await prisma.product.findMany({
-    where: { active: true },
+    where: storefrontWhere(catalogLine),
     orderBy: { createdAt: "desc" },
     take: limit,
     select: catalogProductSelect,
@@ -114,6 +131,7 @@ export async function getNewCatalogProducts(limit = 6): Promise<CatalogProduct[]
 
 export async function getPopularCatalogProducts(
   limit = 6,
+  catalogLine?: CatalogLine,
 ): Promise<CatalogProduct[]> {
   const topSold = await getTopSoldProducts(limit);
   const soldIds = topSold.map((item) => item.productId);
@@ -121,7 +139,10 @@ export async function getPopularCatalogProducts(
   const soldProducts =
     soldIds.length > 0
       ? await prisma.product.findMany({
-          where: { id: { in: soldIds }, active: true },
+          where: {
+            id: { in: soldIds },
+            ...storefrontWhere(catalogLine),
+          },
           select: catalogProductSelect,
         })
       : [];
@@ -138,7 +159,7 @@ export async function getPopularCatalogProducts(
   const excludeIds = ordered.map((item) => item.id);
   const byViews = await prisma.product.findMany({
     where: {
-      active: true,
+      ...storefrontWhere(catalogLine),
       id: { notIn: excludeIds },
     },
     orderBy: [{ viewCount: "desc" }, { name: "asc" }],

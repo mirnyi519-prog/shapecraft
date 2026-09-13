@@ -3,6 +3,7 @@ import { isAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { parseCategoryIds } from "@/lib/categories";
 import { syncProductCategories } from "@/lib/categories-data";
+import { parseCatalogLine } from "@/lib/catalog-line";
 import { parseOptionalNumber } from "@/lib/product-specs";
 import { parseOptionalPrice } from "@/lib/pricing";
 
@@ -49,6 +50,7 @@ export async function POST(request: NextRequest) {
       widthMm?: number | null;
       heightMm?: number | null;
       depthMm?: number | null;
+      catalogLine?: string;
       categoryIds?: string[];
     };
 
@@ -65,6 +67,7 @@ export async function POST(request: NextRequest) {
 
     const listPrice = parseOptionalPrice(body.listPrice);
     const categoryIds = parseCategoryIds(body.categoryIds);
+    const catalogLine = parseCatalogLine(body.catalogLine);
 
     const product = await prisma.$transaction(async (tx) => {
       const created = await tx.product.create({
@@ -75,6 +78,7 @@ export async function POST(request: NextRequest) {
           costPrice: Number(body.costPrice),
           listPrice,
           stock: Number(body.stock ?? 0),
+          catalogLine,
           weightGrams: parseOptionalNumber(body.weightGrams),
           widthMm: parseOptionalNumber(body.widthMm),
           heightMm: parseOptionalNumber(body.heightMm),

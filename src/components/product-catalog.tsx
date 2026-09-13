@@ -157,12 +157,14 @@ export function ProductCatalog({
   newProducts = [],
   popularProducts = [],
   showCost = false,
+  catalogLineLabel = "Сувениры",
 }: {
   products: CatalogProduct[];
   categories?: CatalogCategory[];
   newProducts?: CatalogProduct[];
   popularProducts?: CatalogProduct[];
   showCost?: boolean;
+  catalogLineLabel?: string;
 }) {
   const [selected, setSelected] = useState<CatalogProduct | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -213,7 +215,9 @@ export function ProductCatalog({
   if (products.length === 0 && !hasHighlights) {
     return (
       <Card>
-        <p className="text-[var(--muted)]">Каталог пока пуст — скоро появятся новые сувениры.</p>
+        <p className="text-[var(--muted)]">
+          Каталог «{catalogLineLabel}» пока пуст — скоро появятся новые позиции.
+        </p>
       </Card>
     );
   }
@@ -277,7 +281,7 @@ export function ProductCatalog({
           <h2 className="mb-4 text-lg font-semibold">
             {categoryId
               ? categories.find((item) => item.id === categoryId)?.name ?? "Раздел"
-              : "Все сувениры"}
+              : `Все · ${catalogLineLabel}`}
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {filteredProducts.map((product) => (
@@ -293,7 +297,7 @@ export function ProductCatalog({
       ) : (
         <Card>
           <p className="text-[var(--muted)]">
-            В этом разделе пока нет сувениров.
+            В этом разделе пока нет позиций.
           </p>
         </Card>
       )}

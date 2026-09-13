@@ -3,6 +3,10 @@ import { ProductArchiveButton } from "@/components/product-archive-button";
 import { ProductPhoto } from "@/components/product-photo";
 import { Badge, Button, Card } from "@/components/ui";
 import { formatRub } from "@/lib/calculations";
+import {
+  CATALOG_LINE_LABELS,
+  isCatalogLine,
+} from "@/lib/catalog-line";
 import { hasListPrice } from "@/lib/pricing";
 
 export type ProductCardData = {
@@ -14,6 +18,7 @@ export type ProductCardData = {
   costPrice: number;
   stock: number;
   active: boolean;
+  catalogLine?: string;
   categories: { id: string; name: string }[];
 };
 
@@ -27,6 +32,9 @@ export function ProductAdminCard({
   const priced = hasListPrice(product.listPrice);
   const onStorefront = product.active;
   const canSell = onStorefront && priced;
+  const lineLabel = isCatalogLine(product.catalogLine)
+    ? CATALOG_LINE_LABELS[product.catalogLine]
+    : CATALOG_LINE_LABELS.souvenir;
 
   return (
     <Card
@@ -55,6 +63,7 @@ export function ProductAdminCard({
             </Link>
             <div className="flex shrink-0 flex-col items-end gap-1">
               {!onStorefront ? <Badge tone="neutral">Архив</Badge> : null}
+              <Badge tone="neutral">{lineLabel}</Badge>
               <Badge tone={product.stock <= 2 ? "warning" : "success"}>
                 {product.stock} шт
               </Badge>

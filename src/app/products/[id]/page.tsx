@@ -7,6 +7,7 @@ import { Badge, Button, Card, StatCard } from "@/components/ui";
 import { ProductForm } from "@/components/forms";
 import { formatDateTime, formatRub } from "@/lib/calculations";
 import { getSession } from "@/lib/auth";
+import { parseCatalogLine } from "@/lib/catalog-line";
 import { hasListPrice } from "@/lib/pricing";
 import { prisma } from "@/lib/db";
 
@@ -73,6 +74,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
               <Badge tone="neutral">Архив — не на витрине</Badge>
             </div>
           ) : null}
+          <div className="mt-2">
+            <Badge tone="neutral">
+              {parseCatalogLine(product.catalogLine) === "home"
+                ? "Для дома"
+                : "Сувениры"}
+            </Badge>
+          </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
           <Link href={`/products/${product.id}/receipt`}>
@@ -152,6 +160,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
                 product.depthMm === null || product.depthMm === undefined
                   ? ""
                   : String(product.depthMm),
+              catalogLine: parseCatalogLine(product.catalogLine),
               categoryIds: product.categories.map((item) => item.category.id),
             }}
           />

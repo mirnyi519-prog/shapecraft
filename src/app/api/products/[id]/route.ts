@@ -3,6 +3,7 @@ import { isAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { parseCategoryIds } from "@/lib/categories";
 import { syncProductCategories } from "@/lib/categories-data";
+import { isCatalogLine } from "@/lib/catalog-line";
 import { parseOptionalNumber } from "@/lib/product-specs";
 import { parseOptionalPrice } from "@/lib/pricing";
 
@@ -69,6 +70,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       widthMm?: number | null;
       heightMm?: number | null;
       depthMm?: number | null;
+      catalogLine?: string;
       categoryIds?: string[];
     };
 
@@ -94,6 +96,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       ? parseCategoryIds(body.categoryIds)
       : null;
 
+    const catalogLineProvided = Object.prototype.hasOwnProperty.call(
+      body,
+      "catalogLine",
+    );
+    if (catalogLineProvided && !isCatalogLine(body.catalogLine)) {
+      return NextResponse.json(
+        { error: "Некорректное направление витрины" },
+        { status: 400 },
+      );
+    }
+
     const product = await prisma.$transaction(async (tx) => {
       const updated = await tx.product.update({
         where: { id },
@@ -111,6 +124,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           ...(listPriceProvided ? { listPrice: nextListPrice } : {}),
           ...(body.stock !== undefined ? { stock: Number(body.stock) } : {}),
           ...(body.active !== undefined ? { active: body.active } : {}),
+          ...(catalogLineProvided ? { catalogLine: body.catalogLine } : {}),
           ...(Object.prototype.hasOwnProperty.call(body, "weightGrams")
             ? { weightGrams: parseOptionalNumber(body.weightGrams) }
             : {}),

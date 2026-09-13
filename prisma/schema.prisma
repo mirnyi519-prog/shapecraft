@@ -27,6 +27,8 @@ model Product {
   listPrice        Float?
   stock            Int               @default(0)
   active           Boolean           @default(true)
+  /// Витрина: souvenir | home
+  catalogLine      String            @default("souvenir")
   weightGrams      Float?
   widthMm          Float?
   heightMm         Float?
@@ -39,6 +41,8 @@ model Product {
   priceHistory     PriceHistory[]
   feedbackMessages FeedbackMessage[]
   categories       ProductCategory[]
+
+  @@index([catalogLine, active])
 }
 
 model Category {
