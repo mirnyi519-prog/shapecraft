@@ -45,14 +45,12 @@ export default async function HomePage({
     <PublicShell>
       <div className="space-y-6">
         {banner ? <StorefrontBanner banner={banner} /> : null}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">{lineLabel}</h1>
-            <p className="text-[var(--muted)]">
-              Актуальные цены и остатки в пекарне
-            </p>
-          </div>
-          <CatalogLineToggle current={catalogLine} />
+        <CatalogLineToggle current={catalogLine} />
+        <div>
+          <h1 className="text-2xl font-bold">{lineLabel}</h1>
+          <p className="text-[var(--muted)]">
+            Актуальные цены и остатки в пекарне
+          </p>
         </div>
         <ProductCatalog
           products={products}
