@@ -23,7 +23,10 @@ echo "==> Building..."
 export DOCKER_BUILDKIT=0
 export COMPOSE_DOCKER_CLI_BUILD=0
 docker compose build --pull=false --build-arg "BASE_IMAGE=${BASE_IMAGE}"
-docker compose up -d --force-recreate
+docker compose up -d --force-recreate --remove-orphans
+
+echo "==> Allow docker -> host (for Caddy)"
+bash scripts/allow-docker-to-host.sh || true
 
 echo "==> Fix Caddy proxy"
 curl -fsSL https://raw.githubusercontent.com/mirnyi519-prog/shapecraft/master/scripts/fix-shapecraft-proxy.sh | bash

@@ -4,10 +4,9 @@ services:
       context: .
       args:
         BASE_IMAGE: ${BASE_IMAGE:-mirror.gcr.io/library/node:22-bookworm-slim}
-    ports:
-      - "3000:3000"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    # Host network: на этом VPS из bridge нет доступа к api.telegram.org
+    # и часто нет доступа к портам хоста (relay). Caddy ходит на gateway:3000.
+    network_mode: host
     environment:
       DATABASE_URL: file:/app/data/prod.db
       AUTH_SECRET: ${AUTH_SECRET:-change-me-to-a-long-random-string}
@@ -22,34 +21,14 @@ services:
       WORLD_SYNC_URL: ${WORLD_SYNC_URL:-https://raw.githubusercontent.com/mirnyi519-prog/shapecraft/master/data/world-import.json}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
-      TELEGRAM_RELAY_URL: ${TELEGRAM_RELAY_URL:-http://host.docker.internal:3098}
-      TELEGRAM_RELAY_SECRET: ${TELEGRAM_RELAY_SECRET:-}
+      # Прямая отправка: приложение уже в host network
+      TELEGRAM_RELAY_URL: ""
       NODE_ENV: production
     env_file:
       - .env
     volumes:
       - shapecraft_data:/app/data
       - shapecraft_uploads:/app/public/uploads
-    restart: unless-stopped
-    depends_on:
-      - telegram-relay
-
-  # Отправка в Telegram с сети хоста: из bridge api.telegram.org таймаутится.
-  telegram-relay:
-    image: ${BASE_IMAGE:-mirror.gcr.io/library/node:22-bookworm-slim}
-    network_mode: host
-    working_dir: /relay
-    command: ["node", "server.js"]
-    environment:
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
-      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
-      TELEGRAM_RELAY_SECRET: ${TELEGRAM_RELAY_SECRET:-}
-      TELEGRAM_RELAY_HOST: "0.0.0.0"
-      TELEGRAM_RELAY_PORT: "3098"
-    env_file:
-      - .env
-    volumes:
-      - ./telegram-relay:/relay:ro
     restart: unless-stopped
 
 volumes:
