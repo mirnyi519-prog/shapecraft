@@ -4,7 +4,11 @@ import dns from "node:dns";
 dns.setDefaultResultOrder("ipv4first");
 
 const PORT = Number(process.env.TELEGRAM_RELAY_PORT || 3098);
-const HOST = process.env.TELEGRAM_RELAY_HOST || "127.0.0.1";
+// 0.0.0.0 — чтобы контейнер приложения достучался через host-gateway / 172.17.0.1
+const HOST = process.env.TELEGRAM_RELAY_HOST || "0.0.0.0";
+const RELAY_SECRET = String(process.env.TELEGRAM_RELAY_SECRET || "")
+  .replace(/\r/g, "")
+  .trim();
 
 function cleanEnv(value) {
   return String(value ?? "")
@@ -22,6 +26,15 @@ function readBody(req) {
     req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
     req.on("error", reject);
   });
+}
+
+function authorize(req) {
+  if (!RELAY_SECRET) {
+    return true;
+  }
+  const header = req.headers.authorization || "";
+  const expected = `Bearer ${RELAY_SECRET}`;
+  return header === expected;
 }
 
 async function sendTelegram(text) {
@@ -76,11 +89,16 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === "GET" && req.url === "/health") {
     res.writeHead(200);
-    res.end(JSON.stringify({ ok: true }));
+    res.end(JSON.stringify({ ok: true, listen: `${HOST}:${PORT}` }));
     return;
   }
 
   if (req.method === "POST" && req.url === "/send") {
+    if (!authorize(req)) {
+      res.writeHead(401);
+      res.end(JSON.stringify({ ok: false, error: "unauthorized relay" }));
+      return;
+    }
     try {
       const raw = await readBody(req);
       const payload = raw ? JSON.parse(raw) : {};

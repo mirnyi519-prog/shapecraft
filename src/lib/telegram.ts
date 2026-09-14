@@ -42,33 +42,57 @@ function formatFetchError(error: unknown): string {
   return error.message;
 }
 
+function relayCandidates(primary: string): string[] {
+  const list = [
+    primary,
+    "http://host.docker.internal:3098",
+    "http://172.17.0.1:3098",
+    "http://172.18.0.1:3098",
+    "http://172.19.0.1:3098",
+  ]
+    .map((item) => cleanEnv(item))
+    .filter(Boolean);
+
+  return [...new Set(list)];
+}
+
 export function getTelegramConfig(): {
   token: string;
   chatId: string;
   configured: boolean;
   relayUrl: string;
+  relaySecret: string;
 } {
   const token = cleanEnv(process.env.TELEGRAM_BOT_TOKEN);
   const chatId = cleanEnv(process.env.TELEGRAM_CHAT_ID);
   const relayUrl = cleanEnv(process.env.TELEGRAM_RELAY_URL);
+  const relaySecret = cleanEnv(process.env.TELEGRAM_RELAY_SECRET);
   return {
     token,
     chatId,
     configured: Boolean((token && chatId) || relayUrl),
     relayUrl,
+    relaySecret,
   };
 }
 
 async function sendViaRelay(
   relayUrl: string,
   text: string,
+  relaySecret: string,
 ): Promise<TelegramSendResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15000);
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (relaySecret) {
+      headers.Authorization = `Bearer ${relaySecret}`;
+    }
     const response = await fetch(`${relayUrl.replace(/\/$/, "")}/send`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({ text }),
       signal: controller.signal,
     });
@@ -141,7 +165,8 @@ async function sendDirect(
 export async function sendTelegramMessage(
   text: string,
 ): Promise<TelegramSendResult> {
-  const { token, chatId, configured, relayUrl } = getTelegramConfig();
+  const { token, chatId, configured, relayUrl, relaySecret } =
+    getTelegramConfig();
 
   if (!configured) {
     return {
@@ -152,33 +177,27 @@ export async function sendTelegramMessage(
     };
   }
 
-  if (relayUrl) {
-    const viaRelay = await sendViaRelay(relayUrl, text);
+  const errors: string[] = [];
+
+  for (const candidate of relayCandidates(relayUrl)) {
+    const viaRelay = await sendViaRelay(candidate, text, relaySecret);
     if (viaRelay.ok) {
       return viaRelay;
     }
-    // fallback на прямой вызов (локальная разработка)
-    if (token && chatId) {
-      const direct = await sendDirect(token, chatId, text);
-      if (direct.ok) {
-        return direct;
-      }
-      return {
-        ok: false,
-        configured: true,
-        error: `relay: ${viaRelay.error}; direct: ${direct.error}`,
-      };
+    errors.push(`${candidate} -> ${viaRelay.error}`);
+  }
+
+  if (token && chatId) {
+    const direct = await sendDirect(token, chatId, text);
+    if (direct.ok) {
+      return direct;
     }
-    return viaRelay;
+    errors.push(`direct -> ${direct.error}`);
   }
 
-  if (!token || !chatId) {
-    return {
-      ok: false,
-      configured: false,
-      error: "TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы",
-    };
-  }
-
-  return sendDirect(token, chatId, text);
+  return {
+    ok: false,
+    configured: true,
+    error: errors.join("; "),
+  };
 }
