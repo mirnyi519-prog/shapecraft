@@ -178,7 +178,7 @@ export function SalesChart({
         <div className={`overflow-x-auto ${pending ? "opacity-60" : ""}`}>
           <svg
             viewBox={`0 0 ${geometry.width} ${geometry.height}`}
-            className="h-64 w-full min-w-[28rem]"
+            className="h-56 w-full sm:h-64"
             role="img"
             aria-label="Линейный график продаж за период"
           >

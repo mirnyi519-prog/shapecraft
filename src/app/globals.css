@@ -16,11 +16,16 @@
   --font-sans: var(--font-montserrat);
 }
 
+html {
+  overflow-x: clip;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-montserrat), Arial, sans-serif;
   -webkit-tap-highlight-color: transparent;
+  overflow-x: clip;
 }
 
 a {

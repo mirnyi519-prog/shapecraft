@@ -285,8 +285,10 @@ export default async function ViewsPage({
                       <tr>
                         <th className="px-3 py-3 font-medium">Когда</th>
                         <th className="px-3 py-3 font-medium">Товар</th>
-                        <th className="px-3 py-3 font-medium">IP</th>
-                        <th className="px-3 py-3 font-medium">Устройство</th>
+                        <th className="hidden px-3 py-3 font-medium sm:table-cell">IP</th>
+                        <th className="hidden px-3 py-3 font-medium md:table-cell">
+                          Устройство
+                        </th>
                         <th className="px-3 py-3 font-medium">Исход</th>
                       </tr>
                     </thead>
@@ -306,11 +308,14 @@ export default async function ViewsPage({
                             >
                               {row.productName}
                             </Link>
+                            <p className="mt-0.5 font-mono text-[10px] text-[var(--muted)] sm:hidden">
+                              {row.ipAddress}
+                            </p>
                           </td>
-                          <td className="px-3 py-3 font-mono text-xs">
+                          <td className="hidden px-3 py-3 font-mono text-xs sm:table-cell">
                             {row.ipAddress}
                           </td>
-                          <td className="px-3 py-3 text-[var(--muted)]">
+                          <td className="hidden px-3 py-3 text-[var(--muted)] md:table-cell">
                             {row.device}
                           </td>
                           <td className="px-3 py-3">

@@ -44,7 +44,7 @@ export function BuyIntentModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="buy-intent-title"
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--border)] bg-white p-5 shadow-xl"
+        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--border)] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">

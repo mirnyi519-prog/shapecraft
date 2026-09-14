@@ -330,10 +330,10 @@ export function ProductCatalog({
             role="dialog"
             aria-modal="true"
             aria-labelledby="product-dialog-title"
-            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--border)] bg-white p-5 shadow-xl"
+            className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="space-y-5">
+            <div className="space-y-5 overflow-y-auto p-5 pb-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 id="product-dialog-title" className="text-2xl font-bold">
@@ -379,7 +379,7 @@ export function ProductCatalog({
                 <button
                   type="button"
                   onClick={closeProduct}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted)] hover:bg-[var(--bg)]"
+                  className="min-h-11 shrink-0 rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted)] hover:bg-[var(--bg)]"
                 >
                   Закрыть
                 </button>
@@ -406,24 +406,24 @@ export function ProductCatalog({
                 </h3>
                 <ProductSpecsBlock product={selected} />
               </div>
+            </div>
 
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Button
-                  type="button"
-                  className="min-h-11 flex-1"
-                  onClick={() => void handleBuyClick()}
-                >
-                  Купить
-                </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="min-h-11 flex-1"
-                  onClick={() => setFeedbackOpen(true)}
-                >
-                  Обратная связь
-                </Button>
-              </div>
+            <div className="sticky bottom-0 flex flex-col gap-2 border-t border-[var(--border)] bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row">
+              <Button
+                type="button"
+                className="min-h-11 flex-1"
+                onClick={() => void handleBuyClick()}
+              >
+                Купить
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="min-h-11 flex-1"
+                onClick={() => setFeedbackOpen(true)}
+              >
+                Обратная связь
+              </Button>
             </div>
           </div>
         </div>

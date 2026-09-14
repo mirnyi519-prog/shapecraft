@@ -2,13 +2,22 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   type AppNavItem,
   isNavGroupActive,
   isNavItemActive,
 } from "@/components/app-nav-config";
 import { NavIcon } from "@/components/nav-icon";
+
+/** На телефоне в первой полосе — только частое; остальное в «Ещё». */
+const MOBILE_PRIMARY_HREFS = new Set([
+  "/",
+  "/dashboard",
+  "/products",
+  "/sales/new",
+  "/sales",
+]);
 
 function mobileLinkClass(active: boolean): string {
   return [
@@ -117,82 +126,192 @@ function DesktopNavGroup({ item }: { item: AppNavItem }) {
   );
 }
 
+function MobileNavEntry({
+  item,
+  search,
+  expandedHref,
+  setExpandedHref,
+}: {
+  item: AppNavItem;
+  search: string;
+  expandedHref: string | null;
+  setExpandedHref: (href: string | null) => void;
+}) {
+  const pathname = usePathname();
+
+  if (!item.children?.length) {
+    const active = isNavItemActive(pathname, item.href, search);
+    return (
+      <Link
+        href={item.href}
+        className={mobileLinkClass(active)}
+        aria-current={active ? "page" : undefined}
+      >
+        {item.label}
+      </Link>
+    );
+  }
+
+  const groupActive = isNavGroupActive(pathname, item);
+  const open = expandedHref === item.href;
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        setExpandedHref(open ? null : item.href)
+      }
+      className={`${mobileLinkClass(open || groupActive)} inline-flex items-center gap-1`}
+      aria-expanded={open}
+    >
+      {item.label}
+      <Chevron open={open} />
+    </button>
+  );
+}
+
+function MobileNavChildren({
+  item,
+  search,
+}: {
+  item: AppNavItem;
+  search: string;
+}) {
+  const pathname = usePathname();
+  if (!item.children?.length) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 flex flex-col gap-1">
+      {item.children.map((child) => {
+        const active = isNavItemActive(pathname, child.href, search);
+        return (
+          <Link
+            key={child.href}
+            href={child.href}
+            className={`${mobileLinkClass(active)} w-full text-left`}
+            aria-current={active ? "page" : undefined}
+          >
+            {child.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
 export function MobileAppNav({ items }: { items: AppNavItem[] }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
   const [expandedHref, setExpandedHref] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const { primary, more } = useMemo(() => {
+    const primaryItems: AppNavItem[] = [];
+    const moreItems: AppNavItem[] = [];
+    for (const item of items) {
+      if (MOBILE_PRIMARY_HREFS.has(item.href)) {
+        primaryItems.push(item);
+      } else {
+        moreItems.push(item);
+      }
+    }
+    return { primary: primaryItems, more: moreItems };
+  }, [items]);
+
+  const moreActive = useMemo(
+    () => more.some((item) => isNavGroupActive(pathname, item)),
+    [more, pathname],
+  );
 
   useEffect(() => {
     const openGroup = items.find(
       (item) => item.children?.length && isNavGroupActive(pathname, item),
     );
     setExpandedHref(openGroup?.href ?? null);
-  }, [items, pathname]);
+    setMoreOpen(more.some((item) => isNavGroupActive(pathname, item)));
+  }, [items, more, pathname]);
+
+  const expandedItem =
+    [...primary, ...more].find((item) => item.href === expandedHref) ?? null;
 
   return (
-    <nav className="-mx-0 mx-auto max-w-6xl px-4 pb-3 lg:hidden">
-      <div className="flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {items.map((item) => {
-          if (!item.children?.length) {
-            const active = isNavItemActive(pathname, item.href, search);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={mobileLinkClass(active)}
-                aria-current={active ? "page" : undefined}
-              >
-                {item.label}
-              </Link>
-            );
-          }
-
-          const groupActive = isNavGroupActive(pathname, item);
-          const open = expandedHref === item.href;
-          return (
-            <button
-              key={item.href}
-              type="button"
-              onClick={() =>
-                setExpandedHref((current) =>
-                  current === item.href ? null : item.href,
-                )
-              }
-              className={`${mobileLinkClass(open || groupActive)} inline-flex items-center gap-1`}
-              aria-expanded={open}
-            >
-              {item.label}
-              <Chevron open={open} />
-            </button>
-          );
-        })}
-      </div>
-      {items.map((item) => {
-        if (!item.children?.length || expandedHref !== item.href) {
-          return null;
-        }
-        return (
-          <div
-            key={`${item.href}-children`}
-            className="mt-2 flex flex-col gap-1"
+    <nav className="mx-auto max-w-6xl px-4 pb-3 lg:hidden">
+      <div className="touch-scroll flex gap-1 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {primary.map((item) => (
+          <MobileNavEntry
+            key={item.href}
+            item={item}
+            search={search}
+            expandedHref={expandedHref}
+            setExpandedHref={(href) => {
+              setMoreOpen(false);
+              setExpandedHref(href);
+            }}
+          />
+        ))}
+        {more.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => {
+              setExpandedHref(null);
+              setMoreOpen((value) => !value);
+            }}
+            className={`${mobileLinkClass(moreOpen || moreActive)} inline-flex items-center gap-1`}
+            aria-expanded={moreOpen}
           >
-            {item.children.map((child) => {
-              const active = isNavItemActive(pathname, child.href, search);
+            Ещё
+            <Chevron open={moreOpen} />
+          </button>
+        ) : null}
+      </div>
+
+      {expandedItem && primary.some((item) => item.href === expandedItem.href) ? (
+        <MobileNavChildren item={expandedItem} search={search} />
+      ) : null}
+
+      {moreOpen && more.length > 0 ? (
+        <div className="mt-2 grid grid-cols-2 gap-1 rounded-2xl border border-[var(--border)] bg-white p-2 shadow-sm">
+          {more.map((item) => {
+            if (!item.children?.length) {
+              const active = isNavItemActive(pathname, item.href, search);
               return (
                 <Link
-                  key={child.href}
-                  href={child.href}
+                  key={item.href}
+                  href={item.href}
                   className={`${mobileLinkClass(active)} w-full text-left`}
                   aria-current={active ? "page" : undefined}
+                  onClick={() => setMoreOpen(false)}
                 >
-                  {child.label}
+                  {item.label}
                 </Link>
               );
-            })}
-          </div>
-        );
-      })}
+            }
+
+            const groupActive = isNavGroupActive(pathname, item);
+            const open = expandedHref === item.href;
+            return (
+              <div key={item.href} className="col-span-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setExpandedHref((current) =>
+                      current === item.href ? null : item.href,
+                    )
+                  }
+                  className={`${mobileLinkClass(open || groupActive)} inline-flex w-full items-center justify-between gap-1`}
+                  aria-expanded={open}
+                >
+                  {item.label}
+                  <Chevron open={open} />
+                </button>
+                {open ? <MobileNavChildren item={item} search={search} /> : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
     </nav>
   );
 }
