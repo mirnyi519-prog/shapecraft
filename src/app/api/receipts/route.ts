@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { notifyTelegramReceipt } from "@/lib/telegram";
 
 export async function GET() {
   try {
@@ -75,6 +76,14 @@ export async function POST(request: NextRequest) {
       });
 
       return updated;
+    });
+
+    notifyTelegramReceipt({
+      name: receipt.name,
+      imageUrl: receipt.imageUrl,
+      quantity,
+      stockAfter: receipt.stock,
+      note: body.note,
     });
 
     return NextResponse.json(

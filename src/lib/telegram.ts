@@ -1,4 +1,7 @@
 import dns from "node:dns";
+import { readFile } from "fs/promises";
+import path from "path";
+import { getUploadsDir, getMimeType } from "@/lib/upload";
 
 dns.setDefaultResultOrder("ipv4first");
 
@@ -46,19 +49,49 @@ export function getTelegramConfig(): {
   token: string;
   chatId: string;
   configured: boolean;
+  siteUrl: string;
 } {
   const token = cleanEnv(process.env.TELEGRAM_BOT_TOKEN);
   const chatId = cleanEnv(process.env.TELEGRAM_CHAT_ID);
+  const siteUrl =
+    cleanEnv(process.env.PUBLIC_SITE_URL) || "https://shapecraft.ru";
   return {
     token,
     chatId,
     configured: Boolean(token && chatId),
+    siteUrl: siteUrl.replace(/\/$/, ""),
   };
 }
 
+/** Абсолютный URL картинки для Telegram (публичный). */
+export function resolveProductImageUrl(
+  imageUrl: string | null | undefined,
+): string | null {
+  if (!imageUrl?.trim()) {
+    return null;
+  }
+  const raw = imageUrl.trim();
+  if (/^https?:\/\//i.test(raw)) {
+    return raw;
+  }
+  const { siteUrl } = getTelegramConfig();
+  return `${siteUrl}${raw.startsWith("/") ? "" : "/"}${raw}`;
+}
+
+function localUploadPath(imageUrl: string): string | null {
+  const match = imageUrl.match(/\/api\/media\/([^/?#]+)/i);
+  if (!match?.[1]) {
+    return null;
+  }
+  const safe = path.basename(match[1]);
+  if (!safe || safe !== match[1]) {
+    return null;
+  }
+  return path.join(getUploadsDir(), safe);
+}
+
 /**
- * Уведомления в Telegram (напрямую).
- * На сервере приложение должно быть в host network.
+ * Текст в Telegram.
  */
 export async function sendTelegramMessage(
   text: string,
@@ -112,4 +145,242 @@ export async function sendTelegramMessage(
     console.error("telegram send exception", message);
     return { ok: false, configured: true, error: message };
   }
+}
+
+/**
+ * Фото + подпись. Сначала публичный URL, иначе multipart с диска.
+ * Если фото нет или не отправилось — уходит только текст.
+ */
+export async function sendTelegramPhoto(input: {
+  caption: string;
+  imageUrl?: string | null;
+}): Promise<TelegramSendResult> {
+  const { token, chatId, configured } = getTelegramConfig();
+  const caption = input.caption.slice(0, 1024);
+
+  if (!configured) {
+    return {
+      ok: false,
+      configured: false,
+      error: "TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы в контейнере",
+    };
+  }
+
+  const publicUrl = resolveProductImageUrl(input.imageUrl);
+  if (!publicUrl && !input.imageUrl) {
+    return sendTelegramMessage(input.caption);
+  }
+
+  // 1) URL (Telegram сам скачает)
+  if (publicUrl) {
+    const byUrl = await sendPhotoJson(token, chatId, publicUrl, caption);
+    if (byUrl.ok) {
+      return byUrl;
+    }
+    console.error("telegram photo by url failed", byUrl.error);
+  }
+
+  // 2) файл с диска
+  if (input.imageUrl) {
+    const filePath = localUploadPath(input.imageUrl);
+    if (filePath) {
+      try {
+        const buffer = await readFile(filePath);
+        const byFile = await sendPhotoMultipart(
+          token,
+          chatId,
+          buffer,
+          path.basename(filePath),
+          caption,
+        );
+        if (byFile.ok) {
+          return byFile;
+        }
+        console.error("telegram photo by file failed", byFile.error);
+      } catch (error) {
+        console.error("telegram photo read failed", formatFetchError(error));
+      }
+    }
+  }
+
+  // 3) хотя бы текст
+  return sendTelegramMessage(input.caption);
+}
+
+async function sendPhotoJson(
+  token: string,
+  chatId: string,
+  photoUrl: string,
+  caption: string,
+): Promise<TelegramSendResult> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    const response = await fetch(
+      `https://api.telegram.org/bot${token}/sendPhoto`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: toChatId(chatId),
+          photo: photoUrl,
+          caption,
+        }),
+        signal: controller.signal,
+      },
+    ).finally(() => clearTimeout(timer));
+
+    const body = (await response.json().catch(() => null)) as {
+      ok?: boolean;
+      description?: string;
+    } | null;
+
+    if (!response.ok || !body?.ok) {
+      return {
+        ok: false,
+        configured: true,
+        status: response.status,
+        error: body?.description || `Telegram HTTP ${response.status}`,
+      };
+    }
+    return { ok: true, configured: true, status: response.status };
+  } catch (error) {
+    return { ok: false, configured: true, error: formatFetchError(error) };
+  }
+}
+
+async function sendPhotoMultipart(
+  token: string,
+  chatId: string,
+  buffer: Buffer,
+  filename: string,
+  caption: string,
+): Promise<TelegramSendResult> {
+  try {
+    const form = new FormData();
+    form.set("chat_id", String(toChatId(chatId)));
+    form.set("caption", caption);
+    const ext = path.extname(filename) || ".jpg";
+    const blob = new Blob([new Uint8Array(buffer)], {
+      type: getMimeType(ext),
+    });
+    form.set("photo", blob, filename);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
+    const response = await fetch(
+      `https://api.telegram.org/bot${token}/sendPhoto`,
+      {
+        method: "POST",
+        body: form,
+        signal: controller.signal,
+      },
+    ).finally(() => clearTimeout(timer));
+
+    const body = (await response.json().catch(() => null)) as {
+      ok?: boolean;
+      description?: string;
+    } | null;
+
+    if (!response.ok || !body?.ok) {
+      return {
+        ok: false,
+        configured: true,
+        status: response.status,
+        error: body?.description || `Telegram HTTP ${response.status}`,
+      };
+    }
+    return { ok: true, configured: true, status: response.status };
+  } catch (error) {
+    return { ok: false, configured: true, error: formatFetchError(error) };
+  }
+}
+
+function fireAndForget(result: Promise<TelegramSendResult>, label: string) {
+  void result.then((value) => {
+    if (!value.ok) {
+      console.error(`telegram ${label}`, value.error ?? "failed");
+    }
+  });
+}
+
+export function notifyTelegramNewProduct(product: {
+  name: string;
+  imageUrl?: string | null;
+  listPrice?: number | null;
+  stock?: number;
+  catalogLine?: string;
+}) {
+  const line =
+    product.catalogLine === "home" ? "Для дома" : "Сувениры";
+  const price =
+    product.listPrice != null && Number.isFinite(product.listPrice)
+      ? `${Math.round(product.listPrice)} ₽`
+      : "цена не задана";
+  const stock =
+    product.stock != null ? `${product.stock} шт` : "—";
+
+  fireAndForget(
+    sendTelegramPhoto({
+      imageUrl: product.imageUrl,
+      caption: [
+        "🆕 Новый товар",
+        product.name,
+        `Направление: ${line}`,
+        `Прайс: ${price}`,
+        `Остаток: ${stock}`,
+      ].join("\n"),
+    }),
+    "new-product",
+  );
+}
+
+export function notifyTelegramReceipt(input: {
+  name: string;
+  imageUrl?: string | null;
+  quantity: number;
+  stockAfter: number;
+  note?: string | null;
+}) {
+  fireAndForget(
+    sendTelegramPhoto({
+      imageUrl: input.imageUrl,
+      caption: [
+        "📦 Новая поставка",
+        input.name,
+        `Приход: +${input.quantity} шт`,
+        `Остаток теперь: ${input.stockAfter} шт`,
+        input.note?.trim() ? `Заметка: ${input.note.trim()}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    }),
+    "receipt",
+  );
+}
+
+export function notifyTelegramSale(input: {
+  name: string;
+  imageUrl?: string | null;
+  quantity: number;
+  amount: number;
+  stockAfter?: number;
+  note?: string | null;
+}) {
+  fireAndForget(
+    sendTelegramPhoto({
+      imageUrl: input.imageUrl,
+      caption: [
+        "💰 Новая продажа",
+        input.name,
+        `Кол-во: ${input.quantity} шт`,
+        `Сумма: ${Math.round(input.amount)} ₽`,
+        input.stockAfter != null ? `Остаток: ${input.stockAfter} шт` : null,
+        input.note?.trim() ? `Заметка: ${input.note.trim()}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    }),
+    "sale",
+  );
 }

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { BuyClickOutcomeSelect } from "@/components/buy-click-outcome-select";
+import { BuyClicksResetButton } from "@/components/buy-clicks-reset-button";
 import { ProductThumb } from "@/components/product-thumb";
 import { Button, Card, StatCard } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
@@ -160,6 +161,16 @@ export default async function ViewsPage({
           </Card>
         ) : (
           <div className="space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Клики «Купить»</h2>
+                <p className="text-sm text-[var(--muted)]">
+                  Сводка и исходы. Тестовый мусор можно сбросить кнопкой справа.
+                </p>
+              </div>
+              <BuyClicksResetButton />
+            </div>
+
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               <StatCard label="Всего кликов" value={String(buyStats.totalClicks)} />
               <StatCard

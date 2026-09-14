@@ -7,6 +7,7 @@ import { parseCatalogLine } from "@/lib/catalog-line";
 import { parseZeroStockMode } from "@/lib/buy-intent";
 import { parseOptionalNumber } from "@/lib/product-specs";
 import { parseOptionalPrice } from "@/lib/pricing";
+import { notifyTelegramNewProduct } from "@/lib/telegram";
 
 export async function GET() {
   try {
@@ -105,6 +106,14 @@ export async function POST(request: NextRequest) {
     });
 
     await syncProductCategories(product.id, categoryIds);
+
+    notifyTelegramNewProduct({
+      name: product.name,
+      imageUrl: product.imageUrl,
+      listPrice: product.listPrice,
+      stock: product.stock,
+      catalogLine: product.catalogLine,
+    });
 
     const withCategories = await prisma.product.findUnique({
       where: { id: product.id },

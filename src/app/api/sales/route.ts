@@ -5,6 +5,7 @@ import {
 } from "@/lib/auth";
 import { calculateSaleSplit } from "@/lib/calculations";
 import { prisma } from "@/lib/db";
+import { notifyTelegramSale } from "@/lib/telegram";
 
 export async function GET() {
   try {
@@ -110,6 +111,15 @@ export async function POST(request: NextRequest) {
       });
 
       return created;
+    });
+
+    notifyTelegramSale({
+      name: sale.product.name,
+      imageUrl: sale.product.imageUrl,
+      quantity: sale.quantity,
+      amount: sale.amount,
+      stockAfter: product.stock - quantity,
+      note: sale.note,
     });
 
     return NextResponse.json(sale, { status: 201 });
