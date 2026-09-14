@@ -4,11 +4,9 @@ services:
       context: .
       args:
         BASE_IMAGE: ${BASE_IMAGE:-mirror.gcr.io/library/node:22-bookworm-slim}
-    ports:
-      - "3000:3000"
-    dns:
-      - 8.8.8.8
-      - 1.1.1.1
+    # Host-сеть: с bridge Docker на этом VPS api.telegram.org:443 таймаутится,
+    # а с хоста curl проходит. Caddy ходит на приложение через gateway:3000.
+    network_mode: host
     environment:
       DATABASE_URL: file:/app/data/prod.db
       AUTH_SECRET: ${AUTH_SECRET:-change-me-to-a-long-random-string}
