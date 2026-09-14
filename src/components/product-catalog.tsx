@@ -188,9 +188,11 @@ export function ProductCatalog({
       return;
     }
     setBuyOpen(true);
-    void fetch(`/api/products/${selected.id}/buy-click`, { method: "POST" }).catch(
-      () => {},
-    );
+    try {
+      await fetch(`/api/products/${selected.id}/buy-click`, { method: "POST" });
+    } catch {
+      // клик всё равно открыл модалку; пуш не критичен для UX
+    }
   }
 
   useEffect(() => {

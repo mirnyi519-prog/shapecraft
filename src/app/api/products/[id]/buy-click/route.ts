@@ -86,7 +86,7 @@ export async function POST(request: Request, context: RouteContext) {
       minute: "2-digit",
     });
 
-    void sendTelegramMessage(
+    const telegram = await sendTelegramMessage(
       [
         "🛒 Купить на витрине",
         `Товар: ${product.name}`,
@@ -96,13 +96,17 @@ export async function POST(request: Request, context: RouteContext) {
         `Всего «Купить» сегодня: ${clicksTodayTotal}`,
         `IP: ${ip}`,
       ].join("\n"),
-    ).then((result) => {
-      if (!result.ok) {
-        console.error("buy-click telegram", result.error ?? "failed");
-      }
-    });
+    );
 
-    return NextResponse.json({ ok: true, buyClickCount: updated.buyClickCount });
+    if (!telegram.ok) {
+      console.error("buy-click telegram", telegram.error ?? "failed");
+    }
+
+    return NextResponse.json({
+      ok: true,
+      buyClickCount: updated.buyClickCount,
+      telegram: telegram.ok,
+    });
   } catch {
     return NextResponse.json({ error: "Ошибка записи клика" }, { status: 500 });
   }
