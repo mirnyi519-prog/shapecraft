@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { SecurityControls } from "@/components/security-controls";
+import { TelegramTestCard } from "@/components/telegram-test-card";
 import { Badge, Card, StatCard } from "@/components/ui";
 import { formatDateTime } from "@/lib/calculations";
 import { getSession, isAdmin } from "@/lib/auth";
@@ -93,6 +94,8 @@ export default async function SecurityPage() {
             source: row.source,
           }))}
         />
+
+        <TelegramTestCard />
 
         <Card title="Последние 100 событий">
           {events.length === 0 ? (

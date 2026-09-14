@@ -96,7 +96,11 @@ export async function POST(request: Request, context: RouteContext) {
         `Всего «Купить» сегодня: ${clicksTodayTotal}`,
         `IP: ${ip}`,
       ].join("\n"),
-    );
+    ).then((result) => {
+      if (!result.ok) {
+        console.error("buy-click telegram", result.error ?? "failed");
+      }
+    });
 
     return NextResponse.json({ ok: true, buyClickCount: updated.buyClickCount });
   } catch {
