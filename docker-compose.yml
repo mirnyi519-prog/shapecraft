@@ -24,6 +24,7 @@ services:
       # Прямая отправка: приложение уже в host network
       TELEGRAM_RELAY_URL: ""
       NODE_ENV: production
+      TZ: Europe/Moscow
     env_file:
       - .env
     volumes:

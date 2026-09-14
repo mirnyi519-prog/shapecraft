@@ -1,4 +1,11 @@
 import { prisma } from "@/lib/db";
+import {
+  MOSCOW_TZ,
+  addMoscowDays,
+  moscowYmd,
+  startOfMoscowDay,
+  startOfMoscowWeekMonday,
+} from "@/lib/timezone";
 
 export type SalesTotals = {
   count: number;
@@ -97,20 +104,9 @@ function pad2(value: number): string {
   return String(value).padStart(2, "0");
 }
 
-function startOfLocalDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function startOfWeekMonday(date: Date): Date {
-  const start = startOfLocalDay(date);
-  const weekday = start.getDay();
-  const offset = weekday === 0 ? 6 : weekday - 1;
-  start.setDate(start.getDate() - offset);
-  return start;
-}
-
 function dayKey(date: Date): string {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  const { year, month, day } = moscowYmd(date);
+  return `${year}-${pad2(month)}-${pad2(day)}`;
 }
 
 function weekKey(monday: Date): string {
@@ -118,44 +114,50 @@ function weekKey(monday: Date): string {
 }
 
 function monthKey(date: Date): string {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}`;
+  const { year, month } = moscowYmd(date);
+  return `${year}-${pad2(month)}`;
 }
 
 function yearKey(date: Date): string {
-  return String(date.getFullYear());
+  return String(moscowYmd(date).year);
+}
+
+function moscowYearStart(year: number): Date {
+  return startOfMoscowDay(new Date(Date.UTC(year, 0, 1, 12, 0, 0)));
 }
 
 function buildDayBuckets(now: Date): SalesChartPoint[] {
-  const year = now.getFullYear();
-  const start = new Date(year, 0, 1);
-  const end = startOfLocalDay(now);
+  const year = moscowYmd(now).year;
+  const end = startOfMoscowDay(now);
+  let cursor = moscowYearStart(year);
   const points: SalesChartPoint[] = [];
-  const cursor = new Date(start);
 
   while (cursor <= end) {
+    const { day, month } = moscowYmd(cursor);
     points.push({
       key: dayKey(cursor),
-      label: `${cursor.getDate()}.${pad2(cursor.getMonth() + 1)}`,
+      label: `${day}.${pad2(month)}`,
       revenue: 0,
       quantity: 0,
     });
-    cursor.setDate(cursor.getDate() + 1);
+    cursor = addMoscowDays(cursor, 1);
   }
 
   return points;
 }
 
 function buildWeekBuckets(now: Date): SalesChartPoint[] {
-  const year = now.getFullYear();
-  const end = startOfWeekMonday(now);
-  let cursor = startOfWeekMonday(new Date(year, 0, 1));
+  const year = moscowYmd(now).year;
+  const end = startOfMoscowWeekMonday(now);
+  let cursor = startOfMoscowWeekMonday(moscowYearStart(year));
   const points: SalesChartPoint[] = [];
   let weekNum = 1;
 
   while (cursor <= end) {
-    const weekEnd = new Date(cursor);
-    weekEnd.setDate(cursor.getDate() + 6);
-    if (weekEnd.getFullYear() >= year && cursor.getFullYear() <= year) {
+    const weekEnd = addMoscowDays(cursor, 6);
+    const cursorYear = moscowYmd(cursor).year;
+    const weekEndYear = moscowYmd(weekEnd).year;
+    if (weekEndYear >= year && cursorYear <= year) {
       points.push({
         key: weekKey(cursor),
         label: `н${weekNum}`,
@@ -164,20 +166,22 @@ function buildWeekBuckets(now: Date): SalesChartPoint[] {
       });
       weekNum += 1;
     }
-    cursor = new Date(cursor);
-    cursor.setDate(cursor.getDate() + 7);
+    cursor = addMoscowDays(cursor, 7);
   }
 
   return points;
 }
 
 function buildMonthBuckets(now: Date): SalesChartPoint[] {
-  const year = now.getFullYear();
+  const year = moscowYmd(now).year;
   return Array.from({ length: 12 }, (_, index) => {
-    const month = new Date(year, index, 1);
+    const month = new Date(Date.UTC(year, index, 15, 12, 0, 0));
     return {
-      key: monthKey(month),
-      label: new Intl.DateTimeFormat("ru-RU", { month: "short" }).format(month),
+      key: `${year}-${pad2(index + 1)}`,
+      label: new Intl.DateTimeFormat("ru-RU", {
+        timeZone: MOSCOW_TZ,
+        month: "short",
+      }).format(month),
       revenue: 0,
       quantity: 0,
     };
@@ -203,7 +207,7 @@ function bucketKey(period: SalesChartPeriod, soldAt: Date): string {
     return dayKey(soldAt);
   }
   if (period === "week") {
-    return weekKey(startOfWeekMonday(soldAt));
+    return weekKey(startOfMoscowWeekMonday(soldAt));
   }
   if (period === "month") {
     return monthKey(soldAt);
@@ -218,19 +222,20 @@ function rangeForPeriod(
 ): { from: Date | null; to: Date | null } {
   if (period === "year") {
     return {
-      from: new Date(earliestYear, 0, 1),
-      to: new Date(now.getFullYear() + 1, 0, 1),
+      from: moscowYearStart(earliestYear),
+      to: moscowYearStart(moscowYmd(now).year + 1),
     };
   }
 
+  const year = moscowYmd(now).year;
   return {
-    from: new Date(now.getFullYear(), 0, 1),
-    to: new Date(now.getFullYear() + 1, 0, 1),
+    from: moscowYearStart(year),
+    to: moscowYearStart(year + 1),
   };
 }
 
 export function salesChartPeriodLabel(period: SalesChartPeriod, now = new Date()): string {
-  const year = now.getFullYear();
+  const year = moscowYmd(now).year;
   if (period === "day") {
     return `По дням · ${year}`;
   }
@@ -261,7 +266,9 @@ export async function getSalesChartSeries(
     orderBy: { soldAt: "asc" },
     select: { soldAt: true },
   });
-  const earliestYear = firstSale?.soldAt.getFullYear() ?? now.getFullYear();
+  const earliestYear = firstSale
+    ? moscowYmd(firstSale.soldAt).year
+    : moscowYmd(now).year;
 
   const points =
     period === "day"
@@ -270,7 +277,7 @@ export async function getSalesChartSeries(
         ? buildWeekBuckets(now)
         : period === "month"
           ? buildMonthBuckets(now)
-          : buildYearBuckets(earliestYear, now.getFullYear());
+          : buildYearBuckets(earliestYear, moscowYmd(now).year);
 
   const { from, to } = rangeForPeriod(period, now, earliestYear);
 

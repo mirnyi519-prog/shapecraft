@@ -4,18 +4,15 @@ import {
   type BuyClickOutcome,
   isBuyClickOutcome,
 } from "@/lib/buy-intent";
+import { addMoscowDays, startOfMoscowDay } from "@/lib/timezone";
 import { parseUserAgent } from "@/lib/visits";
 
 function startOfToday(): Date {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  return date;
+  return startOfMoscowDay();
 }
 
 function daysAgo(days: number): Date {
-  const date = startOfToday();
-  date.setDate(date.getDate() - days);
-  return date;
+  return addMoscowDays(startOfToday(), -days);
 }
 
 export async function getBuyClickStats() {

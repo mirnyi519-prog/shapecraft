@@ -1,4 +1,5 @@
 import type { TDocumentDefinitions, Content } from "pdfmake/interfaces";
+import { MOSCOW_TZ } from "@/lib/timezone";
 
 export type PricePdfProduct = {
   name: string;
@@ -19,7 +20,9 @@ function formatPrice(listPrice: number | null): string {
 }
 
 function fileName(): string {
-  const stamp = new Intl.DateTimeFormat("sv-SE").format(new Date());
+  const stamp = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: MOSCOW_TZ,
+  }).format(new Date());
   return `shapecraft-price-${stamp}.pdf`;
 }
 
@@ -132,6 +135,7 @@ async function buildDocDefinition(
   products: PricePdfProduct[],
 ): Promise<TDocumentDefinitions> {
   const dateLabel = new Intl.DateTimeFormat("ru-RU", {
+    timeZone: MOSCOW_TZ,
     day: "numeric",
     month: "long",
     year: "numeric",

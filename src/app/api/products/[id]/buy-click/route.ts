@@ -9,6 +9,8 @@ import {
   tooManyRequests,
 } from "@/lib/security";
 import { sendTelegramMessage } from "@/lib/telegram";
+import { formatDateTime } from "@/lib/calculations";
+import { startOfMoscowDay } from "@/lib/timezone";
 import { VISITOR_COOKIE } from "@/lib/visit-tracking";
 import { isAutomatedCrawlerUserAgent } from "@/lib/visits";
 
@@ -70,8 +72,7 @@ export async function POST(request: Request, context: RouteContext) {
       }),
     ]);
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = startOfMoscowDay();
     const [clicksTodayTotal, clicksTodayProduct] = await Promise.all([
       prisma.productBuyClick.count({ where: { clickedAt: { gte: today } } }),
       prisma.productBuyClick.count({
@@ -79,12 +80,7 @@ export async function POST(request: Request, context: RouteContext) {
       }),
     ]);
 
-    const when = new Date().toLocaleString("ru-RU", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const when = formatDateTime(new Date());
 
     const telegram = await sendTelegramMessage(
       [

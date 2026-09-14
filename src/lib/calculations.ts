@@ -1,3 +1,5 @@
+import { formatMoscow } from "@/lib/timezone";
+
 export type SaleSplit = {
   amount: number;
   costTotal: number;
@@ -35,19 +37,19 @@ export function formatRub(value: number): string {
 }
 
 export function formatDate(value: Date | string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
+  return formatMoscow(value, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-  }).format(new Date(value));
+  });
 }
 
 export function formatDateTime(value: Date | string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
+  return formatMoscow(value, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  });
 }

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ProductPhoto } from "@/components/product-photo";
 import { Badge } from "@/components/ui";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
-import { formatRub } from "@/lib/calculations";
+import { formatDateTime, formatRub } from "@/lib/calculations";
 import type { CatalogProduct } from "@/lib/catalog-product";
 import { stockBadgeLabel, stockBadgeShort } from "@/lib/catalog-product";
 import { hasListPrice } from "@/lib/pricing";
@@ -17,14 +17,7 @@ export function DisplayCatalog({ products }: { products: CatalogProduct[] }) {
 
   useEffect(() => {
     function tick() {
-      setNow(
-        new Date().toLocaleString("ru-RU", {
-          day: "2-digit",
-          month: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      );
+      setNow(formatDateTime(new Date()));
     }
 
     tick();

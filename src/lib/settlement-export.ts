@@ -1,4 +1,5 @@
 import { formatDateTime, formatRub } from "@/lib/calculations";
+import { moscowYmd } from "@/lib/timezone";
 
 function csvCell(value: string | number): string {
   const text = String(value);
@@ -62,6 +63,7 @@ export function buildPartnerSalesCsv(input: {
 }
 
 export function partnerExportFilename(prefix: string): string {
-  const stamp = new Date().toISOString().slice(0, 10);
+  const { year, month, day } = moscowYmd();
+  const stamp = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   return `${prefix}-${stamp}.csv`;
 }

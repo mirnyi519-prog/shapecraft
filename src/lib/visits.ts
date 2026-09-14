@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { startOfMoscowDay } from "@/lib/timezone";
 import { normalizeUtmValue } from "@/lib/visit-tracking";
 
 export function getClientIp(request: Request): string {
@@ -253,8 +254,7 @@ export async function getVisitStats(): Promise<{
     orderBy: { visitedAt: "desc" },
   });
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
+  const todayStart = startOfMoscowDay();
 
   const byIpMap = new Map<
     string,

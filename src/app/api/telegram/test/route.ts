@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdmin, requireSession } from "@/lib/auth";
+import { formatDateTime } from "@/lib/calculations";
 import { getTelegramConfig, sendTelegramMessage } from "@/lib/telegram";
 
 export async function GET() {
@@ -34,7 +35,7 @@ export async function POST() {
     }
 
     const result = await sendTelegramMessage(
-      `✅ Тест ShapeCraft\nВремя: ${new Date().toLocaleString("ru-RU")}`,
+      `✅ Тест ShapeCraft\nВремя: ${formatDateTime(new Date())} (МСК)`,
     );
 
     return NextResponse.json(result, {

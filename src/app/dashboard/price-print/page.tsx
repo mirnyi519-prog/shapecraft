@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { PricePrintClient } from "@/components/price-print-client";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { formatMoscow } from "@/lib/timezone";
 
 export default async function PricePrintPage() {
   const session = await getSession();
@@ -60,11 +61,11 @@ export default async function PricePrintPage() {
         <div className="mb-4">
           <h2 className="text-xl font-bold">ShapeCraft — прайс</h2>
           <p className="text-sm text-[var(--muted)]">
-            {new Intl.DateTimeFormat("ru-RU", {
+            {formatMoscow(new Date(), {
               day: "numeric",
               month: "long",
               year: "numeric",
-            }).format(new Date())}{" "}
+            })}{" "}
             · {products.length} поз. · предпросмотр
           </p>
         </div>

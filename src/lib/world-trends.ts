@@ -1,3 +1,8 @@
+import {
+  moscowYmd,
+  startOfMoscowWeekMonday,
+} from "@/lib/timezone";
+
 export type WorldPriceTier = "expensive" | "medium" | "cheap";
 
 export type WorldTrendArticleView = {
@@ -53,10 +58,7 @@ export function groupArticlesByTier(
 }
 
 export function getWeekLabel(date = new Date()): string {
-  const copy = new Date(date);
-  const day = copy.getDay();
-  const diff = copy.getDate() - day + (day === 0 ? -6 : 1);
-  copy.setDate(diff);
-  copy.setHours(0, 0, 0, 0);
-  return copy.toISOString().slice(0, 10);
+  const monday = startOfMoscowWeekMonday(date);
+  const { year, month, day } = moscowYmd(monday);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
+import { formatDateTime } from "@/lib/calculations";
 import {
   WORLD_TIER_HINTS,
   WORLD_TIER_LABELS,
@@ -204,15 +205,7 @@ export function WorldTrendsAdmin({
         <div>
           <dt className="text-[var(--muted)]">Последнее обновление</dt>
           <dd className="font-medium">
-            {lastGenerated
-              ? new Date(lastGenerated).toLocaleString("ru-RU", {
-                  day: "2-digit",
-                  month: "long",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : "—"}
+            {lastGenerated ? formatDateTime(lastGenerated) : "—"}
           </dd>
         </div>
       </dl>
