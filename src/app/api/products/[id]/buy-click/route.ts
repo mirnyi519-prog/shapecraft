@@ -10,7 +10,7 @@ import {
 } from "@/lib/security";
 import { sendTelegramMessage } from "@/lib/telegram";
 import { VISITOR_COOKIE } from "@/lib/visit-tracking";
-import { isBotUserAgent } from "@/lib/visits";
+import { isAutomatedCrawlerUserAgent } from "@/lib/visits";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -36,7 +36,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     const userAgent = request.headers.get("user-agent");
-    if (isBotUserAgent(userAgent)) {
+    if (isAutomatedCrawlerUserAgent(userAgent)) {
       return NextResponse.json({ ok: true, skipped: true });
     }
 

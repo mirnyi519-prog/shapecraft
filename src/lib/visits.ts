@@ -21,11 +21,28 @@ export function getClientIp(request: Request): string {
 const BOT_PATTERN =
   /bot|crawler|spider|slurp|facebookexternalhit|whatsapp|telegram/i;
 
+/** Краулеры и превью-боты (для визитов). */
 export function isBotUserAgent(userAgent: string | null): boolean {
   if (!userAgent) {
     return false;
   }
   return BOT_PATTERN.test(userAgent);
+}
+
+/**
+ * Только автоматизированные краулеры.
+ * Не включает Telegram/WhatsApp — их in-app браузеры содержат эти слова,
+ * но это живые люди (клик «Купить» должен считаться и пушить).
+ */
+export function isAutomatedCrawlerUserAgent(userAgent: string | null): boolean {
+  if (!userAgent) {
+    return false;
+  }
+  // Исключаем in-app браузеры мессенджеров до общей проверки на "bot"
+  if (/telegram|whatsapp/i.test(userAgent)) {
+    return false;
+  }
+  return /bot|crawler|spider|slurp|facebookexternalhit/i.test(userAgent);
 }
 
 export async function recordSiteVisit(input: {
