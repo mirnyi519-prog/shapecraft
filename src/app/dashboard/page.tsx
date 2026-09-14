@@ -6,6 +6,7 @@ import { SalesChart } from "@/components/sales-chart";
 import { Badge, Button, Card, StatCard } from "@/components/ui";
 import { formatDate, formatDateTime, formatRub } from "@/lib/calculations";
 import { getSession, isAdmin } from "@/lib/auth";
+import { getBuyClickStats } from "@/lib/buy-clicks";
 import { otherShareLabel, saleShareHint, selfShareLabel } from "@/lib/labels";
 import { prisma } from "@/lib/db";
 import { getVisitStats } from "@/lib/visits";
@@ -14,6 +15,36 @@ import {
   getSalesChartSeries,
   getTopSoldProducts,
 } from "@/lib/sales-stats";
+
+type DashboardTab = "period" | "stock" | "storefront" | "totals";
+
+const DASHBOARD_TABS: {
+  id: DashboardTab;
+  label: string;
+  adminOnly?: boolean;
+}[] = [
+  { id: "period", label: "Период" },
+  { id: "stock", label: "Склад" },
+  { id: "storefront", label: "Витрина", adminOnly: true },
+  { id: "totals", label: "Итого" },
+];
+
+function parseDashboardTab(
+  value: string | undefined,
+  admin: boolean,
+): DashboardTab {
+  if (value === "stock" || value === "totals") {
+    return value;
+  }
+  if (value === "storefront" && admin) {
+    return "storefront";
+  }
+  return "period";
+}
+
+function tabHref(tab: DashboardTab): string {
+  return tab === "period" ? "/dashboard" : `/dashboard?tab=${tab}`;
+}
 
 async function getDashboardData(role: "admin" | "partner") {
   const pendingSales = await prisma.sale.findMany({
@@ -46,7 +77,7 @@ async function getDashboardData(role: "admin" | "partner") {
   const lowStock = await prisma.product.findMany({
     where: { active: true, stock: { lte: 2 } },
     orderBy: { stock: "asc" },
-    take: 5,
+    take: 8,
   });
 
   const inventory =
@@ -76,6 +107,7 @@ async function getDashboardData(role: "admin" | "partner") {
             buyClickCount: true,
             active: true,
           },
+          take: 12,
         })
       : [];
 
@@ -92,19 +124,30 @@ async function getDashboardData(role: "admin" | "partner") {
   };
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const session = await getSession();
   if (!session) {
     return null;
   }
 
+  const admin = isAdmin(session.role);
+  const tab = parseDashboardTab((await searchParams).tab, admin);
+
   const data = await getDashboardData(session.role);
-  const visitStats = isAdmin(session.role) ? await getVisitStats() : null;
-  const [allTimeTotals, topSoldProducts, salesChart] = await Promise.all([
-    getAllTimeSalesTotals(),
-    getTopSoldProducts(10),
-    getSalesChartSeries("month"),
-  ]);
+  const visitStats = admin ? await getVisitStats() : null;
+  const [allTimeTotals, topSoldProducts, salesChart, buyStats] =
+    await Promise.all([
+      getAllTimeSalesTotals(),
+      getTopSoldProducts(10),
+      getSalesChartSeries("month"),
+      admin ? getBuyClickStats() : Promise.resolve(null),
+    ]);
+
+  const visibleTabs = DASHBOARD_TABS.filter((item) => !item.adminOnly || admin);
 
   return (
     <AppShell>
@@ -114,75 +157,92 @@ export default async function DashboardPage() {
           <p className="text-[var(--muted)]">Обзор продаж и остатков</p>
         </PriceListPrint>
 
-        <SalesChart
-          initialData={salesChart}
-          role={session.role}
-          selfShareLabel={selfShareLabel(session.role)}
-          otherShareLabel={otherShareLabel(session.role)}
-        />
+        <div
+          className="flex gap-1 overflow-x-auto rounded-full border border-[var(--border)] bg-white p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="tablist"
+          aria-label="Разделы сводки"
+        >
+          {visibleTabs.map((item) => {
+            const active = tab === item.id;
+            return (
+              <Link
+                key={item.id}
+                href={tabHref(item.id)}
+                role="tab"
+                aria-selected={active}
+                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
+                  active
+                    ? "bg-[var(--brand)] text-white"
+                    : "text-[var(--text)] hover:bg-[var(--bg)]"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
 
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold">Текущий период</h2>
-            <p className="text-sm text-[var(--muted)]">
-              {data.periodFrom ? `С ${formatDate(data.periodFrom)}` : "С начала учёта"}
-            </p>
-          </div>
+        {tab === "period" ? (
+          <section className="space-y-6">
+            <SalesChart
+              initialData={salesChart}
+              role={session.role}
+              selfShareLabel={selfShareLabel(session.role)}
+              otherShareLabel={otherShareLabel(session.role)}
+            />
 
-          {visitStats ? (
-            <div className="grid gap-4 md:grid-cols-3">
-              <StatCard label="Визитов на сайте" value={String(visitStats.totalVisits)} />
-              <StatCard label="Уникальных IP" value={String(visitStats.uniqueIps)} />
+            <div>
+              <h2 className="text-lg font-semibold">Текущий период</h2>
+              <p className="text-sm text-[var(--muted)]">
+                {data.periodFrom
+                  ? `С ${formatDate(data.periodFrom)}`
+                  : "С начала учёта"}
+              </p>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <StatCard label="Продано штук" value={String(data.totals.count)} />
               <StatCard
-                label="Визитов сегодня"
-                value={String(visitStats.visitsToday)}
-                hint={`${visitStats.newVisitsToday} нов · ${visitStats.returningVisitsToday} повт`}
+                label="Выручка"
+                value={formatRub(data.totals.totalRevenue)}
+              />
+              {admin ? (
+                <StatCard
+                  label="Себестоимость проданного"
+                  value={formatRub(data.totals.totalCost)}
+                />
+              ) : null}
+              <StatCard
+                label={selfShareLabel(session.role)}
+                value={formatRub(
+                  admin ? data.totals.ownerShare : data.totals.partnerShare,
+                )}
+                accent
+              />
+              <StatCard
+                label={otherShareLabel(session.role)}
+                value={formatRub(
+                  admin ? data.totals.partnerShare : data.totals.ownerShare,
+                )}
                 accent
               />
             </div>
-          ) : null}
 
-          {visitStats ? (
-            <div className="flex justify-end">
-              <Link href="/visits">
-                <Button variant="secondary">Посещения по IP</Button>
-              </Link>
-            </div>
-          ) : null}
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard label="Продано штук" value={String(data.totals.count)} />
-            <StatCard label="Выручка" value={formatRub(data.totals.totalRevenue)} />
-            {session.role === "admin" ? (
-              <StatCard
-                label="Себестоимость проданного"
-                value={formatRub(data.totals.totalCost)}
-              />
-            ) : null}
-            <StatCard
-              label={selfShareLabel(session.role)}
-              value={formatRub(
-                session.role === "admin"
-                  ? data.totals.ownerShare
-                  : data.totals.partnerShare,
-              )}
-              accent
-            />
-            <StatCard
-              label={otherShareLabel(session.role)}
-              value={formatRub(
-                session.role === "admin"
-                  ? data.totals.partnerShare
-                  : data.totals.ownerShare,
-              )}
-              accent
-            />
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <Card title="Последние продажи периода">
+            <Card
+              title="Последние продажи периода"
+              action={
+                <Link
+                  href="/sales"
+                  className="text-sm font-medium text-[var(--brand)]"
+                >
+                  Журнал →
+                </Link>
+              }
+            >
               {data.recentSales.length === 0 ? (
-                <p className="text-[var(--muted)]">Пока нет продаж в текущем периоде.</p>
+                <p className="text-[var(--muted)]">
+                  Пока нет продаж в текущем периоде.
+                </p>
               ) : (
                 <div className="space-y-3">
                   {data.recentSales.map((sale) => (
@@ -209,9 +269,7 @@ export default async function DashboardPage() {
                           {saleShareHint(
                             session.role,
                             formatRub(
-                              session.role === "admin"
-                                ? sale.ownerShare
-                                : sale.partnerShare,
+                              admin ? sale.ownerShare : sale.partnerShare,
                             ),
                           )}
                         </p>
@@ -221,40 +279,136 @@ export default async function DashboardPage() {
                 </div>
               )}
             </Card>
+          </section>
+        ) : null}
 
-            <Card title="Низкий остаток">
+        {tab === "stock" ? (
+          <section className="space-y-6">
+            {admin ? (
+              <>
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    Остаток по себестоимости
+                  </h2>
+                  <p className="text-sm text-[var(--muted)]">
+                    Сумма остатков на складе по себестоимости товаров
+                  </p>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <StatCard
+                    label="Остаток по себестоимости"
+                    value={formatRub(data.inventoryCost)}
+                    accent
+                  />
+                  <StatCard
+                    label="Штук на складе"
+                    value={String(data.inventoryStock)}
+                  />
+                  <StatCard
+                    label="Позиций с остатком"
+                    value={String(data.inventorySku)}
+                  />
+                </div>
+              </>
+            ) : null}
+
+            <Card
+              title="Низкий остаток"
+              action={
+                <Link
+                  href="/products?view=out"
+                  className="text-sm font-medium text-[var(--brand)]"
+                >
+                  Товары →
+                </Link>
+              }
+            >
               {data.lowStock.length === 0 ? (
-                <p className="text-[var(--muted)]">Все товары в достаточном количестве.</p>
+                <p className="text-[var(--muted)]">
+                  Все товары в достаточном количестве.
+                </p>
               ) : (
                 <div className="space-y-3">
                   {data.lowStock.map((product) => (
-                    <div
+                    <Link
                       key={product.id}
-                      className="flex items-center justify-between rounded-xl bg-[var(--bg)] px-4 py-3"
+                      href={`/products/${product.id}`}
+                      className="flex items-center justify-between rounded-xl bg-[var(--bg)] px-4 py-3 hover:bg-[var(--brand-soft)]"
                     >
-                      <span>{product.name}</span>
+                      <span className="font-medium">{product.name}</span>
                       <Badge tone={product.stock === 0 ? "warning" : "neutral"}>
                         {product.stock} шт
                       </Badge>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               )}
             </Card>
-          </div>
+          </section>
+        ) : null}
 
-          {session.role === "admin" ? (
+        {tab === "storefront" && admin && visitStats ? (
+          <section className="space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Витрина и интерес</h2>
+                <p className="text-sm text-[var(--muted)]">
+                  Визиты сайта, просмотры карточек и клики «Купить»
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link href="/visits">
+                  <Button variant="secondary" className="min-h-11">
+                    Посещения
+                  </Button>
+                </Link>
+                <Link href="/views">
+                  <Button variant="secondary" className="min-h-11">
+                    Просмотры
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                label="Визитов на сайте"
+                value={String(visitStats.totalVisits)}
+              />
+              <StatCard
+                label="Уникальных IP"
+                value={String(visitStats.uniqueIps)}
+              />
+              <StatCard
+                label="Визитов сегодня"
+                value={String(visitStats.visitsToday)}
+                hint={`${visitStats.newVisitsToday} нов · ${visitStats.returningVisitsToday} повт`}
+                accent
+              />
+              {buyStats ? (
+                <StatCard
+                  label="«Купить» сегодня"
+                  value={String(buyStats.clicksToday)}
+                  hint={`всего ${buyStats.totalClicks}`}
+                />
+              ) : null}
+            </div>
+
             <Card
-              title="Просмотры на витрине"
+              title="Топ по просмотрам и «Купить»"
               action={
-                <Link href="/views" className="text-sm font-medium text-[var(--brand)]">
-                  Открыть →
+                <Link
+                  href="/views?tab=buy"
+                  className="text-sm font-medium text-[var(--brand)]"
+                >
+                  Клики →
                 </Link>
               }
             >
               {data.productViews.length === 0 ? (
                 <p className="text-[var(--muted)]">
-                  Пока нет данных — просмотры считаются при открытии карточки на витрине.
+                  Пока нет данных — просмотры считаются при открытии карточки на
+                  витрине.
                 </p>
               ) : (
                 <div className="overflow-hidden rounded-xl border border-[var(--border)]">
@@ -264,12 +418,16 @@ export default async function DashboardPage() {
                         <tr>
                           <th className="px-4 py-3 font-medium">Фото</th>
                           <th className="px-4 py-3 font-medium">Название</th>
-                          <th className="px-4 py-3 font-medium text-right">Просмотры</th>
-                          <th className="px-4 py-3 font-medium text-right">«Купить»</th>
+                          <th className="px-4 py-3 font-medium text-right">
+                            Просмотры
+                          </th>
+                          <th className="px-4 py-3 font-medium text-right">
+                            «Купить»
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {data.productViews.slice(0, 8).map((product) => (
+                        {data.productViews.map((product) => (
                           <tr
                             key={product.id}
                             className="relative border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg)]"
@@ -310,138 +468,118 @@ export default async function DashboardPage() {
                 </div>
               )}
             </Card>
-          ) : null}
-        </section>
+          </section>
+        ) : null}
 
-        <section className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold">Всего продано</h2>
-              <p className="text-sm text-[var(--muted)]">
-                За всё время · в журнале {allTimeTotals.saleCount}
-              </p>
-            </div>
-            <Link href="/sales">
-              <Button variant="secondary">Журнал продаж</Button>
-            </Link>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Продано штук"
-              value={String(allTimeTotals.count)}
-              accent
-            />
-            <StatCard
-              label="Выручка"
-              value={formatRub(allTimeTotals.totalRevenue)}
-            />
-            {session.role === "admin" ? (
-              <StatCard
-                label="Себестоимость"
-                value={formatRub(allTimeTotals.totalCost)}
-              />
-            ) : null}
-            <StatCard
-              label={selfShareLabel(session.role)}
-              value={formatRub(
-                session.role === "admin"
-                  ? allTimeTotals.ownerShare
-                  : allTimeTotals.partnerShare,
-              )}
-            />
-            <StatCard
-              label={otherShareLabel(session.role)}
-              value={formatRub(
-                session.role === "admin"
-                  ? allTimeTotals.partnerShare
-                  : allTimeTotals.ownerShare,
-              )}
-            />
-          </div>
-
-          <Card title="Топ товаров по продажам">
-            {topSoldProducts.length === 0 ? (
-              <p className="text-[var(--muted)]">Продаж пока нет.</p>
-            ) : (
-              <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-left text-sm">
-                    <thead className="border-b border-[var(--border)] bg-[var(--bg)] text-[var(--muted)]">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">#</th>
-                        <th className="px-4 py-3 font-medium">Товар</th>
-                        <th className="px-4 py-3 font-medium text-right">
-                          Продано
-                        </th>
-                        <th className="px-4 py-3 font-medium text-right">
-                          Выручка
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {topSoldProducts.map((product, index) => (
-                        <tr
-                          key={product.productId}
-                          className="relative border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg)]"
-                        >
-                          <td className="px-4 py-3 text-[var(--muted)]">
-                            {index + 1}
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <ProductThumb
-                                src={product.imageUrl}
-                                alt={product.name}
-                                size={44}
-                              />
-                              <span className="font-medium">{product.name}</span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-right font-semibold">
-                            {product.quantity} шт
-                          </td>
-                          <td className="px-4 py-3 text-right font-semibold">
-                            {formatRub(product.revenue)}
-                          </td>
-                          <Link
-                            href={`/products/${product.productId}`}
-                            className="absolute inset-0"
-                            aria-label={`${product.name}, ${product.quantity} шт`}
-                          />
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+        {tab === "totals" ? (
+          <section className="space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Всего продано</h2>
+                <p className="text-sm text-[var(--muted)]">
+                  За всё время · в журнале {allTimeTotals.saleCount}
+                </p>
               </div>
-            )}
-          </Card>
-        </section>
-
-        {session.role === "admin" ? (
-          <section className="space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold">Остаток по себестоимости</h2>
-              <p className="text-sm text-[var(--muted)]">
-                Сумма остатков на складе по себестоимости товаров
-              </p>
+              <Link href="/sales">
+                <Button variant="secondary" className="min-h-11">
+                  Журнал продаж
+                </Button>
+              </Link>
             </div>
-            <div className="grid gap-4 md:grid-cols-3">
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <StatCard
-                label="Остаток по себестоимости"
-                value={formatRub(data.inventoryCost)}
+                label="Продано штук"
+                value={String(allTimeTotals.count)}
                 accent
               />
               <StatCard
-                label="Штук на складе"
-                value={String(data.inventoryStock)}
+                label="Выручка"
+                value={formatRub(allTimeTotals.totalRevenue)}
+              />
+              {admin ? (
+                <StatCard
+                  label="Себестоимость"
+                  value={formatRub(allTimeTotals.totalCost)}
+                />
+              ) : null}
+              <StatCard
+                label={selfShareLabel(session.role)}
+                value={formatRub(
+                  admin
+                    ? allTimeTotals.ownerShare
+                    : allTimeTotals.partnerShare,
+                )}
               />
               <StatCard
-                label="Позиций с остатком"
-                value={String(data.inventorySku)}
+                label={otherShareLabel(session.role)}
+                value={formatRub(
+                  admin
+                    ? allTimeTotals.partnerShare
+                    : allTimeTotals.ownerShare,
+                )}
               />
             </div>
+
+            <Card title="Топ товаров по продажам">
+              {topSoldProducts.length === 0 ? (
+                <p className="text-[var(--muted)]">Продаж пока нет.</p>
+              ) : (
+                <div className="overflow-hidden rounded-xl border border-[var(--border)]">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full text-left text-sm">
+                      <thead className="border-b border-[var(--border)] bg-[var(--bg)] text-[var(--muted)]">
+                        <tr>
+                          <th className="px-4 py-3 font-medium">#</th>
+                          <th className="px-4 py-3 font-medium">Товар</th>
+                          <th className="px-4 py-3 font-medium text-right">
+                            Продано
+                          </th>
+                          <th className="px-4 py-3 font-medium text-right">
+                            Выручка
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topSoldProducts.map((product, index) => (
+                          <tr
+                            key={product.productId}
+                            className="relative border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg)]"
+                          >
+                            <td className="px-4 py-3 text-[var(--muted)]">
+                              {index + 1}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <ProductThumb
+                                  src={product.imageUrl}
+                                  alt={product.name}
+                                  size={44}
+                                />
+                                <span className="font-medium">
+                                  {product.name}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold">
+                              {product.quantity} шт
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold">
+                              {formatRub(product.revenue)}
+                            </td>
+                            <Link
+                              href={`/products/${product.productId}`}
+                              className="absolute inset-0"
+                              aria-label={`${product.name}, ${product.quantity} шт`}
+                            />
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </Card>
           </section>
         ) : null}
       </div>
