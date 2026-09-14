@@ -17,6 +17,7 @@ elif docker image inspect mirror.gcr.io/library/node:22-bookworm-slim >/dev/null
 else
   echo "==> Local node image not found, will try Google mirror (not Docker Hub)"
 fi
+export BASE_IMAGE
 
 echo "==> Building..."
 export DOCKER_BUILDKIT=0

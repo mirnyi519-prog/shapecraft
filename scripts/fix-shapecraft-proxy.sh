@@ -11,29 +11,20 @@ echo "==> App status"
 docker ps --filter "name=$APP" --format '{{.Names}} {{.Status}} {{.Ports}}'
 curl -s -o /dev/null -w "localhost:3000 -> %{http_code}\n" http://127.0.0.1:3000 || true
 
+echo "==> Connect app to Caddy network"
 NET=$(docker inspect "$CADDY" --format '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' | awk '{print $1}')
 echo "network=$NET"
+docker network connect "$NET" "$APP" 2>/dev/null || true
 
-NETMODE=$(docker inspect "$APP" --format '{{.HostConfig.NetworkMode}}' 2>/dev/null || echo "bridge")
-echo "app network_mode=$NETMODE"
-
-if [ "$NETMODE" = "host" ]; then
-  # Приложение слушает :3000 на хосте — из Caddy это gateway docker-сети
+# Проверяем, резолвится ли имя из Caddy
+if docker exec "$CADDY" wget -q -O /dev/null "http://$APP:3000" 2>/dev/null \
+  || docker exec "$CADDY" sh -c "wget -q -O /dev/null http://$APP:3000" 2>/dev/null; then
+  UPSTREAM="$APP:3000"
+else
+  # fallback: IP шлюза docker bridge (хост)
   GATEWAY=$(docker network inspect "$NET" --format '{{(index .IPAM.Config 0).Gateway}}' 2>/dev/null || echo "172.17.0.1")
   UPSTREAM="${GATEWAY}:3000"
-  echo "==> Host network app, upstream $UPSTREAM"
-else
-  echo "==> Connect app to Caddy network"
-  docker network connect "$NET" "$APP" 2>/dev/null || true
-
-  if docker exec "$CADDY" wget -q -O /dev/null "http://$APP:3000" 2>/dev/null \
-    || docker exec "$CADDY" sh -c "wget -q -O /dev/null http://$APP:3000" 2>/dev/null; then
-    UPSTREAM="$APP:3000"
-  else
-    GATEWAY=$(docker network inspect "$NET" --format '{{(index .IPAM.Config 0).Gateway}}' 2>/dev/null || echo "172.17.0.1")
-    UPSTREAM="${GATEWAY}:3000"
-    echo "==> Container DNS from Caddy failed, using host gateway $UPSTREAM"
-  fi
+  echo "==> Container DNS from Caddy failed, using host gateway $UPSTREAM"
 fi
 
 echo "==> Upstream: $UPSTREAM"

@@ -1,7 +1,5 @@
 import dns from "node:dns";
 
-// На части VPS Node сначала лезет в IPv6 → "fetch failed",
-// тогда как curl с хоста по IPv4 проходит нормально.
 dns.setDefaultResultOrder("ipv4first");
 
 export type TelegramSendResult = {
@@ -48,37 +46,61 @@ export function getTelegramConfig(): {
   token: string;
   chatId: string;
   configured: boolean;
+  relayUrl: string;
 } {
   const token = cleanEnv(process.env.TELEGRAM_BOT_TOKEN);
   const chatId = cleanEnv(process.env.TELEGRAM_CHAT_ID);
+  const relayUrl = cleanEnv(process.env.TELEGRAM_RELAY_URL);
   return {
     token,
     chatId,
-    configured: Boolean(token && chatId),
+    configured: Boolean((token && chatId) || relayUrl),
+    relayUrl,
   };
 }
 
-/**
- * Уведомления в Telegram.
- * Нужны TELEGRAM_BOT_TOKEN и TELEGRAM_CHAT_ID в env.
- */
-export async function sendTelegramMessage(
+async function sendViaRelay(
+  relayUrl: string,
   text: string,
 ): Promise<TelegramSendResult> {
-  const { token, chatId, configured } = getTelegramConfig();
-
-  if (!configured) {
-    return {
-      ok: false,
-      configured: false,
-      error: "TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы в контейнере",
-    };
-  }
-
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
+    const response = await fetch(`${relayUrl.replace(/\/$/, "")}/send`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      signal: controller.signal,
+    });
+    const body = (await response.json().catch(() => null)) as {
+      ok?: boolean;
+      error?: string;
+      status?: number;
+    } | null;
+    if (!response.ok || !body?.ok) {
+      return {
+        ok: false,
+        configured: true,
+        status: response.status,
+        error: body?.error || `relay HTTP ${response.status}`,
+      };
+    }
+    return { ok: true, configured: true, status: body.status ?? response.status };
+  } catch (error) {
+    return { ok: false, configured: true, error: formatFetchError(error) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
+async function sendDirect(
+  token: string,
+  chatId: string,
+  text: string,
+): Promise<TelegramSendResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12000);
+  try {
     const response = await fetch(
       `https://api.telegram.org/bot${token}/sendMessage`,
       {
@@ -91,32 +113,72 @@ export async function sendTelegramMessage(
         }),
         signal: controller.signal,
       },
-    ).finally(() => clearTimeout(timer));
-
+    );
     const body = (await response.json().catch(() => null)) as {
       ok?: boolean;
       description?: string;
     } | null;
-
     if (!response.ok || !body?.ok) {
-      const error = body?.description || `Telegram HTTP ${response.status}`;
-      console.error("telegram send failed", {
-        error,
-        chatId,
-        status: response.status,
-      });
       return {
         ok: false,
         configured: true,
         status: response.status,
-        error,
+        error: body?.description || `Telegram HTTP ${response.status}`,
       };
     }
-
     return { ok: true, configured: true, status: response.status };
   } catch (error) {
-    const message = formatFetchError(error);
-    console.error("telegram send exception", message);
-    return { ok: false, configured: true, error: message };
+    return { ok: false, configured: true, error: formatFetchError(error) };
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+/**
+ * Уведомления в Telegram.
+ * Предпочтительно через TELEGRAM_RELAY_URL (host-сеть), иначе напрямую.
+ */
+export async function sendTelegramMessage(
+  text: string,
+): Promise<TelegramSendResult> {
+  const { token, chatId, configured, relayUrl } = getTelegramConfig();
+
+  if (!configured) {
+    return {
+      ok: false,
+      configured: false,
+      error:
+        "Задайте TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID (и relay на сервере)",
+    };
+  }
+
+  if (relayUrl) {
+    const viaRelay = await sendViaRelay(relayUrl, text);
+    if (viaRelay.ok) {
+      return viaRelay;
+    }
+    // fallback на прямой вызов (локальная разработка)
+    if (token && chatId) {
+      const direct = await sendDirect(token, chatId, text);
+      if (direct.ok) {
+        return direct;
+      }
+      return {
+        ok: false,
+        configured: true,
+        error: `relay: ${viaRelay.error}; direct: ${direct.error}`,
+      };
+    }
+    return viaRelay;
+  }
+
+  if (!token || !chatId) {
+    return {
+      ok: false,
+      configured: false,
+      error: "TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы",
+    };
+  }
+
+  return sendDirect(token, chatId, text);
 }
