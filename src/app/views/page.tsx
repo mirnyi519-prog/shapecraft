@@ -121,36 +121,35 @@ export default async function ViewsPage({
                       {productViews.map((product) => (
                         <tr
                           key={product.id}
-                          className="relative border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg)]"
+                          className="border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg)]"
                         >
-                          <td className="px-4 py-3">
-                            <ProductThumb
-                              src={product.imageUrl}
-                              alt={product.name}
-                              size={48}
-                            />
+                          <td className="p-0" colSpan={4}>
+                            <Link
+                              href={`/products/${product.id}`}
+                              className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-3 px-4 py-3"
+                              aria-label={product.name}
+                            >
+                              <ProductThumb
+                                src={product.imageUrl}
+                                alt={product.name}
+                                size={48}
+                              />
+                              <span className="min-w-0 font-medium">
+                                {product.name}
+                                {!product.active ? (
+                                  <span className="ml-2 text-xs text-[var(--muted)]">
+                                    (архив)
+                                  </span>
+                                ) : null}
+                              </span>
+                              <span className="text-right font-semibold tabular-nums">
+                                {product.viewCount}
+                              </span>
+                              <span className="text-right font-semibold tabular-nums">
+                                {product.buyClickCount}
+                              </span>
+                            </Link>
                           </td>
-                          <td className="px-4 py-3">
-                            <span className="font-medium">
-                              {product.name}
-                              {!product.active ? (
-                                <span className="ml-2 text-xs text-[var(--muted)]">
-                                  (архив)
-                                </span>
-                              ) : null}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right font-semibold">
-                            {product.viewCount}
-                          </td>
-                          <td className="px-4 py-3 text-right font-semibold">
-                            {product.buyClickCount}
-                          </td>
-                          <Link
-                            href={`/products/${product.id}`}
-                            className="absolute inset-0"
-                            aria-label={`${product.name}`}
-                          />
                         </tr>
                       ))}
                     </tbody>
