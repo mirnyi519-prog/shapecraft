@@ -44,6 +44,9 @@ export async function listActiveCategoriesForCatalogLine(
           product: {
             active: true,
             catalogLine,
+            NOT: {
+              AND: [{ stock: { lte: 0 } }, { zeroStockMode: "hide" }],
+            },
           },
         },
       },

@@ -65,7 +65,7 @@ export function BuyIntentModal({
           </button>
         </div>
 
-        <PickupInfo compact />
+        <PickupInfo compact productName={productName} />
       </div>
     </div>
   );

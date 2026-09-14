@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { BuyClickOutcomeSelect } from "@/components/buy-click-outcome-select";
 import { ProductThumb } from "@/components/product-thumb";
 import { Button, Card, StatCard } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
@@ -169,10 +170,25 @@ export default async function ViewsPage({
               <StatCard label="За 7 дней" value={String(buyStats.clicksWeek)} />
               <StatCard label="Уникальных IP" value={String(buyStats.uniqueIps)} />
               <StatCard
-                label="Уник. посетителей"
-                value={String(buyStats.uniqueVisitors)}
+                label="Без исхода"
+                value={String(buyStats.openCount)}
+                hint="ещё не отметили результат"
               />
             </div>
+
+            {buyStats.byOutcome.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {buyStats.byOutcome.map((row) => (
+                  <span
+                    key={row.outcome}
+                    className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-sm"
+                  >
+                    {row.label}:{" "}
+                    <span className="font-semibold">{row.count}</span>
+                  </span>
+                ))}
+              </div>
+            ) : null}
 
             <div className="grid gap-6 xl:grid-cols-2">
               <Card title="Топ товаров по «Купить»">
@@ -260,7 +276,7 @@ export default async function ViewsPage({
                         <th className="px-3 py-3 font-medium">Товар</th>
                         <th className="px-3 py-3 font-medium">IP</th>
                         <th className="px-3 py-3 font-medium">Устройство</th>
-                        <th className="px-3 py-3 font-medium">visitor</th>
+                        <th className="px-3 py-3 font-medium">Исход</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -286,10 +302,11 @@ export default async function ViewsPage({
                           <td className="px-3 py-3 text-[var(--muted)]">
                             {row.device}
                           </td>
-                          <td className="px-3 py-3 font-mono text-xs text-[var(--muted)]">
-                            {row.visitorId
-                              ? `${row.visitorId.slice(0, 8)}…`
-                              : "—"}
+                          <td className="px-3 py-3">
+                            <BuyClickOutcomeSelect
+                              clickId={row.id}
+                              outcome={row.outcome}
+                            />
                           </td>
                         </tr>
                       ))}

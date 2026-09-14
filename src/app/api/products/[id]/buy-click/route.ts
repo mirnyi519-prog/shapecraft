@@ -8,6 +8,7 @@ import {
   SECURITY_EVENT_TYPES,
   tooManyRequests,
 } from "@/lib/security";
+import { sendTelegramMessage } from "@/lib/telegram";
 import { VISITOR_COOKIE } from "@/lib/visit-tracking";
 import { isBotUserAgent } from "@/lib/visits";
 
@@ -43,7 +44,7 @@ export async function POST(request: Request, context: RouteContext) {
 
     const product = await prisma.product.findUnique({
       where: { id },
-      select: { id: true, active: true },
+      select: { id: true, active: true, name: true, stock: true },
     });
 
     if (!product || !product.active) {
@@ -68,6 +69,34 @@ export async function POST(request: Request, context: RouteContext) {
         select: { buyClickCount: true },
       }),
     ]);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const [clicksTodayTotal, clicksTodayProduct] = await Promise.all([
+      prisma.productBuyClick.count({ where: { clickedAt: { gte: today } } }),
+      prisma.productBuyClick.count({
+        where: { productId: id, clickedAt: { gte: today } },
+      }),
+    ]);
+
+    const when = new Date().toLocaleString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    void sendTelegramMessage(
+      [
+        "🛒 Купить на витрине",
+        `Товар: ${product.name}`,
+        `Остаток: ${product.stock} шт`,
+        `Когда: ${when}`,
+        `По этому товару сегодня: ${clicksTodayProduct}`,
+        `Всего «Купить» сегодня: ${clicksTodayTotal}`,
+        `IP: ${ip}`,
+      ].join("\n"),
+    );
 
     return NextResponse.json({ ok: true, buyClickCount: updated.buyClickCount });
   } catch {

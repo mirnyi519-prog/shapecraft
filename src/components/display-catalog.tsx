@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
 import { formatRub } from "@/lib/calculations";
 import type { CatalogProduct } from "@/lib/catalog-product";
+import { stockBadgeLabel, stockBadgeShort } from "@/lib/catalog-product";
 import { hasListPrice } from "@/lib/pricing";
 
 export function DisplayCatalog({ products }: { products: CatalogProduct[] }) {
@@ -76,13 +77,15 @@ export function DisplayCatalog({ products }: { products: CatalogProduct[] }) {
                     <Badge
                       tone={
                         product.stock === 0
-                          ? "warning"
+                          ? product.zeroStockMode === "soon"
+                            ? "neutral"
+                            : "warning"
                           : product.stock <= 2
                             ? "neutral"
                             : "success"
                       }
                     >
-                      {product.stock === 0 ? "Нет" : `${product.stock} шт`}
+                      {stockBadgeShort(product)}
                     </Badge>
                   </div>
                   {priced ? (
@@ -116,6 +119,21 @@ export function DisplayCatalog({ products }: { products: CatalogProduct[] }) {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-3xl font-bold">{selected.name}</h2>
+                <div className="mt-2">
+                  <Badge
+                    tone={
+                      selected.stock === 0
+                        ? selected.zeroStockMode === "soon"
+                          ? "neutral"
+                          : "warning"
+                        : selected.stock <= 2
+                          ? "neutral"
+                          : "success"
+                    }
+                  >
+                    {stockBadgeLabel(selected)}
+                  </Badge>
+                </div>
                 {hasListPrice(selected.listPrice) ? (
                   <p className="mt-2 text-3xl font-bold text-[var(--brand)]">
                     {formatRub(selected.listPrice as number)}

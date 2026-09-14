@@ -10,6 +10,12 @@ import {
   CATALOG_LINES,
   type CatalogLine,
 } from "@/lib/catalog-line";
+import {
+  ZERO_STOCK_MODE_HINTS,
+  ZERO_STOCK_MODE_LABELS,
+  ZERO_STOCK_MODES,
+  type ZeroStockMode,
+} from "@/lib/buy-intent";
 
 export { LoginForm } from "@/components/login-form";
 
@@ -36,6 +42,7 @@ export function ProductForm({
       heightMm: "",
       depthMm: "",
       catalogLine: "souvenir",
+      zeroStockMode: "soon",
       categoryIds: [],
     },
   );
@@ -136,6 +143,7 @@ export function ProductForm({
       heightMm: values.heightMm.trim() === "" ? null : Number(values.heightMm),
       depthMm: values.depthMm.trim() === "" ? null : Number(values.depthMm),
       catalogLine: values.catalogLine,
+      zeroStockMode: values.zeroStockMode,
       categoryIds: values.categoryIds,
     };
 
@@ -378,6 +386,37 @@ export function ProductForm({
           required
         />
       </div>
+      <div className="space-y-2">
+        <span className="text-sm font-medium">Если остаток 0</span>
+        <p className="text-sm text-[var(--muted)]">
+          Как показывать товар на витрине, когда его нет.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {ZERO_STOCK_MODES.map((mode) => {
+            const selected = values.zeroStockMode === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() =>
+                  setValues((current) => ({ ...current, zeroStockMode: mode }))
+                }
+                className={`rounded-full px-3 py-2 text-sm font-medium transition ${
+                  selected
+                    ? "bg-[var(--brand)] text-white"
+                    : "border border-[var(--border)] bg-white text-[var(--text)] hover:bg-[var(--bg)]"
+                }`}
+                title={ZERO_STOCK_MODE_HINTS[mode]}
+              >
+                {ZERO_STOCK_MODE_LABELS[mode]}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-[var(--muted)]">
+          {ZERO_STOCK_MODE_HINTS[values.zeroStockMode]}
+        </p>
+      </div>
       <div>
         <p className="mb-3 text-sm font-medium">Вес и габариты</p>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -448,6 +487,7 @@ export type ProductFormValues = {
   heightMm: string;
   depthMm: string;
   catalogLine: CatalogLine;
+  zeroStockMode: ZeroStockMode;
   categoryIds: string[];
 };
 

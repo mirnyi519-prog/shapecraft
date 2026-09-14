@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { parseCategoryIds } from "@/lib/categories";
 import { syncProductCategories } from "@/lib/categories-data";
 import { isCatalogLine } from "@/lib/catalog-line";
+import { isZeroStockMode } from "@/lib/buy-intent";
 import { parseOptionalNumber } from "@/lib/product-specs";
 import { parseOptionalPrice } from "@/lib/pricing";
 
@@ -71,6 +72,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       heightMm?: number | null;
       depthMm?: number | null;
       catalogLine?: string;
+      zeroStockMode?: string;
       categoryIds?: string[];
     };
 
@@ -107,6 +109,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       );
     }
 
+    const zeroStockModeProvided = Object.prototype.hasOwnProperty.call(
+      body,
+      "zeroStockMode",
+    );
+    if (zeroStockModeProvided && !isZeroStockMode(body.zeroStockMode)) {
+      return NextResponse.json(
+        { error: "Некорректный режим нулевого остатка" },
+        { status: 400 },
+      );
+    }
+
     const product = await prisma.$transaction(async (tx) => {
       const updated = await tx.product.update({
         where: { id },
@@ -125,6 +138,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           ...(body.stock !== undefined ? { stock: Number(body.stock) } : {}),
           ...(body.active !== undefined ? { active: body.active } : {}),
           ...(catalogLineProvided ? { catalogLine: body.catalogLine } : {}),
+          ...(zeroStockModeProvided
+            ? { zeroStockMode: body.zeroStockMode }
+            : {}),
           ...(Object.prototype.hasOwnProperty.call(body, "weightGrams")
             ? { weightGrams: parseOptionalNumber(body.weightGrams) }
             : {}),

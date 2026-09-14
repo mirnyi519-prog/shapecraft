@@ -35,6 +35,8 @@ model Product {
   depthMm          Float?
   viewCount        Int               @default(0)
   buyClickCount    Int               @default(0)
+  /// При нуле: show | soon | hide
+  zeroStockMode    String            @default("soon")
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   sales            Sale[]
@@ -157,18 +159,23 @@ model SiteVisit {
 }
 
 model ProductBuyClick {
-  id        String   @id @default(cuid())
-  productId String
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  ipAddress String
-  userAgent String?
-  visitorId String?
-  clickedAt DateTime @default(now())
+  id          String    @id @default(cuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ipAddress   String
+  userAgent   String?
+  visitorId   String?
+  clickedAt   DateTime  @default(now())
+  /// null | called | agreed | bought | refused | no_answer
+  outcome     String?
+  outcomeNote String?
+  outcomeAt   DateTime?
 
   @@index([productId, clickedAt])
   @@index([clickedAt])
   @@index([ipAddress])
   @@index([visitorId])
+  @@index([outcome])
 }
 
 model FeedbackMessage {

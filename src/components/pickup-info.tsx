@@ -5,15 +5,20 @@ import {
   STORE_PHONE_DISPLAY,
   STORE_PHONE_HINT,
   STORE_PHONE_TEL,
+  buildWhatsAppUrl,
 } from "@/lib/store-contact";
 
 export function PickupInfo({
   compact = false,
   showMap = true,
+  productName,
 }: {
   compact?: boolean;
   showMap?: boolean;
+  productName?: string;
 }) {
+  const whatsappUrl = buildWhatsAppUrl(productName);
+
   return (
     <div className={compact ? "space-y-4" : "space-y-5"}>
       <div>
@@ -51,13 +56,21 @@ export function PickupInfo({
       ) : null}
 
       <div className="rounded-xl border border-[var(--brand)] bg-[var(--brand-soft)] px-4 py-4">
-        <p className="text-sm font-medium text-[var(--brand-dark)]">Позвонить</p>
+        <p className="text-sm font-medium text-[var(--brand-dark)]">Связаться</p>
         <p className="mt-1 text-sm text-[var(--text)]">{STORE_PHONE_HINT}</p>
         <a
           href={`tel:${STORE_PHONE_TEL}`}
           className="mt-3 inline-flex min-h-11 items-center text-xl font-bold text-[var(--brand)] underline-offset-4 hover:underline"
         >
           {STORE_PHONE_DISPLAY}
+        </a>
+        <a
+          href={whatsappUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95 sm:w-auto"
+        >
+          Написать в WhatsApp
         </a>
       </div>
     </div>

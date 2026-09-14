@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import { getTopSoldProducts } from "@/lib/sales-stats";
 import type { CatalogCategory } from "@/lib/categories";
 import type { CatalogLine } from "@/lib/catalog-line";
+import type { ZeroStockMode } from "@/lib/buy-intent";
+import { parseZeroStockMode } from "@/lib/buy-intent";
 
 export const catalogProductSelect = {
   id: true,
@@ -11,6 +13,7 @@ export const catalogProductSelect = {
   listPrice: true,
   stock: true,
   catalogLine: true,
+  zeroStockMode: true,
   weightGrams: true,
   widthMm: true,
   heightMm: true,
@@ -34,6 +37,7 @@ export type CatalogProduct = {
   listPrice: number | null;
   stock: number;
   catalogLine?: string;
+  zeroStockMode: ZeroStockMode;
   weightGrams: number | null;
   widthMm: number | null;
   heightMm: number | null;
@@ -52,6 +56,7 @@ type DbProduct = {
   listPrice: number | null;
   stock: number;
   catalogLine: string;
+  zeroStockMode: string;
   weightGrams: number | null;
   widthMm: number | null;
   heightMm: number | null;
@@ -69,10 +74,14 @@ type DbProduct = {
   }[];
 };
 
+/** Активные товары направления, кроме скрытых при нулевом остатке. */
 function storefrontWhere(catalogLine?: CatalogLine) {
   return {
     active: true as const,
     ...(catalogLine ? { catalogLine } : {}),
+    NOT: {
+      AND: [{ stock: { lte: 0 } }, { zeroStockMode: "hide" }],
+    },
   };
 }
 
@@ -85,6 +94,7 @@ function mapProduct(product: DbProduct): CatalogProduct {
     listPrice: product.listPrice,
     stock: product.stock,
     catalogLine: product.catalogLine,
+    zeroStockMode: parseZeroStockMode(product.zeroStockMode),
     weightGrams: product.weightGrams,
     widthMm: product.widthMm,
     heightMm: product.heightMm,
@@ -101,6 +111,31 @@ function mapProduct(product: DbProduct): CatalogProduct {
         slug: category.slug,
       })),
   };
+}
+
+export function stockBadgeLabel(product: {
+  stock: number;
+  zeroStockMode?: ZeroStockMode | string;
+}): string {
+  if (product.stock > 0) {
+    return `${product.stock} шт`;
+  }
+  const mode = parseZeroStockMode(product.zeroStockMode);
+  if (mode === "soon") {
+    return "Скоро";
+  }
+  return "Нет в наличии";
+}
+
+export function stockBadgeShort(product: {
+  stock: number;
+  zeroStockMode?: ZeroStockMode | string;
+}): string {
+  if (product.stock > 0) {
+    return `${product.stock} шт`;
+  }
+  const mode = parseZeroStockMode(product.zeroStockMode);
+  return mode === "soon" ? "Скоро" : "Нет";
 }
 
 export async function getActiveCatalogProducts(

@@ -8,6 +8,7 @@ import { ProductForm } from "@/components/forms";
 import { formatDateTime, formatRub } from "@/lib/calculations";
 import { getSession } from "@/lib/auth";
 import { parseCatalogLine } from "@/lib/catalog-line";
+import { parseZeroStockMode } from "@/lib/buy-intent";
 import { hasListPrice } from "@/lib/pricing";
 import { prisma } from "@/lib/db";
 
@@ -166,6 +167,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
                   ? ""
                   : String(product.depthMm),
               catalogLine: parseCatalogLine(product.catalogLine),
+              zeroStockMode: parseZeroStockMode(product.zeroStockMode),
               categoryIds: product.categories.map((item) => item.category.id),
             }}
           />

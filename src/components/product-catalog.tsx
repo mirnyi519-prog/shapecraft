@@ -10,6 +10,7 @@ import { useScrollLock } from "@/hooks/use-scroll-lock";
 import { formatRub } from "@/lib/calculations";
 import type { CatalogCategory } from "@/lib/categories";
 import type { CatalogProduct } from "@/lib/catalog-product";
+import { stockBadgeLabel, stockBadgeShort } from "@/lib/catalog-product";
 import { hasListPrice } from "@/lib/pricing";
 
 export type { CatalogProduct };
@@ -58,13 +59,15 @@ function ProductCard({
               <Badge
                 tone={
                   product.stock === 0
-                    ? "warning"
+                    ? product.zeroStockMode === "soon"
+                      ? "neutral"
+                      : "warning"
                     : product.stock <= 2
                       ? "neutral"
                       : "success"
                 }
               >
-                {product.stock === 0 ? "Нет" : `${product.stock} шт`}
+                {stockBadgeShort(product)}
               </Badge>
             </div>
             {!compact && product.categories.length > 0 ? (
@@ -359,13 +362,15 @@ export function ProductCatalog({
                     <Badge
                       tone={
                         selected.stock === 0
-                          ? "warning"
+                          ? selected.zeroStockMode === "soon"
+                            ? "neutral"
+                            : "warning"
                           : selected.stock <= 2
                             ? "neutral"
                             : "success"
                       }
                     >
-                      {selected.stock === 0 ? "Нет в наличии" : `${selected.stock} шт`}
+                      {stockBadgeLabel(selected)}
                     </Badge>
                   </div>
                 </div>
