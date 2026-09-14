@@ -14,15 +14,19 @@ type Status = {
 export function TelegramTestCard() {
   const [status, setStatus] = useState<Status | null>(null);
   const [message, setMessage] = useState("");
+  const [messageOk, setMessageOk] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  async function loadStatus() {
+  async function loadStatus(clearMessage = true) {
     setLoading(true);
-    setMessage("");
+    if (clearMessage) {
+      setMessage("");
+    }
     try {
       const response = await fetch("/api/telegram/test");
       const data = (await response.json()) as Status & { error?: string };
       if (!response.ok) {
+        setMessageOk(false);
         setMessage(data.error ?? "Не удалось проверить настройки");
         return;
       }
@@ -43,11 +47,17 @@ export function TelegramTestCard() {
         error?: string;
       };
       if (data.ok) {
+        setMessageOk(true);
         setMessage("Тестовое сообщение отправлено — проверьте Telegram.");
       } else {
+        setMessageOk(false);
         setMessage(data.error ?? "Отправка не удалась");
       }
-      await loadStatus();
+      // не стираем текст результата теста
+      await loadStatus(false);
+    } catch {
+      setMessageOk(false);
+      setMessage("Сеть: не удалось вызвать /api/telegram/test");
     } finally {
       setLoading(false);
     }
@@ -72,7 +82,7 @@ export function TelegramTestCard() {
       {message ? (
         <p
           className={`mb-4 text-sm ${
-            message.includes("отправлено") ? "text-green-700" : "text-red-700"
+            messageOk ? "text-green-700" : "text-red-700"
           }`}
         >
           {message}
@@ -84,7 +94,7 @@ export function TelegramTestCard() {
           variant="secondary"
           className="min-h-11"
           disabled={loading}
-          onClick={() => void loadStatus()}
+          onClick={() => void loadStatus(true)}
         >
           Проверить env
         </Button>

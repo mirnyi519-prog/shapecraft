@@ -7,9 +7,22 @@ export type TelegramSendResult = {
 
 function cleanEnv(value: string | undefined): string {
   return (value ?? "")
+    .replace(/^\uFEFF/, "")
+    .replace(/\r/g, "")
     .trim()
     .replace(/^["']|["']$/g, "")
     .trim();
+}
+
+function toChatId(value: string): string | number {
+  if (/^-?\d+$/.test(value)) {
+    // Telegram принимает и number, и string; number надёжнее для private chat
+    const asNum = Number(value);
+    if (Number.isSafeInteger(asNum)) {
+      return asNum;
+    }
+  }
+  return value;
 }
 
 export function getTelegramConfig(): {
@@ -44,19 +57,22 @@ export async function sendTelegramMessage(
   }
 
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+
     const response = await fetch(
       `https://api.telegram.org/bot${token}/sendMessage`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          chat_id: chatId,
+          chat_id: toChatId(chatId),
           text: text.slice(0, 4000),
           disable_web_page_preview: true,
         }),
-        signal: AbortSignal.timeout(10000),
+        signal: controller.signal,
       },
-    );
+    ).finally(() => clearTimeout(timer));
 
     const body = (await response.json().catch(() => null)) as {
       ok?: boolean;
@@ -64,10 +80,12 @@ export async function sendTelegramMessage(
     } | null;
 
     if (!response.ok || !body?.ok) {
-      const error =
-        body?.description ||
-        `Telegram HTTP ${response.status}`;
-      console.error("telegram send failed", error);
+      const error = body?.description || `Telegram HTTP ${response.status}`;
+      console.error("telegram send failed", {
+        error,
+        chatId,
+        status: response.status,
+      });
       return {
         ok: false,
         configured: true,
@@ -78,7 +96,12 @@ export async function sendTelegramMessage(
 
     return { ok: true, configured: true, status: response.status };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "network error";
+    const message =
+      error instanceof Error
+        ? error.name === "AbortError"
+          ? "timeout: Telegram не ответил за 12с"
+          : error.message
+        : "network error";
     console.error("telegram send exception", message);
     return { ok: false, configured: true, error: message };
   }
