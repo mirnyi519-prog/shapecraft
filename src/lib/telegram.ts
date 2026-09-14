@@ -1,3 +1,9 @@
+import dns from "node:dns";
+
+// На части VPS Node сначала лезет в IPv6 → "fetch failed",
+// тогда как curl с хоста по IPv4 проходит нормально.
+dns.setDefaultResultOrder("ipv4first");
+
 export type TelegramSendResult = {
   ok: boolean;
   configured: boolean;
@@ -16,13 +22,26 @@ function cleanEnv(value: string | undefined): string {
 
 function toChatId(value: string): string | number {
   if (/^-?\d+$/.test(value)) {
-    // Telegram принимает и number, и string; number надёжнее для private chat
     const asNum = Number(value);
     if (Number.isSafeInteger(asNum)) {
       return asNum;
     }
   }
   return value;
+}
+
+function formatFetchError(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "network error";
+  }
+  if (error.name === "AbortError") {
+    return "timeout: Telegram не ответил за 12с";
+  }
+  const cause = (error as Error & { cause?: unknown }).cause;
+  if (cause instanceof Error && cause.message) {
+    return `${error.message}: ${cause.message}`;
+  }
+  return error.message;
 }
 
 export function getTelegramConfig(): {
@@ -96,12 +115,7 @@ export async function sendTelegramMessage(
 
     return { ok: true, configured: true, status: response.status };
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.name === "AbortError"
-          ? "timeout: Telegram не ответил за 12с"
-          : error.message
-        : "network error";
+    const message = formatFetchError(error);
     console.error("telegram send exception", message);
     return { ok: false, configured: true, error: message };
   }
