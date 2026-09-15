@@ -131,11 +131,13 @@ function MobileNavEntry({
   search,
   expandedHref,
   setExpandedHref,
+  onNavigate,
 }: {
   item: AppNavItem;
   search: string;
   expandedHref: string | null;
   setExpandedHref: (href: string | null) => void;
+  onNavigate?: () => void;
 }) {
   const pathname = usePathname();
 
@@ -146,6 +148,7 @@ function MobileNavEntry({
         href={item.href}
         className={mobileLinkClass(active)}
         aria-current={active ? "page" : undefined}
+        onClick={onNavigate}
       >
         {item.label}
       </Link>
@@ -172,9 +175,11 @@ function MobileNavEntry({
 function MobileNavChildren({
   item,
   search,
+  onNavigate,
 }: {
   item: AppNavItem;
   search: string;
+  onNavigate?: () => void;
 }) {
   const pathname = usePathname();
   if (!item.children?.length) {
@@ -191,6 +196,7 @@ function MobileNavChildren({
             href={child.href}
             className={`${mobileLinkClass(active)} w-full text-left`}
             aria-current={active ? "page" : undefined}
+            onClick={onNavigate}
           >
             {child.label}
           </Link>
@@ -225,13 +231,16 @@ export function MobileAppNav({ items }: { items: AppNavItem[] }) {
     [more, pathname],
   );
 
+  function closeMenus() {
+    setExpandedHref(null);
+    setMoreOpen(false);
+  }
+
+  // После перехода по ссылке подменю не держим открытым
   useEffect(() => {
-    const openGroup = items.find(
-      (item) => item.children?.length && isNavGroupActive(pathname, item),
-    );
-    setExpandedHref(openGroup?.href ?? null);
-    setMoreOpen(more.some((item) => isNavGroupActive(pathname, item)));
-  }, [items, more, pathname]);
+    setExpandedHref(null);
+    setMoreOpen(false);
+  }, [pathname, search]);
 
   const expandedItem =
     [...primary, ...more].find((item) => item.href === expandedHref) ?? null;
@@ -249,6 +258,7 @@ export function MobileAppNav({ items }: { items: AppNavItem[] }) {
               setMoreOpen(false);
               setExpandedHref(href);
             }}
+            onNavigate={closeMenus}
           />
         ))}
         {more.length > 0 ? (
@@ -268,7 +278,11 @@ export function MobileAppNav({ items }: { items: AppNavItem[] }) {
       </div>
 
       {expandedItem && primary.some((item) => item.href === expandedItem.href) ? (
-        <MobileNavChildren item={expandedItem} search={search} />
+        <MobileNavChildren
+          item={expandedItem}
+          search={search}
+          onNavigate={closeMenus}
+        />
       ) : null}
 
       {moreOpen && more.length > 0 ? (
@@ -282,7 +296,7 @@ export function MobileAppNav({ items }: { items: AppNavItem[] }) {
                   href={item.href}
                   className={`${mobileLinkClass(active)} w-full text-left`}
                   aria-current={active ? "page" : undefined}
-                  onClick={() => setMoreOpen(false)}
+                  onClick={closeMenus}
                 >
                   {item.label}
                 </Link>
@@ -306,7 +320,13 @@ export function MobileAppNav({ items }: { items: AppNavItem[] }) {
                   {item.label}
                   <Chevron open={open} />
                 </button>
-                {open ? <MobileNavChildren item={item} search={search} /> : null}
+                {open ? (
+                  <MobileNavChildren
+                    item={item}
+                    search={search}
+                    onNavigate={closeMenus}
+                  />
+                ) : null}
               </div>
             );
           })}
