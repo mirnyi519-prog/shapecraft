@@ -5,6 +5,7 @@ import { isIpBlockedStatic } from "@/lib/ip-blocklist";
 import {
   VISITOR_COOKIE,
   getVisitorCookieOptions,
+  isTrackableVisitPath,
   type TrackVisitPayload,
 } from "@/lib/visit-tracking";
 
@@ -61,11 +62,18 @@ function trackPageVisit(
   request: NextRequest,
   pathname: string,
 ): { visitorId: string; isNewVisitor: boolean } {
-  if (skipTrackingPrefixes.some((prefix) => pathname.startsWith(prefix))) {
-    return {
-      visitorId: request.cookies.get(VISITOR_COOKIE)?.value?.trim() ?? "",
-      isNewVisitor: false,
-    };
+  const existingVisitorId = request.cookies.get(VISITOR_COOKIE)?.value?.trim() ?? "";
+
+  // Залогиненный админ/партнёр — не визит витрины
+  if (request.cookies.get(SESSION_COOKIE)?.value) {
+    return { visitorId: existingVisitorId, isNewVisitor: false };
+  }
+
+  if (
+    skipTrackingPrefixes.some((prefix) => pathname.startsWith(prefix)) ||
+    !isTrackableVisitPath(pathname)
+  ) {
+    return { visitorId: existingVisitorId, isNewVisitor: false };
   }
 
   const { payload, visitorId, isNewVisitor } = buildTrackPayload(request, pathname);

@@ -8,6 +8,7 @@ import {
   tooManyRequests,
 } from "@/lib/security";
 import type { TrackVisitPayload } from "@/lib/visit-tracking";
+import { isTrackableVisitPath } from "@/lib/visit-tracking";
 
 export const runtime = "nodejs";
 
@@ -38,11 +39,7 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as TrackVisitPayload;
     const path = body.path?.trim() || "/";
 
-    if (
-      path.startsWith("/api") ||
-      path.startsWith("/_next") ||
-      path.length > 300
-    ) {
+    if (!isTrackableVisitPath(path)) {
       return NextResponse.json({ ok: true, skipped: true });
     }
 

@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/db";
 import { startOfMoscowDay } from "@/lib/timezone";
-import { normalizeUtmValue } from "@/lib/visit-tracking";
+import {
+  VISIT_SESSION_MS,
+  isTrackableVisitPath,
+  normalizeUtmValue,
+} from "@/lib/visit-tracking";
 
 export function getClientIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -20,12 +24,12 @@ export function getClientIp(request: Request): string {
 }
 
 const BOT_PATTERN =
-  /bot|crawler|spider|slurp|facebookexternalhit|whatsapp|telegram/i;
+  /bot|crawler|spider|slurp|facebookexternalhit|whatsapp|telegram|curl\/|wget|python-requests|go-http-client|httpclient|scrapy|headlesschrome|phantomjs|selenium|puppeteer|uptime|monitor|healthcheck|preview/i;
 
-/** Краулеры и превью-боты (для визитов). */
+/** Краулеры, превью-боты, мониторинг и пустой UA (для визитов). */
 export function isBotUserAgent(userAgent: string | null): boolean {
-  if (!userAgent) {
-    return false;
+  if (!userAgent?.trim()) {
+    return true;
   }
   return BOT_PATTERN.test(userAgent);
 }
@@ -60,7 +64,31 @@ export async function recordSiteVisit(input: {
   const path = input.path.trim() || "/";
   const visitorId = input.visitorId?.trim() || null;
 
+  if (!isTrackableVisitPath(path)) {
+    return;
+  }
+
   if (isBotUserAgent(input.userAgent ?? null)) {
+    return;
+  }
+
+  // Локальные health-check / curl с сервера
+  if (ip === "127.0.0.1" || ip === "::1" || ip === "unknown") {
+    return;
+  }
+
+  const since = new Date(Date.now() - VISIT_SESSION_MS);
+  const recent = visitorId
+    ? await prisma.siteVisit.findFirst({
+        where: { visitorId, visitedAt: { gte: since } },
+        select: { id: true },
+      })
+    : await prisma.siteVisit.findFirst({
+        where: { ipAddress: ip, visitedAt: { gte: since } },
+        select: { id: true },
+      });
+
+  if (recent) {
     return;
   }
 

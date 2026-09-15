@@ -25,8 +25,8 @@ export default async function VisitsPage() {
           <div>
             <h1 className="text-2xl font-bold">Посещения сайта</h1>
             <p className="text-[var(--muted)]">
-              Счётчик просмотров страниц: источник, UTM, новый/повторный. Боты не
-              учитываются.
+              Только витрина («/»), гости без входа. Одна сессия = не чаще раза в
+              30 мин. Админка, экран, логин, боты и localhost не считаются.
             </p>
           </div>
           <Link href="/dashboard" className="w-full sm:w-auto">
