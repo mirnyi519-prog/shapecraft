@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BuyIntentModal } from "@/components/buy-intent-modal";
 import { FeedbackModal } from "@/components/feedback-modal";
+import { ModalCloseButton } from "@/components/modal-close-button";
 import { ProductPhoto } from "@/components/product-photo";
 import { ProductSpecsBlock } from "@/components/product-specs-block";
 import { Badge, Button, Card } from "@/components/ui";
@@ -175,7 +176,7 @@ export function ProductCatalog({
   const [buyOpen, setBuyOpen] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
 
-  useScrollLock(Boolean(selected) && !buyOpen);
+  useScrollLock(Boolean(selected) || buyOpen || feedbackOpen);
 
   function closeProduct() {
     setFeedbackOpen(false);
@@ -322,7 +323,7 @@ export function ProductCatalog({
 
       {selected ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-4 sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center overscroll-none bg-black/50 p-3 sm:items-center sm:p-4"
           onClick={closeProduct}
           role="presentation"
         >
@@ -330,61 +331,55 @@ export function ProductCatalog({
             role="dialog"
             aria-modal="true"
             aria-labelledby="product-dialog-title"
-            className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-xl"
+            className="flex max-h-[min(92vh,100dvh)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="space-y-5 overflow-y-auto p-5 pb-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 id="product-dialog-title" className="text-2xl font-bold">
-                    {selected.name}
-                  </h2>
-                  {selected.categories.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {selected.categories.map((category) => (
-                        <span
-                          key={category.id}
-                          className="rounded-full bg-[var(--bg)] px-2 py-0.5 text-xs text-[var(--muted)]"
-                        >
-                          {category.name}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {priced ? (
-                      <p className="text-xl font-bold text-[var(--brand)]">
-                        {formatRub(selected.listPrice as number)}
-                      </p>
-                    ) : (
-                      <p className="text-base font-semibold text-red-700">
-                        Цена уточняется
-                      </p>
-                    )}
-                    <Badge
-                      tone={
-                        selected.stock === 0
-                          ? selected.zeroStockMode === "soon"
-                            ? "neutral"
-                            : "warning"
-                          : selected.stock <= 2
-                            ? "neutral"
-                            : "success"
-                      }
-                    >
-                      {stockBadgeLabel(selected)}
-                    </Badge>
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[var(--border)] bg-white/95 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur sm:px-5">
+              <div className="min-w-0 pr-2">
+                <h2 id="product-dialog-title" className="text-xl font-bold sm:text-2xl">
+                  {selected.name}
+                </h2>
+                {selected.categories.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {selected.categories.map((category) => (
+                      <span
+                        key={category.id}
+                        className="rounded-full bg-[var(--bg)] px-2 py-0.5 text-xs text-[var(--muted)]"
+                      >
+                        {category.name}
+                      </span>
+                    ))}
                   </div>
+                ) : null}
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {priced ? (
+                    <p className="text-xl font-bold text-[var(--brand)]">
+                      {formatRub(selected.listPrice as number)}
+                    </p>
+                  ) : (
+                    <p className="text-base font-semibold text-red-700">
+                      Цена уточняется
+                    </p>
+                  )}
+                  <Badge
+                    tone={
+                      selected.stock === 0
+                        ? selected.zeroStockMode === "soon"
+                          ? "neutral"
+                          : "warning"
+                        : selected.stock <= 2
+                          ? "neutral"
+                          : "success"
+                    }
+                  >
+                    {stockBadgeLabel(selected)}
+                  </Badge>
                 </div>
-                <button
-                  type="button"
-                  onClick={closeProduct}
-                  className="min-h-11 shrink-0 rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted)] hover:bg-[var(--bg)]"
-                >
-                  Закрыть
-                </button>
               </div>
+              <ModalCloseButton onClick={closeProduct} />
+            </div>
 
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
               <ProductPhoto
                 src={selected.imageUrl}
                 alt={selected.name}

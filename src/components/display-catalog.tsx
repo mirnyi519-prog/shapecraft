@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ModalCloseButton } from "@/components/modal-close-button";
 import { ProductPhoto } from "@/components/product-photo";
 import { Badge } from "@/components/ui";
 import { useScrollLock } from "@/hooks/use-scroll-lock";

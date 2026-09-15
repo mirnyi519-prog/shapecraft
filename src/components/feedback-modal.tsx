@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ModalCloseButton } from "@/components/modal-close-button";
 import { Button, Input, Textarea } from "@/components/ui";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
 
@@ -91,7 +92,7 @@ export function FeedbackModal({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-4 sm:items-center"
+      className="fixed inset-0 z-[60] flex items-end justify-center overscroll-none bg-black/50 p-3 sm:items-center sm:p-4"
       onClick={onClose}
       role="presentation"
     >
@@ -99,14 +100,19 @@ export function FeedbackModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="feedback-dialog-title"
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--border)] bg-white p-5 shadow-xl"
+        className="flex max-h-[min(90vh,100dvh)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[var(--border)] bg-white/95 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur sm:px-5">
+          <h2 id="feedback-dialog-title" className="min-w-0 pr-2 text-xl font-semibold">
+            {sent ? "Спасибо!" : "Обратная связь"}
+          </h2>
+          <ModalCloseButton onClick={onClose} />
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-5">
         {sent ? (
           <div className="space-y-4">
-            <h2 id="feedback-dialog-title" className="text-xl font-semibold">
-              Спасибо!
-            </h2>
             <p className="text-[var(--muted)]">
               Сообщение отправлено администратору. Ответим, если оставили контакт.
             </p>
@@ -120,22 +126,19 @@ export function FeedbackModal({
                 Написать ещё
               </Button>
               <Button type="button" className="min-h-11" onClick={onClose}>
-                Закрыть
+                Готово
               </Button>
             </div>
           </div>
         ) : (
           <div className="space-y-4">
             <div>
-              <h2 id="feedback-dialog-title" className="text-xl font-semibold">
-                Обратная связь
-              </h2>
               {productName ? (
-                <p className="mt-2 rounded-xl bg-[var(--brand-soft)] px-4 py-3 text-sm">
+                <p className="rounded-xl bg-[var(--brand-soft)] px-4 py-3 text-sm">
                   Вопрос по товару: <span className="font-medium">{productName}</span>
                 </p>
               ) : (
-                <p className="mt-2 text-sm text-[var(--muted)]">
+                <p className="text-sm text-[var(--muted)]">
                   Напишите нам прямо с витрины — сообщение попадёт администратору
                   ShapeCraft.
                 </p>
@@ -209,6 +212,7 @@ export function FeedbackModal({
             </form>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

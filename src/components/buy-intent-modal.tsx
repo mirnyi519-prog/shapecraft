@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { ModalCloseButton } from "@/components/modal-close-button";
 import { PickupInfo } from "@/components/pickup-info";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
 
@@ -36,7 +37,7 @@ export function BuyIntentModal({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/45 p-4 sm:items-center"
+      className="fixed inset-0 z-[60] flex items-end justify-center overscroll-none bg-black/50 p-3 sm:items-center sm:p-4"
       onClick={onClose}
       role="presentation"
     >
@@ -44,11 +45,11 @@ export function BuyIntentModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="buy-intent-title"
-        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[var(--border)] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl"
+        className="flex max-h-[min(92vh,100dvh)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
+        <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[var(--border)] bg-white/95 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur sm:px-5">
+          <div className="min-w-0 pr-2">
             <h2 id="buy-intent-title" className="text-xl font-bold">
               Купить
             </h2>
@@ -56,16 +57,12 @@ export function BuyIntentModal({
               <p className="mt-1 text-sm text-[var(--muted)]">{productName}</p>
             ) : null}
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-3 py-2 text-sm font-medium text-[var(--muted)] hover:bg-[var(--bg)]"
-          >
-            Закрыть
-          </button>
+          <ModalCloseButton onClick={onClose} />
         </div>
 
-        <PickupInfo compact productName={productName} />
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-5">
+          <PickupInfo compact productName={productName} />
+        </div>
       </div>
     </div>
   );
