@@ -1,9 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { VisitsChart } from "@/components/visits-chart";
+import { VisitsHourlyChart } from "@/components/visits-hourly-chart";
 import { VisitsTable } from "@/components/visits-table";
 import { Button, StatCard } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
+import {
+  getVisitsChartSeries,
+  getVisitsHourlySeries,
+} from "@/lib/visit-chart";
 import { getVisitStats } from "@/lib/visits";
 
 export default async function VisitsPage() {
@@ -16,7 +22,11 @@ export default async function VisitsPage() {
     redirect("/dashboard");
   }
 
-  const stats = await getVisitStats();
+  const [stats, chart, hourly] = await Promise.all([
+    getVisitStats(),
+    getVisitsChartSeries("day"),
+    getVisitsHourlySeries("day"),
+  ]);
 
   return (
     <AppShell>
@@ -53,6 +63,9 @@ export default async function VisitsPage() {
             value={String(stats.returningVisitsToday)}
           />
         </div>
+
+        <VisitsChart initialData={chart} />
+        <VisitsHourlyChart initialData={hourly} />
 
         <VisitsTable rows={stats.byIp} />
       </div>
