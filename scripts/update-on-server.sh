@@ -31,5 +31,9 @@ bash scripts/allow-docker-to-host.sh || true
 echo "==> Fix Caddy proxy"
 curl -fsSL https://raw.githubusercontent.com/mirnyi519-prog/shapecraft/master/scripts/fix-shapecraft-proxy.sh | bash
 
+echo "==> Cleanup unused Docker images/cache"
+bash scripts/cleanup-on-server.sh --aggressive || true
+
 echo "==> Done"
 curl -s -o /dev/null -w "app :3000 -> %{http_code}\n" http://127.0.0.1:3000 || true
+df -h / | sed -n '1,2p' || true
