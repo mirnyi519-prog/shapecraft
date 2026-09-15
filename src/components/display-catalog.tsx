@@ -100,18 +100,18 @@ export function DisplayCatalog({ products }: { products: CatalogProduct[] }) {
 
       {selected ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+          className="fixed inset-0 z-50 flex items-center justify-center overscroll-none bg-black/50 p-6"
           onClick={() => setSelected(null)}
           role="presentation"
         >
           <div
             role="dialog"
             aria-modal="true"
-            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl"
+            className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-4">
-              <div>
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-[var(--border)] bg-white/95 px-6 py-4 backdrop-blur">
+              <div className="min-w-0 pr-2">
                 <h2 className="text-3xl font-bold">{selected.name}</h2>
                 <div className="mt-2">
                   <Badge
@@ -138,26 +138,20 @@ export function DisplayCatalog({ products }: { products: CatalogProduct[] }) {
                   </p>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => setSelected(null)}
-                className="rounded-xl px-4 py-2 text-sm font-medium text-[var(--muted)] hover:bg-[var(--bg)]"
-              >
-                Закрыть
-              </button>
+              <ModalCloseButton onClick={() => setSelected(null)} />
             </div>
-            <div className="mt-5">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
               <ProductPhoto
                 src={selected.imageUrl}
                 alt={selected.name}
                 frameClassName="aspect-[4/3] h-auto min-h-72"
               />
+              {selected.description ? (
+                <p className="mt-5 whitespace-pre-wrap text-lg text-[var(--text)]">
+                  {selected.description}
+                </p>
+              ) : null}
             </div>
-            {selected.description ? (
-              <p className="mt-5 whitespace-pre-wrap text-lg text-[var(--text)]">
-                {selected.description}
-              </p>
-            ) : null}
           </div>
         </div>
       ) : null}
