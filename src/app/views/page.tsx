@@ -103,57 +103,45 @@ export default async function ViewsPage({
               </p>
             ) : (
               <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full text-left text-sm">
-                    <thead className="border-b border-[var(--border)] bg-[var(--bg)] text-[var(--muted)]">
-                      <tr>
-                        <th className="px-4 py-3 font-medium">Фото</th>
-                        <th className="px-4 py-3 font-medium">Название</th>
-                        <th className="px-4 py-3 font-medium text-right">
-                          Просмотры
-                        </th>
-                        <th className="px-4 py-3 font-medium text-right">
-                          «Купить»
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {productViews.map((product) => (
-                        <tr
-                          key={product.id}
-                          className="border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg)]"
-                        >
-                          <td className="p-0" colSpan={4}>
-                            <Link
-                              href={`/products/${product.id}`}
-                              className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-3 px-4 py-3"
-                              aria-label={product.name}
-                            >
-                              <ProductThumb
-                                src={product.imageUrl}
-                                alt={product.name}
-                                size={48}
-                              />
-                              <span className="min-w-0 font-medium">
-                                {product.name}
-                                {!product.active ? (
-                                  <span className="ml-2 text-xs text-[var(--muted)]">
-                                    (архив)
-                                  </span>
-                                ) : null}
-                              </span>
-                              <span className="text-right font-semibold tabular-nums">
-                                {product.viewCount}
-                              </span>
-                              <span className="text-right font-semibold tabular-nums">
-                                {product.buyClickCount}
-                              </span>
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div
+                  className="grid grid-cols-[3rem_minmax(0,1fr)_4.75rem_4.5rem] items-center gap-x-3 border-b border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-sm text-[var(--muted)] sm:grid-cols-[3.5rem_minmax(0,1fr)_6rem_5.5rem]"
+                  role="row"
+                >
+                  <span className="font-medium">Фото</span>
+                  <span className="font-medium">Название</span>
+                  <span className="text-right font-medium">Просмотры</span>
+                  <span className="text-right font-medium">«Купить»</span>
+                </div>
+                <div role="list">
+                  {productViews.map((product) => (
+                    <Link
+                      key={product.id}
+                      href={`/products/${product.id}`}
+                      role="listitem"
+                      className="grid grid-cols-[3rem_minmax(0,1fr)_4.75rem_4.5rem] items-center gap-x-3 border-b border-[var(--border)] px-4 py-3 text-sm last:border-b-0 hover:bg-[var(--bg)] sm:grid-cols-[3.5rem_minmax(0,1fr)_6rem_5.5rem]"
+                      aria-label={product.name}
+                    >
+                      <ProductThumb
+                        src={product.imageUrl}
+                        alt={product.name}
+                        size={48}
+                      />
+                      <span className="min-w-0 truncate font-medium">
+                        {product.name}
+                        {!product.active ? (
+                          <span className="ml-2 text-xs text-[var(--muted)]">
+                            (архив)
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="text-right font-semibold tabular-nums">
+                        {product.viewCount}
+                      </span>
+                      <span className="text-right font-semibold tabular-nums">
+                        {product.buyClickCount}
+                      </span>
+                    </Link>
+                  ))}
                 </div>
               </div>
             )}

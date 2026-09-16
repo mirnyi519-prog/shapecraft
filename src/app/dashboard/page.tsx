@@ -412,57 +412,45 @@ export default async function DashboardPage({
                 </p>
               ) : (
                 <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-left text-sm">
-                      <thead className="border-b border-[var(--border)] bg-[var(--bg)] text-[var(--muted)]">
-                        <tr>
-                          <th className="px-4 py-3 font-medium">Фото</th>
-                          <th className="px-4 py-3 font-medium">Название</th>
-                          <th className="px-4 py-3 font-medium text-right">
-                            Просмотры
-                          </th>
-                          <th className="px-4 py-3 font-medium text-right">
-                            «Купить»
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.productViews.map((product) => (
-                          <tr
-                            key={product.id}
-                            className="border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg)]"
-                          >
-                            <td className="p-0" colSpan={4}>
-                              <Link
-                                href={`/products/${product.id}`}
-                                className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-3 px-4 py-3"
-                                aria-label={`${product.name}, ${product.viewCount} просмотров`}
-                              >
-                                <ProductThumb
-                                  src={product.imageUrl}
-                                  alt={product.name}
-                                  size={48}
-                                />
-                                <span className="min-w-0 font-medium">
-                                  {product.name}
-                                  {!product.active ? (
-                                    <span className="ml-2 text-xs text-[var(--muted)]">
-                                      (архив)
-                                    </span>
-                                  ) : null}
-                                </span>
-                                <span className="text-right font-semibold tabular-nums">
-                                  {product.viewCount}
-                                </span>
-                                <span className="text-right font-semibold tabular-nums">
-                                  {product.buyClickCount}
-                                </span>
-                              </Link>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div
+                    className="grid grid-cols-[3rem_minmax(0,1fr)_4.75rem_4.5rem] items-center gap-x-3 border-b border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-sm text-[var(--muted)] sm:grid-cols-[3.5rem_minmax(0,1fr)_6rem_5.5rem]"
+                    role="row"
+                  >
+                    <span className="font-medium">Фото</span>
+                    <span className="font-medium">Название</span>
+                    <span className="text-right font-medium">Просмотры</span>
+                    <span className="text-right font-medium">«Купить»</span>
+                  </div>
+                  <div role="list">
+                    {data.productViews.map((product) => (
+                      <Link
+                        key={product.id}
+                        href={`/products/${product.id}`}
+                        role="listitem"
+                        className="grid grid-cols-[3rem_minmax(0,1fr)_4.75rem_4.5rem] items-center gap-x-3 border-b border-[var(--border)] px-4 py-3 text-sm last:border-b-0 hover:bg-[var(--bg)] sm:grid-cols-[3.5rem_minmax(0,1fr)_6rem_5.5rem]"
+                        aria-label={`${product.name}, ${product.viewCount} просмотров`}
+                      >
+                        <ProductThumb
+                          src={product.imageUrl}
+                          alt={product.name}
+                          size={48}
+                        />
+                        <span className="min-w-0 truncate font-medium">
+                          {product.name}
+                          {!product.active ? (
+                            <span className="ml-2 text-xs text-[var(--muted)]">
+                              (архив)
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="text-right font-semibold tabular-nums">
+                          {product.viewCount}
+                        </span>
+                        <span className="text-right font-semibold tabular-nums">
+                          {product.buyClickCount}
+                        </span>
+                      </Link>
+                    ))}
                   </div>
                 </div>
               )}
@@ -525,57 +513,44 @@ export default async function DashboardPage({
                 <p className="text-[var(--muted)]">Продаж пока нет.</p>
               ) : (
                 <div className="overflow-hidden rounded-xl border border-[var(--border)]">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-left text-sm">
-                      <thead className="border-b border-[var(--border)] bg-[var(--bg)] text-[var(--muted)]">
-                        <tr>
-                          <th className="px-4 py-3 font-medium">#</th>
-                          <th className="px-4 py-3 font-medium">Товар</th>
-                          <th className="px-4 py-3 font-medium text-right">
-                            Продано
-                          </th>
-                          <th className="px-4 py-3 font-medium text-right">
-                            Выручка
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {topSoldProducts.map((product, index) => (
-                          <tr
-                            key={product.productId}
-                            className="border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg)]"
-                          >
-                            <td className="p-0" colSpan={4}>
-                              <Link
-                                href={`/products/${product.productId}`}
-                                className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-x-3 px-4 py-3"
-                                aria-label={`${product.name}, ${product.quantity} шт`}
-                              >
-                                <span className="w-6 text-[var(--muted)] tabular-nums">
-                                  {index + 1}
-                                </span>
-                                <span className="flex min-w-0 items-center gap-3">
-                                  <ProductThumb
-                                    src={product.imageUrl}
-                                    alt={product.name}
-                                    size={44}
-                                  />
-                                  <span className="truncate font-medium">
-                                    {product.name}
-                                  </span>
-                                </span>
-                                <span className="text-right font-semibold tabular-nums">
-                                  {product.quantity} шт
-                                </span>
-                                <span className="text-right font-semibold tabular-nums">
-                                  {formatRub(product.revenue)}
-                                </span>
-                              </Link>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div
+                    className="grid grid-cols-[2rem_2.75rem_minmax(0,1fr)_4.5rem_5.5rem] items-center gap-x-3 border-b border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-sm text-[var(--muted)] sm:grid-cols-[2.25rem_3rem_minmax(0,1fr)_5.5rem_6.5rem]"
+                    role="row"
+                  >
+                    <span className="font-medium">#</span>
+                    <span aria-hidden className="block" />
+                    <span className="font-medium">Товар</span>
+                    <span className="text-right font-medium">Продано</span>
+                    <span className="text-right font-medium">Выручка</span>
+                  </div>
+                  <div role="list">
+                    {topSoldProducts.map((product, index) => (
+                      <Link
+                        key={product.productId}
+                        href={`/products/${product.productId}`}
+                        role="listitem"
+                        className="grid grid-cols-[2rem_2.75rem_minmax(0,1fr)_4.5rem_5.5rem] items-center gap-x-3 border-b border-[var(--border)] px-4 py-3 text-sm last:border-b-0 hover:bg-[var(--bg)] sm:grid-cols-[2.25rem_3rem_minmax(0,1fr)_5.5rem_6.5rem]"
+                        aria-label={`${product.name}, ${product.quantity} шт`}
+                      >
+                        <span className="tabular-nums text-[var(--muted)]">
+                          {index + 1}
+                        </span>
+                        <ProductThumb
+                          src={product.imageUrl}
+                          alt={product.name}
+                          size={44}
+                        />
+                        <span className="min-w-0 truncate font-medium">
+                          {product.name}
+                        </span>
+                        <span className="text-right font-semibold tabular-nums">
+                          {product.quantity} шт
+                        </span>
+                        <span className="text-right font-semibold tabular-nums">
+                          {formatRub(product.revenue)}
+                        </span>
+                      </Link>
+                    ))}
                   </div>
                 </div>
               )}
