@@ -445,3 +445,43 @@ export function notifyTelegramSale(input: {
     "sale",
   );
 }
+
+/** Ручная публикация объявления маркет-ботом (рабочая группа / позже kupipro77). */
+export function buildMarketListingCaption(product: {
+  name: string;
+  description?: string | null;
+  listPrice: number;
+  stock?: number | null;
+}): string {
+  const siteUrl = getPublicSiteUrl();
+  const price = `${Math.round(product.listPrice).toLocaleString("ru-RU")} ₽`;
+  const desc = product.description?.trim();
+  const descLine =
+    desc && desc.length > 280 ? `${desc.slice(0, 277).trimEnd()}…` : desc;
+
+  return [
+    product.name.trim(),
+    `Цена: ${price}`,
+    descLine || null,
+    product.stock != null ? `В наличии: ${product.stock} шт` : null,
+    "",
+    "3D-печать · ShapeCraft",
+    siteUrl,
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+}
+
+export async function publishProductToMarketChat(product: {
+  name: string;
+  description?: string | null;
+  imageUrl?: string | null;
+  listPrice: number;
+  stock?: number | null;
+}): Promise<TelegramSendResult> {
+  return sendTelegramPhoto({
+    channel: "market",
+    imageUrl: product.imageUrl,
+    caption: buildMarketListingCaption(product),
+  });
+}

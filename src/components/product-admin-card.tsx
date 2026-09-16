@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ProductArchiveButton } from "@/components/product-archive-button";
 import { ProductPhoto } from "@/components/product-photo";
+import { ProductPublishMarketButton } from "@/components/product-publish-market-button";
 import { Badge, Button, Card } from "@/components/ui";
 import { formatRub } from "@/lib/calculations";
 import {
@@ -123,7 +124,13 @@ export function ProductAdminCard({
             )}
           </div>
           {isAdmin ? (
-            <ProductArchiveButton productId={product.id} active={onStorefront} />
+            <>
+              <ProductPublishMarketButton
+                productId={product.id}
+                hasPrice={priced}
+              />
+              <ProductArchiveButton productId={product.id} active={onStorefront} />
+            </>
           ) : null}
         </div>
       </div>

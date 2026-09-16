@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { ProductArchiveButton } from "@/components/product-archive-button";
+import { ProductPublishMarketButton } from "@/components/product-publish-market-button";
 import { ProductSpecsBlock } from "@/components/product-specs-block";
 import { Badge, Button, Card, StatCard } from "@/components/ui";
 import { ProductForm } from "@/components/forms";
@@ -83,7 +84,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
             </Badge>
           </div>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-start">
           <Link href={`/products/${product.id}/receipt`}>
             <Button variant="secondary" className="min-h-11 w-full sm:w-auto">
               Поставка
@@ -98,6 +99,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
               Продажа
             </Button>
           )}
+          <ProductPublishMarketButton
+            productId={product.id}
+            hasPrice={priced}
+            className="sm:w-56"
+          />
           <ProductArchiveButton
             productId={product.id}
             active={onStorefront}
