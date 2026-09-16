@@ -45,21 +45,67 @@ function formatFetchError(error: unknown): string {
   return error.message;
 }
 
+export type TelegramChannel = "ops" | "market";
+
+export type TelegramChannelConfig = {
+  channel: TelegramChannel;
+  token: string;
+  chatId: string;
+  configured: boolean;
+  siteUrl: string;
+  label: string;
+};
+
+export function getPublicSiteUrl(): string {
+  return (
+    cleanEnv(process.env.PUBLIC_SITE_URL) || "https://shapecraft.ru"
+  ).replace(/\/$/, "");
+}
+
+/** ops — служебные пуши; market — отдельный бот для объявлений / рабочей группы. */
+export function getTelegramChannelConfig(
+  channel: TelegramChannel = "ops",
+): TelegramChannelConfig {
+  const siteUrl = getPublicSiteUrl();
+
+  if (channel === "market") {
+    const token = cleanEnv(process.env.TELEGRAM_MARKET_BOT_TOKEN);
+    const chatId = cleanEnv(process.env.TELEGRAM_MARKET_CHAT_ID);
+    return {
+      channel,
+      token,
+      chatId,
+      configured: Boolean(token && chatId),
+      siteUrl,
+      label: "Маркет / объявления",
+    };
+  }
+
+  const token = cleanEnv(process.env.TELEGRAM_BOT_TOKEN);
+  const chatId = cleanEnv(process.env.TELEGRAM_CHAT_ID);
+  return {
+    channel: "ops",
+    token,
+    chatId,
+    configured: Boolean(token && chatId),
+    siteUrl,
+    label: "Служебный (клики / склад)",
+  };
+}
+
+/** @deprecated используйте getTelegramChannelConfig("ops") */
 export function getTelegramConfig(): {
   token: string;
   chatId: string;
   configured: boolean;
   siteUrl: string;
 } {
-  const token = cleanEnv(process.env.TELEGRAM_BOT_TOKEN);
-  const chatId = cleanEnv(process.env.TELEGRAM_CHAT_ID);
-  const siteUrl =
-    cleanEnv(process.env.PUBLIC_SITE_URL) || "https://shapecraft.ru";
+  const config = getTelegramChannelConfig("ops");
   return {
-    token,
-    chatId,
-    configured: Boolean(token && chatId),
-    siteUrl: siteUrl.replace(/\/$/, ""),
+    token: config.token,
+    chatId: config.chatId,
+    configured: config.configured,
+    siteUrl: config.siteUrl,
   };
 }
 
@@ -74,7 +120,7 @@ export function resolveProductImageUrl(
   if (/^https?:\/\//i.test(raw)) {
     return raw;
   }
-  const { siteUrl } = getTelegramConfig();
+  const { siteUrl } = getTelegramChannelConfig("ops");
   return `${siteUrl}${raw.startsWith("/") ? "" : "/"}${raw}`;
 }
 
@@ -95,14 +141,18 @@ function localUploadPath(imageUrl: string): string | null {
  */
 export async function sendTelegramMessage(
   text: string,
+  channel: TelegramChannel = "ops",
 ): Promise<TelegramSendResult> {
-  const { token, chatId, configured } = getTelegramConfig();
+  const { token, chatId, configured, label } = getTelegramChannelConfig(channel);
 
   if (!configured) {
     return {
       ok: false,
       configured: false,
-      error: "TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы в контейнере",
+      error:
+        channel === "market"
+          ? "TELEGRAM_MARKET_BOT_TOKEN или TELEGRAM_MARKET_CHAT_ID не заданы"
+          : "TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы в контейнере",
     };
   }
 
@@ -130,7 +180,13 @@ export async function sendTelegramMessage(
 
     if (!response.ok || !body?.ok) {
       const error = body?.description || `Telegram HTTP ${response.status}`;
-      console.error("telegram send failed", { error, chatId, status: response.status });
+      console.error("telegram send failed", {
+        channel,
+        label,
+        error,
+        chatId,
+        status: response.status,
+      });
       return {
         ok: false,
         configured: true,
@@ -142,7 +198,7 @@ export async function sendTelegramMessage(
     return { ok: true, configured: true, status: response.status };
   } catch (error) {
     const message = formatFetchError(error);
-    console.error("telegram send exception", message);
+    console.error("telegram send exception", { channel, message });
     return { ok: false, configured: true, error: message };
   }
 }
@@ -154,21 +210,26 @@ export async function sendTelegramMessage(
 export async function sendTelegramPhoto(input: {
   caption: string;
   imageUrl?: string | null;
+  channel?: TelegramChannel;
 }): Promise<TelegramSendResult> {
-  const { token, chatId, configured } = getTelegramConfig();
+  const channel = input.channel ?? "ops";
+  const { token, chatId, configured } = getTelegramChannelConfig(channel);
   const caption = input.caption.slice(0, 1024);
 
   if (!configured) {
     return {
       ok: false,
       configured: false,
-      error: "TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы в контейнере",
+      error:
+        channel === "market"
+          ? "TELEGRAM_MARKET_BOT_TOKEN или TELEGRAM_MARKET_CHAT_ID не заданы"
+          : "TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы в контейнере",
     };
   }
 
   const publicUrl = resolveProductImageUrl(input.imageUrl);
   if (!publicUrl && !input.imageUrl) {
-    return sendTelegramMessage(input.caption);
+    return sendTelegramMessage(input.caption, channel);
   }
 
   // 1) URL (Telegram сам скачает)
@@ -204,7 +265,7 @@ export async function sendTelegramPhoto(input: {
   }
 
   // 3) хотя бы текст
-  return sendTelegramMessage(input.caption);
+  return sendTelegramMessage(input.caption, channel);
 }
 
 async function sendPhotoJson(

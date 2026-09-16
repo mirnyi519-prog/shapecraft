@@ -21,6 +21,8 @@ services:
       WORLD_SYNC_URL: ${WORLD_SYNC_URL:-https://raw.githubusercontent.com/mirnyi519-prog/shapecraft/master/data/world-import.json}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_MARKET_BOT_TOKEN: ${TELEGRAM_MARKET_BOT_TOKEN:-}
+      TELEGRAM_MARKET_CHAT_ID: ${TELEGRAM_MARKET_CHAT_ID:-}
       # Прямая отправка: приложение уже в host network
       TELEGRAM_RELAY_URL: ""
       NODE_ENV: production

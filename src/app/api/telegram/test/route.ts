@@ -1,18 +1,30 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { isAdmin, requireSession } from "@/lib/auth";
 import { formatDateTime } from "@/lib/calculations";
-import { getTelegramConfig, sendTelegramMessage } from "@/lib/telegram";
+import {
+  getTelegramChannelConfig,
+  sendTelegramMessage,
+  type TelegramChannel,
+} from "@/lib/telegram";
 
-export async function GET() {
+function parseChannel(request: NextRequest): TelegramChannel {
+  const raw = request.nextUrl.searchParams.get("channel")?.trim().toLowerCase();
+  return raw === "market" ? "market" : "ops";
+}
+
+export async function GET(request: NextRequest) {
   try {
     const session = await requireSession();
     if (!isAdmin(session.role)) {
       return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
     }
 
-    const { configured, token, chatId } = getTelegramConfig();
+    const channel = parseChannel(request);
+    const { configured, token, chatId, label } = getTelegramChannelConfig(channel);
 
     return NextResponse.json({
+      channel,
+      label,
       configured,
       hasToken: Boolean(token),
       hasChatId: Boolean(chatId),
@@ -27,18 +39,29 @@ export async function GET() {
   }
 }
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const session = await requireSession();
     if (!isAdmin(session.role)) {
       return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
     }
 
+    const channel = parseChannel(request);
+    const label =
+      channel === "market"
+        ? "Маркет / объявления"
+        : "Служебный (клики / склад)";
+
     const result = await sendTelegramMessage(
-      `✅ Тест ShapeCraft\nВремя: ${formatDateTime(new Date())} (МСК)`,
+      [
+        "✅ Тест ShapeCraft",
+        `Канал: ${label}`,
+        `Время: ${formatDateTime(new Date())} (МСК)`,
+      ].join("\n"),
+      channel,
     );
 
-    return NextResponse.json(result, {
+    return NextResponse.json({ ...result, channel, label }, {
       status: result.ok ? 200 : 502,
     });
   } catch (error) {
