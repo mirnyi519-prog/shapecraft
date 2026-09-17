@@ -8,8 +8,21 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "ShapeCraft — 3D-печать",
-  description: "Учёт товаров, продаж и расчётов ShapeCraft",
+  title: "ShapeCraft — 3D-сувениры",
+  description: "Витрина 3D-сувениров ShapeCraft.",
+  openGraph: {
+    title: "ShapeCraft — 3D-сувениры",
+    description: "Витрина 3D-сувениров ShapeCraft.",
+    url: "https://shapecraft.ru",
+    siteName: "ShapeCraft",
+    locale: "ru_RU",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "ShapeCraft — 3D-сувениры",
+    description: "Витрина 3D-сувениров ShapeCraft.",
+  },
 };
 
 export const viewport: Viewport = {
