@@ -24,30 +24,58 @@ export function getClientIp(request: Request): string {
 }
 
 const BOT_PATTERN =
-  /bot|crawler|spider|slurp|facebookexternalhit|whatsapp|telegram|curl\/|wget|python-requests|go-http-client|httpclient|scrapy|headlesschrome|phantomjs|selenium|puppeteer|uptime|monitor|healthcheck|preview/i;
+  /bot|crawler|spider|slurp|facebookexternalhit|telegrambot|curl\/|wget|python-requests|go-http-client|httpclient|scrapy|headlesschrome|phantomjs|selenium|puppeteer|uptime|monitor|healthcheck|preview/i;
+
+/**
+ * Превью-краулер мессенджера (не человек в in-app браузере).
+ * Пример: `TelegramBot`, голый `WhatsApp/2.x` без Mozilla.
+ */
+function isMessengerPreviewCrawler(userAgent: string): boolean {
+  if (/telegrambot|facebookexternalhit/i.test(userAgent)) {
+    return true;
+  }
+  // Превью WhatsApp часто приходит коротким UA без движка браузера
+  if (/whatsapp/i.test(userAgent) && !/mozilla|chrome|safari|applewebkit/i.test(userAgent)) {
+    return true;
+  }
+  return false;
+}
 
 /** Краулеры, превью-боты, мониторинг и пустой UA (для визитов). */
 export function isBotUserAgent(userAgent: string | null): boolean {
   if (!userAgent?.trim()) {
     return true;
   }
-  return BOT_PATTERN.test(userAgent);
+  const ua = userAgent;
+
+  if (isMessengerPreviewCrawler(ua)) {
+    return true;
+  }
+
+  // In-app Telegram/WhatsApp — живые люди (шаринг ссылок на витрину)
+  if (/telegram|whatsapp/i.test(ua)) {
+    return false;
+  }
+
+  return BOT_PATTERN.test(ua);
 }
 
 /**
  * Только автоматизированные краулеры.
- * Не включает Telegram/WhatsApp — их in-app браузеры содержат эти слова,
- * но это живые люди (клик «Купить» должен считаться и пушить).
+ * Не включает Telegram/WhatsApp in-app — это живые люди
+ * (клик «Купить» должен считаться и пушить).
  */
 export function isAutomatedCrawlerUserAgent(userAgent: string | null): boolean {
   if (!userAgent) {
     return false;
   }
-  // Исключаем in-app браузеры мессенджеров до общей проверки на "bot"
+  if (isMessengerPreviewCrawler(userAgent)) {
+    return true;
+  }
   if (/telegram|whatsapp/i.test(userAgent)) {
     return false;
   }
-  return /bot|crawler|spider|slurp|facebookexternalhit/i.test(userAgent);
+  return /bot|crawler|spider|slurp|facebookexternalhit|telegrambot/i.test(userAgent);
 }
 
 export async function recordSiteVisit(input: {
