@@ -50,6 +50,7 @@ export function ProductForm({
   );
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -78,9 +79,13 @@ export function ProductForm({
     const looksLikeImage =
       type.startsWith("image/") ||
       /\.(png|jpe?g|webp|gif)$/i.test(file.name || "");
+    const looksLikeVideo =
+      type.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(file.name || "");
 
-    if (!looksLikeImage) {
-      setError("Можно загружать только изображения (JPEG, PNG, WebP, GIF)");
+    if (!looksLikeImage && !looksLikeVideo) {
+      setError(
+        "Можно JPEG, PNG, WebP, GIF или видео MP4/WebM/MOV (сервер сделает GIF)",
+      );
       return currentUrls;
     }
 
@@ -91,6 +96,7 @@ export function ProductForm({
 
     setUploading(true);
     setError("");
+    setNotice("");
     const formData = new FormData();
     const named =
       file.name && file.name !== "blob"
@@ -106,7 +112,12 @@ export function ProductForm({
         body: formData,
       });
 
-      const data = (await response.json()) as { url?: string; error?: string };
+      const data = (await response.json()) as {
+        url?: string;
+        error?: string;
+        convertedFromVideo?: boolean;
+        maxSeconds?: number;
+      };
       if (!response.ok || !data.url) {
         setError(data.error ?? "Ошибка загрузки фото");
         setUploading(false);
@@ -116,9 +127,14 @@ export function ProductForm({
       const next = [...currentUrls, data.url];
       setImageUrls(next);
       setUploading(false);
+      if (data.convertedFromVideo) {
+        setNotice(
+          `Видео перекодировано в GIF (первые ${data.maxSeconds ?? 8} сек)`,
+        );
+      }
       return next;
     } catch {
-      setError("Не удалось загрузить фото. Проверьте сеть и вход.");
+      setError("Не удалось загрузить файл. Проверьте сеть и вход.");
       setUploading(false);
       return currentUrls;
     }
@@ -128,7 +144,8 @@ export function ProductForm({
     const list = Array.from(files).filter(
       (file) =>
         file.type.startsWith("image/") ||
-        /\.(png|jpe?g|webp|gif)$/i.test(file.name),
+        file.type.startsWith("video/") ||
+        /\.(png|jpe?g|webp|gif|mp4|webm|mov|m4v)$/i.test(file.name),
     );
     let current = imageUrls;
     for (const file of list) {
@@ -150,7 +167,10 @@ export function ProductForm({
 
     const files: File[] = [];
     for (const item of Array.from(data.items)) {
-      if (item.kind === "file" && item.type.startsWith("image/")) {
+      if (
+        item.kind === "file" &&
+        (item.type.startsWith("image/") || item.type.startsWith("video/"))
+      ) {
         const file = item.getAsFile();
         if (file) {
           files.push(file);
@@ -161,7 +181,8 @@ export function ProductForm({
       for (const file of Array.from(data.files)) {
         if (
           file.type.startsWith("image/") ||
-          /\.(png|jpe?g|webp|gif)$/i.test(file.name)
+          file.type.startsWith("video/") ||
+          /\.(png|jpe?g|webp|gif|mp4|webm|mov|m4v)$/i.test(file.name)
         ) {
           files.push(file);
         }
@@ -312,15 +333,16 @@ export function ProductForm({
         </p>
       )}
       <div className="space-y-2">
-        <span className="text-sm font-medium">Фото и GIF</span>
+        <span className="text-sm font-medium">Фото, GIF и видео</span>
         <p className="text-sm text-[var(--muted)]">
-          До {MAX_PRODUCT_IMAGES} файлов. Первое — обложка на витрине. JPEG, PNG, WebP, GIF
-          (до 8 МБ).
+          До {MAX_PRODUCT_IMAGES} файлов. Первое — обложка. JPEG, PNG, WebP, GIF
+          (до 8 МБ) или MP4/WebM/MOV (до 40 МБ) — видео само станет GIF (первые 8
+          сек).
         </p>
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
+          accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime,.jpg,.jpeg,.png,.webp,.gif,.mp4,.webm,.mov,.m4v"
           multiple
           className="hidden"
           onChange={(event) => {
@@ -450,10 +472,11 @@ export function ProductForm({
                 ? "Загрузка..."
                 : imageUrls.length > 0
                   ? "Добавить ещё"
-                  : "Загрузить фото / GIF"}
+                  : "Загрузить фото / GIF / видео"}
             </Button>
             <p className="text-sm text-[var(--muted)]">
-              Ctrl+V в зону, перетаскивание или выбор нескольких файлов
+              Ctrl+V в зону, перетаскивание или выбор файлов. Видео конвертируется
+              в GIF на сервере — подождите.
             </p>
           </div>
         </div>
@@ -573,9 +596,10 @@ export function ProductForm({
           />
         </div>
       </div>
+      {notice ? <p className="text-sm text-green-700">{notice}</p> : null}
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <Button type="submit" disabled={loading || uploading}>
-        {loading ? "Сохранение..." : "Сохранить"}
+        {loading ? "Сохранение..." : uploading ? "Загрузка файла..." : "Сохранить"}
       </Button>
     </form>
   );

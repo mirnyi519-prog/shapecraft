@@ -27,8 +27,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV TZ=Europe/Moscow
-RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN mkdir -p /app/data /app/public/uploads
+RUN apt-get update -y && apt-get install -y openssl ca-certificates ffmpeg && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/package-lock.json ./
