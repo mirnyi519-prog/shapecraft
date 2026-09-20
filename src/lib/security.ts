@@ -53,7 +53,7 @@ export function tooManyRequests(
 }
 
 /** Максимальный размер загружаемого изображения */
-export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
 
 export {
   isProbePath,

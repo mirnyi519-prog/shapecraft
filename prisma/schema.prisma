@@ -45,8 +45,20 @@ model Product {
   feedbackMessages FeedbackMessage[]
   categories       ProductCategory[]
   buyClicks        ProductBuyClick[]
+  images           ProductImage[]
 
   @@index([catalogLine, active])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([productId, sortOrder])
 }
 
 model Category {

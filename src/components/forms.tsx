@@ -16,6 +16,7 @@ import {
   ZERO_STOCK_MODES,
   type ZeroStockMode,
 } from "@/lib/buy-intent";
+import { MAX_PRODUCT_IMAGES } from "@/lib/product-images";
 
 export { LoginForm } from "@/components/login-form";
 
@@ -34,6 +35,7 @@ export function ProductForm({
       name: "",
       description: "",
       imageUrl: "",
+      imageUrls: [],
       costPrice: "",
       listPrice: "",
       stock: "0",
@@ -52,15 +54,39 @@ export function ProductForm({
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  async function handleUpload(file: File) {
+  const imageUrls =
+    values.imageUrls.length > 0
+      ? values.imageUrls
+      : values.imageUrl
+        ? [values.imageUrl]
+        : [];
+
+  function setImageUrls(next: string[]) {
+    const unique = Array.from(new Set(next.map((url) => url.trim()).filter(Boolean))).slice(
+      0,
+      MAX_PRODUCT_IMAGES,
+    );
+    setValues((current) => ({
+      ...current,
+      imageUrls: unique,
+      imageUrl: unique[0] ?? "",
+    }));
+  }
+
+  async function handleUpload(file: File, currentUrls: string[] = imageUrls) {
     const type = file.type || "";
     const looksLikeImage =
       type.startsWith("image/") ||
       /\.(png|jpe?g|webp|gif)$/i.test(file.name || "");
 
     if (!looksLikeImage) {
-      setError("Можно загружать только изображения");
-      return;
+      setError("Можно загружать только изображения (JPEG, PNG, WebP, GIF)");
+      return currentUrls;
+    }
+
+    if (currentUrls.length >= MAX_PRODUCT_IMAGES) {
+      setError(`Можно добавить не больше ${MAX_PRODUCT_IMAGES} фото`);
+      return currentUrls;
     }
 
     setUploading(true);
@@ -84,14 +110,34 @@ export function ProductForm({
       if (!response.ok || !data.url) {
         setError(data.error ?? "Ошибка загрузки фото");
         setUploading(false);
-        return;
+        return currentUrls;
       }
 
-      setValues((current) => ({ ...current, imageUrl: data.url! }));
+      const next = [...currentUrls, data.url];
+      setImageUrls(next);
+      setUploading(false);
+      return next;
     } catch {
       setError("Не удалось загрузить фото. Проверьте сеть и вход.");
+      setUploading(false);
+      return currentUrls;
     }
-    setUploading(false);
+  }
+
+  async function handleUploadMany(files: FileList | File[]) {
+    const list = Array.from(files).filter(
+      (file) =>
+        file.type.startsWith("image/") ||
+        /\.(png|jpe?g|webp|gif)$/i.test(file.name),
+    );
+    let current = imageUrls;
+    for (const file of list) {
+      if (current.length >= MAX_PRODUCT_IMAGES) {
+        setError(`Можно добавить не больше ${MAX_PRODUCT_IMAGES} фото`);
+        break;
+      }
+      current = await handleUpload(file, current);
+    }
   }
 
   const handleUploadRef = useRef(handleUpload);
@@ -102,27 +148,30 @@ export function ProductForm({
       return false;
     }
 
+    const files: File[] = [];
     for (const item of Array.from(data.items)) {
       if (item.kind === "file" && item.type.startsWith("image/")) {
         const file = item.getAsFile();
         if (file) {
-          void handleUploadRef.current(file);
-          return true;
+          files.push(file);
         }
       }
     }
-
-    for (const file of Array.from(data.files)) {
-      if (
-        file.type.startsWith("image/") ||
-        /\.(png|jpe?g|webp|gif)$/i.test(file.name)
-      ) {
-        void handleUploadRef.current(file);
-        return true;
+    if (files.length === 0) {
+      for (const file of Array.from(data.files)) {
+        if (
+          file.type.startsWith("image/") ||
+          /\.(png|jpe?g|webp|gif)$/i.test(file.name)
+        ) {
+          files.push(file);
+        }
       }
     }
-
-    return false;
+    if (files.length === 0) {
+      return false;
+    }
+    void handleUploadMany(files);
+    return true;
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -133,7 +182,8 @@ export function ProductForm({
     const payload: Record<string, string | number | string[] | null | undefined> = {
       name: values.name,
       description: values.description,
-      imageUrl: values.imageUrl || undefined,
+      imageUrl: imageUrls[0] || undefined,
+      imageUrls,
       listPrice:
         values.listPrice.trim() === "" ? null : Number(values.listPrice),
       stock: Number(values.stock),
@@ -262,16 +312,20 @@ export function ProductForm({
         </p>
       )}
       <div className="space-y-2">
-        <span className="text-sm font-medium">Фото</span>
+        <span className="text-sm font-medium">Фото и GIF</span>
+        <p className="text-sm text-[var(--muted)]">
+          До {MAX_PRODUCT_IMAGES} файлов. Первое — обложка на витрине. JPEG, PNG, WebP, GIF
+          (до 8 МБ).
+        </p>
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif"
+          multiple
           className="hidden"
           onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file) {
-              void handleUpload(file);
+            if (event.target.files?.length) {
+              void handleUploadMany(event.target.files);
             }
             event.target.value = "";
           }}
@@ -293,9 +347,8 @@ export function ProductForm({
           onDrop={(event) => {
             event.preventDefault();
             setDragOver(false);
-            const file = event.dataTransfer.files?.[0];
-            if (file) {
-              void handleUpload(file);
+            if (event.dataTransfer.files?.length) {
+              void handleUploadMany(event.dataTransfer.files);
             }
           }}
           className={`rounded-xl border border-dashed p-4 transition outline-none focus:border-[var(--brand)] ${
@@ -304,50 +357,104 @@ export function ProductForm({
               : "border-[var(--border)] bg-[var(--bg)]"
           }`}
         >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {values.imageUrl ? (
-              <div className="w-full max-w-[12rem] shrink-0 sm:w-40">
-                <ProductPhoto
-                  src={values.imageUrl}
-                  alt="Preview"
-                  frameClassName="aspect-square h-auto"
-                />
-              </div>
-            ) : (
-              <div className="flex h-40 w-full max-w-[12rem] shrink-0 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--brand-soft)]/35 text-sm text-[var(--muted)] sm:w-40">
-                Нет фото
-              </div>
-            )}
-            <div className="space-y-2">
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={uploading}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {uploading ? "Загрузка..." : "Загрузить фото"}
-              </Button>
-              <p className="text-sm text-[var(--muted)]">
-                Кликните в зону фото и нажмите Ctrl+V — вставится скриншот
-              </p>
-              <p className="text-sm text-[var(--muted)]">
-                В название и описание текст вставляется как обычно
-              </p>
-              <p className="text-sm text-[var(--muted)]">
-                Или перетащите файл сюда
-              </p>
-              {values.imageUrl ? (
-                <button
-                  type="button"
-                  className="text-sm text-red-600 hover:underline"
-                  onClick={() =>
-                    setValues((current) => ({ ...current, imageUrl: "" }))
-                  }
+          {imageUrls.length > 0 ? (
+            <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+              {imageUrls.map((url, index) => (
+                <div
+                  key={`${url}-${index}`}
+                  className="overflow-hidden rounded-xl border border-[var(--border)] bg-white"
                 >
-                  Убрать фото
-                </button>
-              ) : null}
+                  <ProductPhoto
+                    src={url}
+                    alt={`Фото ${index + 1}`}
+                    frameClassName="aspect-square h-auto"
+                  />
+                  <div className="space-y-1 border-t border-[var(--border)] p-2">
+                    <p className="text-xs text-[var(--muted)]">
+                      {index === 0 ? "Обложка" : `Фото ${index + 1}`}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {index > 0 ? (
+                        <button
+                          type="button"
+                          className="text-xs text-[var(--brand)] hover:underline"
+                          onClick={() => {
+                            const next = [...imageUrls];
+                            const [item] = next.splice(index, 1);
+                            if (item) {
+                              next.unshift(item);
+                              setImageUrls(next);
+                            }
+                          }}
+                        >
+                          В обложку
+                        </button>
+                      ) : null}
+                      {index > 0 ? (
+                        <button
+                          type="button"
+                          className="text-xs text-[var(--muted)] hover:underline"
+                          onClick={() => {
+                            const next = [...imageUrls];
+                            const tmp = next[index - 1]!;
+                            next[index - 1] = next[index]!;
+                            next[index] = tmp;
+                            setImageUrls(next);
+                          }}
+                        >
+                          ←
+                        </button>
+                      ) : null}
+                      {index < imageUrls.length - 1 ? (
+                        <button
+                          type="button"
+                          className="text-xs text-[var(--muted)] hover:underline"
+                          onClick={() => {
+                            const next = [...imageUrls];
+                            const tmp = next[index + 1]!;
+                            next[index + 1] = next[index]!;
+                            next[index] = tmp;
+                            setImageUrls(next);
+                          }}
+                        >
+                          →
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="text-xs text-red-600 hover:underline"
+                        onClick={() =>
+                          setImageUrls(imageUrls.filter((_, i) => i !== index))
+                        }
+                      >
+                        Убрать
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
+          ) : (
+            <div className="mb-4 flex h-32 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--brand-soft)]/35 text-sm text-[var(--muted)]">
+              Нет фото
+            </div>
+          )}
+          <div className="space-y-2">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={uploading || imageUrls.length >= MAX_PRODUCT_IMAGES}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploading
+                ? "Загрузка..."
+                : imageUrls.length > 0
+                  ? "Добавить ещё"
+                  : "Загрузить фото / GIF"}
+            </Button>
+            <p className="text-sm text-[var(--muted)]">
+              Ctrl+V в зону, перетаскивание или выбор нескольких файлов
+            </p>
           </div>
         </div>
       </div>
@@ -479,6 +586,7 @@ export type ProductFormValues = {
   name: string;
   description: string;
   imageUrl: string;
+  imageUrls: string[];
   costPrice: string;
   listPrice: string;
   stock: string;

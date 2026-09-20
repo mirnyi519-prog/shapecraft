@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ModalCloseButton } from "@/components/modal-close-button";
+import { ProductGallery } from "@/components/product-gallery";
 import { ProductPhoto } from "@/components/product-photo";
 import { Badge } from "@/components/ui";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
@@ -141,8 +142,14 @@ export function DisplayCatalog({ products }: { products: CatalogProduct[] }) {
               <ModalCloseButton onClick={() => setSelected(null)} />
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-5">
-              <ProductPhoto
-                src={selected.imageUrl}
+              <ProductGallery
+                images={
+                  selected.imageUrls?.length
+                    ? selected.imageUrls
+                    : selected.imageUrl
+                      ? [selected.imageUrl]
+                      : []
+                }
                 alt={selected.name}
                 frameClassName="aspect-[4/3] h-auto min-h-72"
               />

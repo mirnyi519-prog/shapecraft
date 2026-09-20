@@ -4,6 +4,7 @@ import type { CatalogCategory } from "@/lib/categories";
 import type { CatalogLine } from "@/lib/catalog-line";
 import type { ZeroStockMode } from "@/lib/buy-intent";
 import { parseZeroStockMode } from "@/lib/buy-intent";
+import { resolveProductImageList } from "@/lib/product-images";
 
 export const catalogProductSelect = {
   id: true,
@@ -20,6 +21,10 @@ export const catalogProductSelect = {
   depthMm: true,
   createdAt: true,
   viewCount: true,
+  images: {
+    orderBy: { sortOrder: "asc" as const },
+    select: { url: true, sortOrder: true },
+  },
   categories: {
     include: {
       category: {
@@ -34,6 +39,7 @@ export type CatalogProduct = {
   name: string;
   description: string | null;
   imageUrl: string | null;
+  imageUrls: string[];
   listPrice: number | null;
   stock: number;
   catalogLine?: string;
@@ -63,6 +69,7 @@ type DbProduct = {
   depthMm: number | null;
   createdAt: Date;
   viewCount: number;
+  images?: { url: string; sortOrder: number }[];
   categories: {
     category: {
       id: string;
@@ -86,11 +93,13 @@ function storefrontWhere(catalogLine?: CatalogLine) {
 }
 
 function mapProduct(product: DbProduct): CatalogProduct {
+  const imageUrls = resolveProductImageList(product);
   return {
     id: product.id,
     name: product.name,
     description: product.description,
-    imageUrl: product.imageUrl,
+    imageUrl: imageUrls[0] ?? product.imageUrl,
+    imageUrls,
     listPrice: product.listPrice,
     stock: product.stock,
     catalogLine: product.catalogLine,

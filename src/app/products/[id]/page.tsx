@@ -36,6 +36,9 @@ export default async function ProductDetailPage({ params }: PageProps) {
           orderBy: { changedAt: "desc" },
           take: 30,
         },
+        images: {
+          orderBy: { sortOrder: "asc" },
+        },
         categories: {
           include: {
             category: {
@@ -150,6 +153,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
               name: product.name,
               description: product.description ?? "",
               imageUrl: product.imageUrl ?? "",
+              imageUrls: product.images?.length
+                ? [...product.images]
+                    .sort((a, b) => a.sortOrder - b.sortOrder)
+                    .map((row) => row.url)
+                : product.imageUrl
+                  ? [product.imageUrl]
+                  : [],
               costPrice: String(product.costPrice),
               listPrice:
                 product.listPrice === null || product.listPrice === undefined

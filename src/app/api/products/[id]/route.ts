@@ -7,6 +7,10 @@ import { isCatalogLine } from "@/lib/catalog-line";
 import { isZeroStockMode } from "@/lib/buy-intent";
 import { parseOptionalNumber } from "@/lib/product-specs";
 import { parseOptionalPrice } from "@/lib/pricing";
+import {
+  normalizeImageUrls,
+  syncProductImages,
+} from "@/lib/product-images";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -27,6 +31,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         priceHistory: {
           orderBy: { changedAt: "desc" },
           take: 50,
+        },
+        images: {
+          orderBy: { sortOrder: "asc" },
         },
         categories: {
           include: {
@@ -63,6 +70,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       name?: string;
       description?: string;
       imageUrl?: string;
+      imageUrls?: string[];
       costPrice?: number;
       listPrice?: number | null;
       stock?: number;
@@ -120,6 +128,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       );
     }
 
+    const imageUrlsProvided = Object.prototype.hasOwnProperty.call(
+      body,
+      "imageUrls",
+    );
+    const imageUrlProvided = Object.prototype.hasOwnProperty.call(
+      body,
+      "imageUrl",
+    );
+    const nextImageUrls = imageUrlsProvided
+      ? normalizeImageUrls(body.imageUrls)
+      : imageUrlProvided
+        ? normalizeImageUrls(body.imageUrl ? [body.imageUrl] : [])
+        : null;
+
     const product = await prisma.$transaction(async (tx) => {
       const updated = await tx.product.update({
         where: { id },
@@ -128,7 +150,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           ...(body.description !== undefined
             ? { description: body.description.trim() || null }
             : {}),
-          ...(body.imageUrl !== undefined
+          ...(nextImageUrls === null && body.imageUrl !== undefined
             ? { imageUrl: body.imageUrl || null }
             : {}),
           ...(body.costPrice !== undefined
@@ -155,6 +177,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             : {}),
         },
       });
+
+      if (nextImageUrls !== null) {
+        await syncProductImages(tx, id, nextImageUrls);
+      }
 
       if (priceChanged) {
         await tx.priceHistory.create({

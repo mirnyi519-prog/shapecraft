@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BuyIntentModal } from "@/components/buy-intent-modal";
 import { FeedbackModal } from "@/components/feedback-modal";
 import { ModalCloseButton } from "@/components/modal-close-button";
+import { ProductGallery } from "@/components/product-gallery";
 import { ProductPhoto } from "@/components/product-photo";
 import { ProductSpecsBlock } from "@/components/product-specs-block";
 import { Badge, Button, Card } from "@/components/ui";
@@ -380,8 +381,14 @@ export function ProductCatalog({
             </div>
 
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
-              <ProductPhoto
-                src={selected.imageUrl}
+              <ProductGallery
+                images={
+                  selected.imageUrls?.length
+                    ? selected.imageUrls
+                    : selected.imageUrl
+                      ? [selected.imageUrl]
+                      : []
+                }
                 alt={selected.name}
                 frameClassName="aspect-[4/3] h-auto min-h-56"
               />

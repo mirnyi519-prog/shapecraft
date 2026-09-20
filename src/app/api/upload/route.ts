@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         detail: `Размер: ${file.size}`,
       });
       return NextResponse.json(
-        { error: "Файл слишком большой (макс. 5 МБ)" },
+        { error: "Файл слишком большой (макс. 8 МБ)" },
         { status: 400 },
       );
     }

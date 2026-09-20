@@ -7,6 +7,10 @@ import { parseCatalogLine } from "@/lib/catalog-line";
 import { parseZeroStockMode } from "@/lib/buy-intent";
 import { parseOptionalNumber } from "@/lib/product-specs";
 import { parseOptionalPrice } from "@/lib/pricing";
+import {
+  normalizeImageUrls,
+  syncProductImages,
+} from "@/lib/product-images";
 import { notifyTelegramNewProduct } from "@/lib/telegram";
 
 export async function GET() {
@@ -45,6 +49,7 @@ export async function POST(request: NextRequest) {
       name?: string;
       description?: string;
       imageUrl?: string;
+      imageUrls?: string[];
       costPrice?: number;
       listPrice?: number | null;
       stock?: number;
@@ -72,13 +77,16 @@ export async function POST(request: NextRequest) {
     const categoryIds = parseCategoryIds(body.categoryIds);
     const catalogLine = parseCatalogLine(body.catalogLine);
     const zeroStockMode = parseZeroStockMode(body.zeroStockMode);
+    const imageUrls = Object.prototype.hasOwnProperty.call(body, "imageUrls")
+      ? normalizeImageUrls(body.imageUrls)
+      : normalizeImageUrls(body.imageUrl ? [body.imageUrl] : []);
 
     const product = await prisma.$transaction(async (tx) => {
       const created = await tx.product.create({
         data: {
           name: body.name!.trim(),
           description: body.description?.trim() || null,
-          imageUrl: body.imageUrl || null,
+          imageUrl: imageUrls[0] ?? null,
           costPrice: Number(body.costPrice),
           listPrice,
           stock: Number(body.stock ?? 0),
@@ -90,6 +98,8 @@ export async function POST(request: NextRequest) {
           depthMm: parseOptionalNumber(body.depthMm),
         },
       });
+
+      await syncProductImages(tx, created.id, imageUrls);
 
       if (listPrice !== null) {
         await tx.priceHistory.create({
@@ -109,7 +119,7 @@ export async function POST(request: NextRequest) {
 
     notifyTelegramNewProduct({
       name: product.name,
-      imageUrl: product.imageUrl,
+      imageUrl: imageUrls[0] ?? product.imageUrl,
       listPrice: product.listPrice,
       stock: product.stock,
       catalogLine: product.catalogLine,
