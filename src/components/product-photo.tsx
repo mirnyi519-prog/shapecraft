@@ -4,17 +4,20 @@ type ProductPhotoProps = {
   className?: string;
   /** высота контейнера, например h-48 */
   frameClassName?: string;
+  /** Для LCP-картинки (баннер / первый экран). */
+  priority?: boolean;
 };
 
 /**
  * Фото целиком (object-contain).
- * Пустоты — размытый полупрозрачный фон из той же картинки.
+ * Пустоты — размытый фон через CSS background (тот же URL, без второй загрузки).
  */
 export function ProductPhoto({
   src,
   alt,
   className = "",
   frameClassName = "h-48",
+  priority = false,
 }: ProductPhotoProps) {
   return (
     <div
@@ -22,18 +25,19 @@ export function ProductPhoto({
     >
       {src ? (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={src}
-            alt=""
+          <div
             aria-hidden
-            className="absolute inset-0 h-full w-full scale-110 object-cover opacity-35 blur-xl"
+            className="absolute inset-0 scale-110 bg-cover bg-center opacity-35 blur-xl"
+            style={{ backgroundImage: `url(${JSON.stringify(src)})` }}
           />
           <div className="absolute inset-0 bg-white/25" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
             alt={alt}
+            loading={priority ? "eager" : "lazy"}
+            decoding="async"
+            fetchPriority={priority ? "high" : "auto"}
             className="relative z-10 h-full w-full object-contain p-2"
           />
         </>

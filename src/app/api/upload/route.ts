@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
           gifBuffer,
           `from-video-${Date.now()}.gif`,
           "image/gif",
+          { skipOptimize: true },
         );
         return NextResponse.json({
           url,

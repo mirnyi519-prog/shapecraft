@@ -25,6 +25,9 @@ export COMPOSE_DOCKER_CLI_BUILD=0
 docker compose build --pull=false --build-arg "BASE_IMAGE=${BASE_IMAGE}"
 docker compose up -d --force-recreate --remove-orphans
 
+echo "==> Optimize existing product photos"
+docker compose exec -T shapecraft npx tsx scripts/optimize-uploads.ts || true
+
 echo "==> Allow docker -> host (for Caddy)"
 bash scripts/allow-docker-to-host.sh || true
 

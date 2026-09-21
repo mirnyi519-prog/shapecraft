@@ -1,7 +1,8 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/db";
-import { extensionForImage, getUploadsDir } from "@/lib/upload";
+import { optimizeImageBuffer } from "@/lib/optimize-image";
+import { getUploadsDir } from "@/lib/upload";
 import {
   getWeekLabel,
   isWorldPriceTier,
@@ -166,11 +167,11 @@ async function saveRemoteImage(
       return null;
     }
 
-    const ext = extensionForImage("", contentType);
+    const optimized = await optimizeImageBuffer(buffer, contentType);
     const uploadDir = getUploadsDir();
     await mkdir(uploadDir, { recursive: true });
-    const filename = `world-${filenameStem}${ext}`;
-    await writeFile(path.join(uploadDir, filename), buffer);
+    const filename = `world-${filenameStem}${optimized.extension}`;
+    await writeFile(path.join(uploadDir, filename), optimized.buffer);
     return `/api/media/${filename}`;
   } catch {
     return null;

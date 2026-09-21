@@ -15,23 +15,15 @@ export function ProductThumb({
       style={{ width: size, height: size }}
     >
       {src ? (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={src}
-            alt=""
-            aria-hidden
-            className="absolute inset-0 h-full w-full scale-125 object-cover opacity-40 blur-md"
-          />
-          <Image
-            src={src}
-            alt={alt}
-            fill
-            unoptimized
-            className="object-contain p-0.5"
-            sizes={`${size}px`}
-          />
-        </>
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          unoptimized
+          loading="lazy"
+          className="object-contain p-0.5"
+          sizes={`${size}px`}
+        />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-[10px] text-[var(--muted)]">
           —

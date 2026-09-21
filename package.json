@@ -15,6 +15,7 @@
     "world:import": "tsx scripts/import-world-trends.ts",
     "world:publish": "tsx scripts/publish-world-trends.ts",
     "world:publish:admin": "tsx scripts/publish-world-trends-admin.ts",
+    "images:optimize": "tsx scripts/optimize-uploads.ts",
     "db:setup": "prisma migrate dev --name init && tsx prisma/seed.ts",
     "postinstall": "prisma generate"
   },
@@ -29,7 +30,8 @@
     "next": "16.3.3",
     "pdfmake": "^0.3.11",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

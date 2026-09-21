@@ -1,6 +1,7 @@
 import { put } from "@vercel/blob";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import { optimizeImageBuffer } from "@/lib/optimize-image";
 
 const MIME_TO_EXT: Record<string, string> = {
   "image/jpeg": ".jpg",
@@ -31,25 +32,41 @@ export function extensionForImage(
   return ".png";
 }
 
+export type SaveUploadedImageOptions = {
+  /** Не сжимать (уже готовый GIF из видео и т.п.). */
+  skipOptimize?: boolean;
+};
+
 export async function saveUploadedImage(
   buffer: Buffer,
   originalName: string,
   mimeType?: string,
+  options?: SaveUploadedImageOptions,
 ): Promise<string> {
-  const ext = extensionForImage(originalName, mimeType);
+  let outBuffer = buffer;
+  let outMime = mimeType;
+  let ext = extensionForImage(originalName, mimeType);
+
+  if (!options?.skipOptimize) {
+    const optimized = await optimizeImageBuffer(buffer, mimeType);
+    outBuffer = optimized.buffer;
+    outMime = optimized.mimeType;
+    ext = optimized.extension;
+  }
+
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {
-    const blob = await put(`products/${filename}`, buffer, {
+    const blob = await put(`products/${filename}`, outBuffer, {
       access: "public",
-      contentType: mimeType || getMimeType(ext),
+      contentType: outMime || getMimeType(ext),
     });
     return blob.url;
   }
 
   const uploadDir = getUploadsDir();
   await mkdir(uploadDir, { recursive: true });
-  await writeFile(path.join(uploadDir, filename), buffer);
+  await writeFile(path.join(uploadDir, filename), outBuffer);
   return `/api/media/${filename}`;
 }
 

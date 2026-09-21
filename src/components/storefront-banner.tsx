@@ -21,6 +21,7 @@ export function StorefrontBanner({ banner }: { banner: StoreBannerView }) {
               src={banner.imageUrl}
               alt={title || "Баннер ShapeCraft"}
               frameClassName="h-full min-h-44 rounded-none md:min-h-56"
+              priority
             />
           </div>
         ) : null}

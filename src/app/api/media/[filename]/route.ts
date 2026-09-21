@@ -1,5 +1,7 @@
-import { readFile, stat } from "fs/promises";
+import { createReadStream } from "fs";
+import { stat } from "fs/promises";
 import path from "path";
+import { Readable } from "stream";
 import { NextRequest, NextResponse } from "next/server";
 import { getMimeType, getUploadsDir } from "@/lib/upload";
 
@@ -14,13 +16,15 @@ export async function GET(_request: NextRequest, { params }: Params) {
     }
 
     const filePath = path.join(getUploadsDir(), safeName);
-    await stat(filePath);
-    const buffer = await readFile(filePath);
+    const fileStat = await stat(filePath);
     const ext = path.extname(safeName);
+    const nodeStream = createReadStream(filePath);
+    const webStream = Readable.toWeb(nodeStream) as unknown as ReadableStream;
 
-    return new NextResponse(buffer, {
+    return new NextResponse(webStream, {
       headers: {
         "Content-Type": getMimeType(ext),
+        "Content-Length": String(fileStat.size),
         "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
