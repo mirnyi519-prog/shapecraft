@@ -17,6 +17,12 @@ import {
   type ZeroStockMode,
 } from "@/lib/buy-intent";
 import { MAX_PRODUCT_IMAGES } from "@/lib/product-images";
+import {
+  packagingRecommendHint,
+  suggestPackagingCode,
+  type PackagingCode,
+  type PackagingOption,
+} from "@/lib/packaging";
 
 export { LoginForm } from "@/components/login-form";
 
@@ -24,10 +30,12 @@ export function ProductForm({
   initial,
   canEditCost = false,
   categories = [],
+  packagingOptions = [],
 }: {
   initial?: ProductFormValues;
   canEditCost?: boolean;
   categories?: { id: string; name: string }[];
+  packagingOptions?: PackagingOption[];
 }) {
   const router = useRouter();
   const [values, setValues] = useState<ProductFormValues>(
@@ -46,7 +54,11 @@ export function ProductForm({
       catalogLine: "souvenir",
       zeroStockMode: "soon",
       categoryIds: [],
+      packagingId: "",
     },
+  );
+  const [packagingManual, setPackagingManual] = useState(
+    Boolean(initial?.packagingId),
   );
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -54,6 +66,41 @@ export function ProductForm({
   const [loading, setLoading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const suggestedCode = suggestPackagingCode({
+    weightGrams:
+      values.weightGrams.trim() === "" ? null : Number(values.weightGrams),
+    widthMm: values.widthMm.trim() === "" ? null : Number(values.widthMm),
+    heightMm: values.heightMm.trim() === "" ? null : Number(values.heightMm),
+    depthMm: values.depthMm.trim() === "" ? null : Number(values.depthMm),
+  });
+  const suggestedPackaging =
+    packagingOptions.find((item) => item.code === suggestedCode && item.active) ??
+    packagingOptions.find((item) => item.code === suggestedCode) ??
+    null;
+
+  useEffect(() => {
+    if (packagingManual || packagingOptions.length === 0) {
+      return;
+    }
+    if (!suggestedPackaging) {
+      return;
+    }
+    setValues((current) => {
+      if (current.packagingId === suggestedPackaging.id) {
+        return current;
+      }
+      return { ...current, packagingId: suggestedPackaging.id };
+    });
+  }, [
+    packagingManual,
+    packagingOptions,
+    suggestedPackaging?.id,
+    values.weightGrams,
+    values.widthMm,
+    values.heightMm,
+    values.depthMm,
+  ]);
 
   const imageUrls =
     values.imageUrls.length > 0
@@ -216,6 +263,7 @@ export function ProductForm({
       catalogLine: values.catalogLine,
       zeroStockMode: values.zeroStockMode,
       categoryIds: values.categoryIds,
+      packagingId: values.packagingId.trim() || null,
     };
 
     if (canEditCost) {
@@ -596,6 +644,58 @@ export function ProductForm({
           />
         </div>
       </div>
+      {packagingOptions.length > 0 ? (
+        <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-4">
+          <span className="text-sm font-medium">Упаковка (только админка)</span>
+          <p className="text-sm text-[var(--muted)]">
+            Рекомендация по габаритам:{" "}
+            <strong>
+              {suggestedPackaging
+                ? `${suggestedPackaging.name} (${suggestedPackaging.code})`
+                : suggestedCode}
+            </strong>
+            . {packagingRecommendHint(suggestedCode as PackagingCode)}
+          </p>
+          <label className="block text-sm">
+            <span className="mb-1 block text-[var(--muted)]">Тип упаковки</span>
+            <select
+              className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-white px-3"
+              value={values.packagingId}
+              onChange={(event) => {
+                setPackagingManual(true);
+                setValues({ ...values, packagingId: event.target.value });
+              }}
+            >
+              <option value="">Не выбрано</option>
+              {packagingOptions
+                .filter((item) => item.active || item.id === values.packagingId)
+                .map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} · остаток {item.stock} шт
+                    {!item.active ? " (выкл)" : ""}
+                  </option>
+                ))}
+            </select>
+          </label>
+          {suggestedPackaging &&
+          values.packagingId !== suggestedPackaging.id ? (
+            <Button
+              type="button"
+              variant="secondary"
+              className="min-h-11"
+              onClick={() => {
+                setPackagingManual(false);
+                setValues((current) => ({
+                  ...current,
+                  packagingId: suggestedPackaging.id,
+                }));
+              }}
+            >
+              Применить рекомендацию
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {notice ? <p className="text-sm text-green-700">{notice}</p> : null}
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       <Button type="submit" disabled={loading || uploading}>
@@ -621,6 +721,7 @@ export type ProductFormValues = {
   catalogLine: CatalogLine;
   zeroStockMode: ZeroStockMode;
   categoryIds: string[];
+  packagingId: string;
 };
 
 type ProductOption = {

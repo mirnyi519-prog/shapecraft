@@ -11,6 +11,7 @@ import {
   normalizeImageUrls,
   syncProductImages,
 } from "@/lib/product-images";
+import { resolveSuggestedPackagingId } from "@/lib/packaging-data";
 import { notifyTelegramNewProduct } from "@/lib/telegram";
 
 export async function GET() {
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
       catalogLine?: string;
       zeroStockMode?: string;
       categoryIds?: string[];
+      packagingId?: string | null;
     };
 
     if (!body.name?.trim()) {
@@ -81,6 +83,38 @@ export async function POST(request: NextRequest) {
       ? normalizeImageUrls(body.imageUrls)
       : normalizeImageUrls(body.imageUrl ? [body.imageUrl] : []);
 
+    const weightGrams = parseOptionalNumber(body.weightGrams);
+    const widthMm = parseOptionalNumber(body.widthMm);
+    const heightMm = parseOptionalNumber(body.heightMm);
+    const depthMm = parseOptionalNumber(body.depthMm);
+
+    let packagingId =
+      typeof body.packagingId === "string" && body.packagingId.trim()
+        ? body.packagingId.trim()
+        : body.packagingId === null
+          ? null
+          : undefined;
+
+    if (packagingId === undefined || packagingId === "") {
+      const suggested = await resolveSuggestedPackagingId({
+        weightGrams,
+        widthMm,
+        heightMm,
+        depthMm,
+      });
+      packagingId = suggested.packagingId;
+    }
+
+    if (packagingId) {
+      const pack = await prisma.packaging.findUnique({
+        where: { id: packagingId },
+        select: { id: true },
+      });
+      if (!pack) {
+        return NextResponse.json({ error: "Упаковка не найдена" }, { status: 400 });
+      }
+    }
+
     const product = await prisma.$transaction(async (tx) => {
       const created = await tx.product.create({
         data: {
@@ -92,10 +126,11 @@ export async function POST(request: NextRequest) {
           stock: Number(body.stock ?? 0),
           catalogLine,
           zeroStockMode,
-          weightGrams: parseOptionalNumber(body.weightGrams),
-          widthMm: parseOptionalNumber(body.widthMm),
-          heightMm: parseOptionalNumber(body.heightMm),
-          depthMm: parseOptionalNumber(body.depthMm),
+          weightGrams,
+          widthMm,
+          heightMm,
+          depthMm,
+          packagingId: packagingId ?? null,
         },
       });
 

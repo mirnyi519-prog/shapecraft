@@ -12,6 +12,13 @@ import { parseCatalogLine } from "@/lib/catalog-line";
 import { parseZeroStockMode } from "@/lib/buy-intent";
 import { hasListPrice } from "@/lib/pricing";
 import { prisma } from "@/lib/db";
+import { listPackaging } from "@/lib/packaging-data";
+import {
+  formatPackagingBoxSize,
+  packagingRecommendHint,
+  suggestPackagingCode,
+  type PackagingCode,
+} from "@/lib/packaging";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -24,7 +31,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
   }
 
   const { id } = await params;
-  const [product, categoryOptions] = await Promise.all([
+  const [product, categoryOptions, packagingOptions] = await Promise.all([
     prisma.product.findUnique({
       where: { id },
       include: {
@@ -39,6 +46,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
         images: {
           orderBy: { sortOrder: "asc" },
         },
+        packaging: true,
         categories: {
           include: {
             category: {
@@ -53,6 +61,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
       select: { id: true, name: true },
     }),
+    listPackaging(true),
   ]);
 
   if (!product) {
@@ -65,6 +74,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
   const priced = hasListPrice(product.listPrice);
   const onStorefront = product.active;
+  const suggestedCode = suggestPackagingCode({
+    weightGrams: product.weightGrams,
+    widthMm: product.widthMm,
+    heightMm: product.heightMm,
+    depthMm: product.depthMm,
+  });
 
   return (
     <AppShell>
@@ -148,6 +163,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
           <ProductForm
             canEditCost
             categories={categoryOptions}
+            packagingOptions={packagingOptions}
             initial={{
               id: product.id,
               name: product.name,
@@ -185,11 +201,52 @@ export default async function ProductDetailPage({ params }: PageProps) {
               catalogLine: parseCatalogLine(product.catalogLine),
               zeroStockMode: parseZeroStockMode(product.zeroStockMode),
               categoryIds: product.categories.map((item) => item.category.id),
+              packagingId: product.packagingId ?? "",
             }}
           />
         </Card>
 
         <div className="space-y-6">
+          <Card title="Упаковка">
+            {product.packaging ? (
+              <div className="space-y-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone="neutral">{product.packaging.code}</Badge>
+                  <span className="font-medium">{product.packaging.name}</span>
+                </div>
+                {formatPackagingBoxSize(product.packaging) ? (
+                  <p className="text-[var(--muted)]">
+                    Короб: {formatPackagingBoxSize(product.packaging)}
+                  </p>
+                ) : null}
+                <p className="text-[var(--muted)]">
+                  Остаток упаковки: {product.packaging.stock} шт
+                </p>
+                <p className="text-[var(--muted)]">
+                  Рекомендация по габаритам: {suggestedCode}
+                  {product.packaging.code !== suggestedCode
+                    ? ` (сейчас выбрано ${product.packaging.code})`
+                    : ""}
+                </p>
+                <p className="text-xs text-[var(--muted)]">
+                  {packagingRecommendHint(suggestedCode as PackagingCode)}
+                </p>
+                <Link
+                  href="/packaging"
+                  className="inline-block text-[var(--brand)] underline-offset-2 hover:underline"
+                >
+                  Перейти к остаткам упаковки →
+                </Link>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--muted)]">
+                Упаковка не назначена. Рекомендация:{" "}
+                <strong>{suggestedCode}</strong>. Сохраните карточку с габаритами
+                или выберите тип в форме.
+              </p>
+            )}
+          </Card>
+
           <Card title="Вес и габариты">
             <ProductSpecsBlock
               product={{

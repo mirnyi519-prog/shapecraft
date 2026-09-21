@@ -8,6 +8,7 @@ export type NavIconName =
   | "sale-new"
   | "settlements"
   | "receipts"
+  | "packaging"
   | "users"
   | "visits"
   | "views"
@@ -80,6 +81,7 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
     { href: "/sales/new", label: "+ Продажа", icon: "sale-new" },
     { href: "/settlements", label: "Расчёты", icon: "settlements" },
     ...(admin ? [{ href: "/receipts", label: "Приход", icon: "receipts" as const }] : []),
+    ...(admin ? [{ href: "/packaging", label: "Упаковка", icon: "packaging" as const }] : []),
     ...(admin ? [{ href: "/users", label: "Пользователи", icon: "users" as const }] : []),
     ...(admin ? [{ href: "/visits", label: "Посещения", icon: "visits" as const }] : []),
     ...(admin ? [{ href: "/views", label: "Просмотры", icon: "views" as const }] : []),

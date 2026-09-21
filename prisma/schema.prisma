@@ -46,8 +46,30 @@ model Product {
   categories       ProductCategory[]
   buyClicks        ProductBuyClick[]
   images           ProductImage[]
+  packagingId      String?
+  packaging        Packaging?        @relation(fields: [packagingId], references: [id], onDelete: SetNull)
 
   @@index([catalogLine, active])
+  @@index([packagingId])
+}
+
+model Packaging {
+  id          String    @id @default(cuid())
+  /// Код для автоподбора: mini | standard | fragile | long
+  code        String    @unique
+  name        String
+  description String?
+  boxWidthMm  Float?
+  boxHeightMm Float?
+  boxDepthMm  Float?
+  stock       Int       @default(0)
+  sortOrder   Int       @default(0)
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+
+  @@index([active, sortOrder])
 }
 
 model ProductImage {

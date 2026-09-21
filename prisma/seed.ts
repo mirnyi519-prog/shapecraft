@@ -112,6 +112,66 @@ async function main() {
     },
   });
 
+  const starterPackaging = [
+    {
+      code: "mini",
+      name: "Мини-пакет",
+      description:
+        "Zip 100×150 + курьерский пакет. Кликеры, брелоки, темляки.",
+      boxWidthMm: 100,
+      boxHeightMm: 40,
+      boxDepthMm: 150,
+      sortOrder: 10,
+    },
+    {
+      code: "standard",
+      name: "Короб стандарт",
+      description: "Крафт 150×100×100 + пупырка. Чиби-фигурки.",
+      boxWidthMm: 150,
+      boxHeightMm: 100,
+      boxDepthMm: 100,
+      sortOrder: 20,
+    },
+    {
+      code: "fragile",
+      name: "Короб хрупкое",
+      description: "150×120×120, мягкое гнездо без сжатия. Ажур.",
+      boxWidthMm: 150,
+      boxHeightMm: 120,
+      boxDepthMm: 120,
+      sortOrder: 30,
+    },
+    {
+      code: "long",
+      name: "Короб длинный шарнир",
+      description: "Гофра ~250×150×100. Свернуть длинные шарнирные.",
+      boxWidthMm: 250,
+      boxHeightMm: 150,
+      boxDepthMm: 100,
+      sortOrder: 40,
+    },
+  ];
+
+  for (const item of starterPackaging) {
+    await prisma.packaging.upsert({
+      where: { code: item.code },
+      update: {
+        name: item.name,
+        description: item.description,
+        boxWidthMm: item.boxWidthMm,
+        boxHeightMm: item.boxHeightMm,
+        boxDepthMm: item.boxDepthMm,
+        sortOrder: item.sortOrder,
+        active: true,
+      },
+      create: {
+        ...item,
+        stock: 0,
+        active: true,
+      },
+    });
+  }
+
   console.log("Seed complete");
   console.log(`Admin: ${adminLogin} / ${adminPassword}`);
   console.log(`Partner: ${partnerLogin} / ${partnerPassword}`);

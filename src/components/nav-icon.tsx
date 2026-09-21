@@ -70,6 +70,14 @@ const iconPaths: Record<NavIconName, ReactNode> = {
       <path d="M7 15h10v6H7z" />
     </>
   ),
+  packaging: (
+    <>
+      <path d="M3 8.5 12 4l9 4.5V18l-9 4.5L3 18V8.5Z" />
+      <path d="M12 12.5 21 8.5" />
+      <path d="M12 12.5v9.5" />
+      <path d="M12 12.5 3 8.5" />
+    </>
+  ),
   users: (
     <>
       <circle cx="9" cy="8" r="3" />

@@ -11,6 +11,7 @@ import {
   normalizeImageUrls,
   syncProductImages,
 } from "@/lib/product-images";
+import { resolveSuggestedPackagingId } from "@/lib/packaging-data";
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -82,6 +83,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       catalogLine?: string;
       zeroStockMode?: string;
       categoryIds?: string[];
+      packagingId?: string | null;
     };
 
     const existing = await prisma.product.findUnique({ where: { id } });
@@ -142,6 +144,52 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         ? normalizeImageUrls(body.imageUrl ? [body.imageUrl] : [])
         : null;
 
+    const packagingProvided = Object.prototype.hasOwnProperty.call(
+      body,
+      "packagingId",
+    );
+    let nextPackagingId: string | null | undefined = packagingProvided
+      ? typeof body.packagingId === "string" && body.packagingId.trim()
+        ? body.packagingId.trim()
+        : null
+      : undefined;
+
+    if (nextPackagingId) {
+      const pack = await prisma.packaging.findUnique({
+        where: { id: nextPackagingId },
+        select: { id: true },
+      });
+      if (!pack) {
+        return NextResponse.json({ error: "Упаковка не найдена" }, { status: 400 });
+      }
+    }
+
+    // Если упаковку не передали, но изменились габариты — пересчитаем рекомендацию
+    if (nextPackagingId === undefined) {
+      const dimsChanged =
+        Object.prototype.hasOwnProperty.call(body, "weightGrams") ||
+        Object.prototype.hasOwnProperty.call(body, "widthMm") ||
+        Object.prototype.hasOwnProperty.call(body, "heightMm") ||
+        Object.prototype.hasOwnProperty.call(body, "depthMm");
+      if (dimsChanged && !existing.packagingId) {
+        const suggested = await resolveSuggestedPackagingId({
+          weightGrams: Object.prototype.hasOwnProperty.call(body, "weightGrams")
+            ? parseOptionalNumber(body.weightGrams)
+            : existing.weightGrams,
+          widthMm: Object.prototype.hasOwnProperty.call(body, "widthMm")
+            ? parseOptionalNumber(body.widthMm)
+            : existing.widthMm,
+          heightMm: Object.prototype.hasOwnProperty.call(body, "heightMm")
+            ? parseOptionalNumber(body.heightMm)
+            : existing.heightMm,
+          depthMm: Object.prototype.hasOwnProperty.call(body, "depthMm")
+            ? parseOptionalNumber(body.depthMm)
+            : existing.depthMm,
+        });
+        nextPackagingId = suggested.packagingId;
+      }
+    }
+
     const product = await prisma.$transaction(async (tx) => {
       const updated = await tx.product.update({
         where: { id },
@@ -174,6 +222,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             : {}),
           ...(Object.prototype.hasOwnProperty.call(body, "depthMm")
             ? { depthMm: parseOptionalNumber(body.depthMm) }
+            : {}),
+          ...(nextPackagingId !== undefined
+            ? { packagingId: nextPackagingId }
             : {}),
         },
       });
