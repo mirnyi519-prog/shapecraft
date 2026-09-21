@@ -25,7 +25,7 @@ export function ProductPublishMarketButton({
 
     if (
       !confirm(
-        "Опубликовать объявление этого товара в рабочий Telegram-чат (маркет-бот)?",
+        "Опубликовать объявление в kupipro77 (маркет-бот)? Не чаще 1 раза в час.",
       )
     ) {
       return;

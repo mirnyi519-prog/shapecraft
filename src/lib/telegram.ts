@@ -51,6 +51,8 @@ export type TelegramChannelConfig = {
   channel: TelegramChannel;
   token: string;
   chatId: string;
+  /** Топик форума (для ссылок вида t.me/c/.../26) */
+  threadId: number | null;
   configured: boolean;
   siteUrl: string;
   label: string;
@@ -62,6 +64,14 @@ export function getPublicSiteUrl(): string {
   ).replace(/\/$/, "");
 }
 
+function parseThreadId(value: string): number | null {
+  if (!/^\d+$/.test(value)) {
+    return null;
+  }
+  const n = Number(value);
+  return Number.isSafeInteger(n) && n > 0 ? n : null;
+}
+
 /** ops — служебные пуши; market — отдельный бот для объявлений / рабочей группы. */
 export function getTelegramChannelConfig(
   channel: TelegramChannel = "ops",
@@ -71,10 +81,14 @@ export function getTelegramChannelConfig(
   if (channel === "market") {
     const token = cleanEnv(process.env.TELEGRAM_MARKET_BOT_TOKEN);
     const chatId = cleanEnv(process.env.TELEGRAM_MARKET_CHAT_ID);
+    const threadId = parseThreadId(
+      cleanEnv(process.env.TELEGRAM_MARKET_THREAD_ID),
+    );
     return {
       channel,
       token,
       chatId,
+      threadId,
       configured: Boolean(token && chatId),
       siteUrl,
       label: "Маркет / объявления",
@@ -87,6 +101,7 @@ export function getTelegramChannelConfig(
     channel: "ops",
     token,
     chatId,
+    threadId: null,
     configured: Boolean(token && chatId),
     siteUrl,
     label: "Служебный (клики / склад)",
@@ -143,7 +158,8 @@ export async function sendTelegramMessage(
   text: string,
   channel: TelegramChannel = "ops",
 ): Promise<TelegramSendResult> {
-  const { token, chatId, configured, label } = getTelegramChannelConfig(channel);
+  const { token, chatId, configured, label, threadId } =
+    getTelegramChannelConfig(channel);
 
   if (!configured) {
     return {
@@ -168,6 +184,7 @@ export async function sendTelegramMessage(
           chat_id: toChatId(chatId),
           text: text.slice(0, 4000),
           disable_web_page_preview: true,
+          ...(threadId != null ? { message_thread_id: threadId } : {}),
         }),
         signal: controller.signal,
       },
@@ -213,7 +230,8 @@ export async function sendTelegramPhoto(input: {
   channel?: TelegramChannel;
 }): Promise<TelegramSendResult> {
   const channel = input.channel ?? "ops";
-  const { token, chatId, configured } = getTelegramChannelConfig(channel);
+  const { token, chatId, configured, threadId } =
+    getTelegramChannelConfig(channel);
   const caption = input.caption.slice(0, 1024);
 
   if (!configured) {
@@ -234,7 +252,13 @@ export async function sendTelegramPhoto(input: {
 
   // 1) URL (Telegram сам скачает)
   if (publicUrl) {
-    const byUrl = await sendPhotoJson(token, chatId, publicUrl, caption);
+    const byUrl = await sendPhotoJson(
+      token,
+      chatId,
+      publicUrl,
+      caption,
+      threadId,
+    );
     if (byUrl.ok) {
       return byUrl;
     }
@@ -253,6 +277,7 @@ export async function sendTelegramPhoto(input: {
           buffer,
           path.basename(filePath),
           caption,
+          threadId,
         );
         if (byFile.ok) {
           return byFile;
@@ -273,6 +298,7 @@ async function sendPhotoJson(
   chatId: string,
   photoUrl: string,
   caption: string,
+  threadId: number | null = null,
 ): Promise<TelegramSendResult> {
   try {
     const controller = new AbortController();
@@ -286,6 +312,7 @@ async function sendPhotoJson(
           chat_id: toChatId(chatId),
           photo: photoUrl,
           caption,
+          ...(threadId != null ? { message_thread_id: threadId } : {}),
         }),
         signal: controller.signal,
       },
@@ -316,11 +343,15 @@ async function sendPhotoMultipart(
   buffer: Buffer,
   filename: string,
   caption: string,
+  threadId: number | null = null,
 ): Promise<TelegramSendResult> {
   try {
     const form = new FormData();
     form.set("chat_id", String(toChatId(chatId)));
     form.set("caption", caption);
+    if (threadId != null) {
+      form.set("message_thread_id", String(threadId));
+    }
     const ext = path.extname(filename) || ".jpg";
     const blob = new Blob([new Uint8Array(buffer)], {
       type: getMimeType(ext),
@@ -446,7 +477,7 @@ export function notifyTelegramSale(input: {
   );
 }
 
-/** Ручная публикация объявления маркет-ботом (рабочая группа / позже kupipro77). */
+/** Ручная публикация объявления маркет-ботом (kupipro77 / рабочая группа). */
 export function buildMarketListingCaption(product: {
   name: string;
   description?: string | null;
@@ -465,7 +496,7 @@ export function buildMarketListingCaption(product: {
     descLine || null,
     product.stock != null ? `В наличии: ${product.stock} шт` : null,
     "",
-    "3D-печать · ShapeCraft",
+    "Информация о способах приобретения доступна на витрине:",
     siteUrl,
   ]
     .filter((line) => line !== null)

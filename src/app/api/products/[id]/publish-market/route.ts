@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { isAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import {
+  claimMarketPublishSlot,
+  releaseMarketPublishSlot,
+} from "@/lib/market-publish-limit";
 import { hasListPrice } from "@/lib/pricing";
 import { rateLimit } from "@/lib/rate-limit";
 import {
@@ -15,6 +19,17 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
+function formatRetryAfter(sec: number): string {
+  const mins = Math.ceil(sec / 60);
+  if (mins >= 60) {
+    return "около часа";
+  }
+  if (mins <= 1) {
+    return "около минуты";
+  }
+  return `около ${mins} мин`;
+}
+
 export async function POST(request: Request, context: RouteContext) {
   try {
     const session = await requireSession();
@@ -23,19 +38,32 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     const ip = clientIpFromRequest(request);
-    const limited = rateLimit({
+    const burst = rateLimit({
       key: `product-publish-market:${session.login}:${ip}`,
-      limit: 20,
+      limit: 5,
       windowMs: 60_000,
     });
-    if (!limited.ok) {
+    if (!burst.ok) {
       void logSecurityEvent({
         type: SECURITY_EVENT_TYPES.RATE_LIMIT,
         ipAddress: ip,
         path: "/api/products/publish-market",
-        detail: "Лимит публикаций в маркет-чат",
+        detail: "Лимит публикаций в маркет-чат (burst)",
       });
-      return tooManyRequests(limited.retryAfterSec);
+      return tooManyRequests(burst.retryAfterSec);
+    }
+
+    const gate = await claimMarketPublishSlot();
+    if (!gate.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: `Не чаще 1 объявления в час. Следующее можно через ${formatRetryAfter(gate.retryAfterSec)}.`,
+          retryAfterSec: gate.retryAfterSec,
+          nextAt: gate.nextAt.toISOString(),
+        },
+        { status: 429 },
+      );
     }
 
     const { id } = await context.params;
@@ -53,12 +81,17 @@ export async function POST(request: Request, context: RouteContext) {
     });
 
     if (!product) {
+      await releaseMarketPublishSlot();
       return NextResponse.json({ error: "Товар не найден" }, { status: 404 });
     }
 
     if (!hasListPrice(product.listPrice)) {
+      await releaseMarketPublishSlot();
       return NextResponse.json(
-        { error: "Сначала задайте цену в прайсе — без цены объявление не публикуем" },
+        {
+          error:
+            "Сначала задайте цену в прайсе — без цены объявление не публикуем",
+        },
         { status: 400 },
       );
     }
@@ -72,6 +105,7 @@ export async function POST(request: Request, context: RouteContext) {
     });
 
     if (!result.ok) {
+      await releaseMarketPublishSlot();
       return NextResponse.json(
         {
           ok: false,

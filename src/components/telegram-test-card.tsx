@@ -169,33 +169,35 @@ export function TelegramTestCard() {
       <ChannelCard
         channel="market"
         title="Telegram — маркет / рабочая группа"
-        hint="Отдельный новый бот. Пока шлём в рабочую группу ShapeCraft; позже — в kupipro77 (после ОК админов)."
+        hint="Отдельный бот ShapeCraft Market → группа kupipro77 (топик). Не чаще 1 объявления в час."
         setup={
           <ol className="mb-4 list-decimal space-y-1 pl-5 text-sm text-[var(--muted)]">
             <li>
-              В Telegram: <code>@BotFather</code> → /newbot → имя вроде{" "}
-              <code>ShapeCraft Market</code>, username например{" "}
-              <code>shapecraft_market_bot</code>.
+              Добавьте бота в{" "}
+              <a
+                href="https://t.me/kupipro77"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[var(--brand)] underline-offset-2 hover:underline"
+              >
+                t.me/kupipro77
+              </a>{" "}
+              (права писать в нужный топик).
             </li>
             <li>
-              Скопировать токен →{" "}
-              <code>TELEGRAM_MARKET_BOT_TOKEN</code> в{" "}
-              <code>/opt/shapecraft/.env</code>.
+              В <code>/opt/shapecraft/.env</code>:
+              <br />
+              <code>TELEGRAM_MARKET_CHAT_ID=-1002313269004</code>
+              <br />
+              <code>TELEGRAM_MARKET_THREAD_ID=26</code>
+              <br />
+              (из ссылки{" "}
+              <code>t.me/c/2313269004/26</code> — чат{" "}
+              <code>-100…</code>, топик <code>26</code>).
             </li>
             <li>
-              Добавить бота в рабочую группу (как участника). В группах с
-              privacy mode бот видит только команды — для отправки сообщений
-              достаточно быть в чате.
-            </li>
-            <li>
-              Узнать chat id группы (например через{" "}
-              <code>@userinfobot</code> / <code>@RawDataBot</code> в группе, или
-              getUpdates после сообщения в группе). Обычно вида{" "}
-              <code>-100…</code>.
-            </li>
-            <li>
-              Прописать <code>TELEGRAM_MARKET_CHAT_ID</code>, пересоздать
-              контейнер, нажать «Отправить тест» здесь.
+              Пересоздать контейнер → «Отправить тест» здесь. Объявления с
+              карточки товара — не чаще 1 раза в час.
             </li>
           </ol>
         }

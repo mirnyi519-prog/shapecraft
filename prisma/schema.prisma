@@ -127,9 +127,11 @@ model Settlement {
 }
 
 model AppSetting {
-  id                String @id @default("default")
-  ownerSplitPercent Float  @default(50)
-  sessionEpoch      Int    @default(0)
+  id                  String    @id @default("default")
+  ownerSplitPercent   Float     @default(50)
+  sessionEpoch        Int       @default(0)
+  /// Последняя публикация объявления маркет-ботом (лимит 1/час)
+  lastMarketPublishAt DateTime?
 }
 
 model StoreBanner {
