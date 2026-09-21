@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { listPackaging, resolveSuggestedPackagingId } from "@/lib/packaging-data";
-import { isPackagingCode } from "@/lib/packaging";
+import { normalizePackagingCode } from "@/lib/packaging";
 import { parseOptionalNumber } from "@/lib/product-specs";
 
 export async function GET(request: NextRequest) {
@@ -57,15 +57,12 @@ export async function POST(request: NextRequest) {
     };
 
     const name = body.name?.trim();
-    const code = body.code?.trim().toLowerCase();
     if (!name) {
       return NextResponse.json({ error: "Укажите название" }, { status: 400 });
     }
-    if (!code || !isPackagingCode(code)) {
-      return NextResponse.json(
-        { error: "Код: mini, standard, fragile или long" },
-        { status: 400 },
-      );
+    const code = normalizePackagingCode(body.code?.trim() || name);
+    if (!code) {
+      return NextResponse.json({ error: "Укажите код упаковки" }, { status: 400 });
     }
 
     const created = await prisma.packaging.create({
@@ -76,7 +73,9 @@ export async function POST(request: NextRequest) {
         boxWidthMm: parseOptionalNumber(body.boxWidthMm),
         boxHeightMm: parseOptionalNumber(body.boxHeightMm),
         boxDepthMm: parseOptionalNumber(body.boxDepthMm),
-        stock: Number.isFinite(Number(body.stock)) ? Math.max(0, Math.round(Number(body.stock))) : 0,
+        stock: Number.isFinite(Number(body.stock))
+          ? Math.max(0, Math.round(Number(body.stock)))
+          : 0,
         sortOrder: Number.isFinite(Number(body.sortOrder))
           ? Math.round(Number(body.sortOrder))
           : 0,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { isPackagingCode } from "@/lib/packaging";
+import { normalizePackagingCode } from "@/lib/packaging";
 import { parseOptionalNumber } from "@/lib/product-specs";
 
 type RouteContext = {
@@ -26,7 +26,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       stock?: number;
       sortOrder?: number;
       active?: boolean;
-      /** Относительное изменение остатка (+/−) */
       stockDelta?: number;
     };
 
@@ -35,15 +34,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: "Не найдено" }, { status: 404 });
     }
 
-    if (
-      body.code !== undefined &&
-      body.code.trim().toLowerCase() !== existing.code &&
-      !isPackagingCode(body.code.trim().toLowerCase())
-    ) {
-      return NextResponse.json(
-        { error: "Код: mini, standard, fragile или long" },
-        { status: 400 },
-      );
+    let nextCode: string | undefined;
+    if (body.code !== undefined) {
+      nextCode = normalizePackagingCode(body.code);
+      if (!nextCode) {
+        return NextResponse.json({ error: "Некорректный код" }, { status: 400 });
+      }
+      if (nextCode !== existing.code) {
+        const clash = await prisma.packaging.findUnique({
+          where: { code: nextCode },
+          select: { id: true },
+        });
+        if (clash) {
+          return NextResponse.json({ error: "Такой код уже есть" }, { status: 409 });
+        }
+      }
     }
 
     let nextStock = existing.stock;
@@ -71,9 +76,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         ...(body.description !== undefined
           ? { description: body.description?.trim() || null }
           : {}),
-        ...(body.code !== undefined
-          ? { code: body.code.trim().toLowerCase() }
-          : {}),
+        ...(nextCode !== undefined ? { code: nextCode } : {}),
         ...(Object.prototype.hasOwnProperty.call(body, "boxWidthMm")
           ? { boxWidthMm: parseOptionalNumber(body.boxWidthMm) }
           : {}),
@@ -98,5 +101,37 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     }
     console.error("packaging patch", error);
     return NextResponse.json({ error: "Ошибка сохранения" }, { status: 500 });
+  }
+}
+
+export async function DELETE(_request: NextRequest, context: RouteContext) {
+  try {
+    const session = await requireSession();
+    if (!isAdmin(session.role)) {
+      return NextResponse.json({ error: "Недостаточно прав" }, { status: 403 });
+    }
+
+    const { id } = await context.params;
+    const existing = await prisma.packaging.findUnique({
+      where: { id },
+      include: { _count: { select: { products: true } } },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Не найдено" }, { status: 404 });
+    }
+
+    // packagingId у товаров сбросится через onDelete: SetNull
+    await prisma.packaging.delete({ where: { id } });
+
+    return NextResponse.json({
+      ok: true,
+      detachedProducts: existing._count.products,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+    }
+    console.error("packaging delete", error);
+    return NextResponse.json({ error: "Ошибка удаления" }, { status: 500 });
   }
 }

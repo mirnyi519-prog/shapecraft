@@ -1,6 +1,7 @@
 import type { ProductSpecsInput } from "@/lib/product-specs";
+import { slugifyCategoryName } from "@/lib/categories";
 
-/** Коды типов упаковки (совпадают с seed). */
+/** Коды типов упаковки для автоподбора. */
 export const PACKAGING_CODES = ["mini", "standard", "fragile", "long"] as const;
 export type PackagingCode = (typeof PACKAGING_CODES)[number];
 
@@ -9,6 +10,12 @@ export function isPackagingCode(value: unknown): value is PackagingCode {
     typeof value === "string" &&
     (PACKAGING_CODES as readonly string[]).includes(value)
   );
+}
+
+/** Свободный код упаковки (slug), для ручного создания. */
+export function normalizePackagingCode(value: string): string {
+  const fromSlug = slugifyCategoryName(value.trim());
+  return fromSlug === "category" ? "packaging" : fromSlug;
 }
 
 export type PackagingOption = {
