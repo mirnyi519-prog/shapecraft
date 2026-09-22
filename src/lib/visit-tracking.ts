@@ -1,6 +1,6 @@
 export const VISITOR_COOKIE = "shapecraft_visitor";
 
-/** Окно «один визит = одна сессия» (не плодим строки на каждый клик/F5). */
+/** Окно «один визит = одна сессия» (не плодим строки на каждый F5). */
 export const VISIT_SESSION_MS = 30 * 60 * 1000;
 
 export type TrackVisitPayload = {

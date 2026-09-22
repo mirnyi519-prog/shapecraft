@@ -41,10 +41,11 @@ function isMessengerPreviewCrawler(userAgent: string): boolean {
   return false;
 }
 
-/** Краулеры, превью-боты, мониторинг и пустой UA (для визитов). */
+/** Краулеры, превью-боты, мониторинг (для визитов). */
 export function isBotUserAgent(userAgent: string | null): boolean {
+  // Пустой UA — часто privacy-режим / in-app; не режем, иначе теряем живые заходы
   if (!userAgent?.trim()) {
-    return true;
+    return false;
   }
   const ua = userAgent;
 
@@ -100,12 +101,15 @@ export async function recordSiteVisit(input: {
     return;
   }
 
-  // Локальные health-check / curl с сервера
-  if (ip === "127.0.0.1" || ip === "::1" || ip === "unknown") {
+  // Только loopback health-check. IP «unknown» больше не режем —
+  // иначе при сбое прокси пропадают реальные заходы по ссылке.
+  if (ip === "127.0.0.1" || ip === "::1") {
     return;
   }
 
   const since = new Date(Date.now() - VISIT_SESSION_MS);
+  // С cookie — по visitorId (два человека за NAT не мешают друг другу).
+  // Beacon без cookie — по IP (и увидит запись middleware с тем же IP).
   const recent = visitorId
     ? await prisma.siteVisit.findFirst({
         where: { visitorId, visitedAt: { gte: since } },
@@ -122,7 +126,7 @@ export async function recordSiteVisit(input: {
 
   const priorVisits = visitorId
     ? await prisma.siteVisit.count({ where: { visitorId } })
-    : 0;
+    : await prisma.siteVisit.count({ where: { ipAddress: ip } });
 
   await prisma.siteVisit.create({
     data: {

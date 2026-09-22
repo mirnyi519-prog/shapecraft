@@ -36,7 +36,20 @@ export async function POST(request: NextRequest) {
       return tooManyRequests(limited.retryAfterSec);
     }
 
-    const body = (await request.json()) as TrackVisitPayload;
+    const contentType = request.headers.get("content-type") ?? "";
+    let body: TrackVisitPayload = {};
+    try {
+      if (contentType.includes("application/json")) {
+        body = (await request.json()) as TrackVisitPayload;
+      } else {
+        const text = await request.text();
+        if (text.trim()) {
+          body = JSON.parse(text) as TrackVisitPayload;
+        }
+      }
+    } catch {
+      body = {};
+    }
     const path = body.path?.trim() || "/";
 
     if (!isTrackableVisitPath(path)) {

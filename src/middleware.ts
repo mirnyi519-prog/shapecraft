@@ -77,14 +77,21 @@ function trackPageVisit(
   }
 
   const { payload, visitorId, isNewVisitor } = buildTrackPayload(request, pathname);
-  const trackUrl = new URL("/api/visits/track", request.url);
+
+  // Важно: ходим на loopback, НЕ на публичный shapecraft.ru.
+  // Иначе Caddy перетирает X-Forwarded-For адресом сервера (127.0.0.1),
+  // и recordSiteVisit отбрасывает визит как localhost.
+  const trackUrl =
+    process.env.VISIT_TRACK_INTERNAL_URL?.trim() ||
+    `http://127.0.0.1:${process.env.PORT || "3000"}/api/visits/track`;
+  const clientIp = getClientIp(request);
+
   void fetch(trackUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-forwarded-for":
-        request.headers.get("x-forwarded-for") ?? getClientIp(request),
-      "x-real-ip": request.headers.get("x-real-ip") ?? "",
+      "x-forwarded-for": clientIp,
+      "x-real-ip": clientIp,
       "user-agent": request.headers.get("user-agent") ?? "",
     },
     body: JSON.stringify(payload),

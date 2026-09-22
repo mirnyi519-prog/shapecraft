@@ -63,7 +63,7 @@ function CompactBadge({
 
 export function VisitsTable({ rows }: { rows: IpVisitSummary[] }) {
   const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<SortKey>("count");
+  const [sort, setSort] = useState<SortKey>("last");
   const [expandedIp, setExpandedIp] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query);
 

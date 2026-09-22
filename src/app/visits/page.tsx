@@ -35,8 +35,10 @@ export default async function VisitsPage() {
           <div>
             <h1 className="text-2xl font-bold">Посещения сайта</h1>
             <p className="text-[var(--muted)]">
-              Только витрина («/»), гости без входа. Одна сессия = не чаще раза в
-              30 мин. Админка, экран, логин, боты и localhost не считаются.
+              Витрина («/»), гости без входа. Повтор с того же IP/cookie не чаще
+              раза в 30 мин (чтобы F5 не раздувал статистику). Админка, экран,
+              логин и боты превью (TelegramBot) не считаются. Сортировка по
+              умолчанию — свежие сверху.
             </p>
           </div>
           <Link href="/dashboard" className="w-full sm:w-auto">
