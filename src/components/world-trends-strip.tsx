@@ -1,5 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
-import { Badge, Card } from "@/components/ui";
+import { Badge, Button, Card } from "@/components/ui";
 import {
   WORLD_TIER_HINTS,
   WORLD_TIER_LABELS,
@@ -47,6 +50,8 @@ export function WorldTrendsStrip({
 }: {
   articles: WorldTrendArticleView[];
 }) {
+  const [open, setOpen] = useState(false);
+
   if (articles.length === 0) {
     return null;
   }
@@ -54,38 +59,55 @@ export function WorldTrendsStrip({
   const grouped = groupArticlesByTier(articles);
 
   return (
-    <section className="space-y-6">
-      <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-lg font-semibold">Сейчас в тренде у 3D-мейкеров</h2>
-          <Badge tone="neutral">мир</Badge>
+    <section className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-lg font-semibold">Сейчас в тренде у 3D-мейкеров</h2>
+            <Badge tone="neutral">мир</Badge>
+          </div>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Идеи, популярные у 3D-печатников · {articles.length} моделей
+          </p>
         </div>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          Подборка идей, которые сейчас популярны у 3D-печатников по всему миру ·{" "}
-          {articles.length} моделей
-        </p>
+        <Button
+          type="button"
+          variant="secondary"
+          className="min-h-11 shrink-0"
+          onClick={() => setOpen((value) => !value)}
+        >
+          {open ? "Свернуть" : "Показать идеи"}
+        </Button>
       </div>
 
-      {WORLD_TIER_ORDER.map((tier) => {
-        const tierArticles = grouped[tier];
-        if (tierArticles.length === 0) {
-          return null;
-        }
+      {open ? (
+        <div className="space-y-6">
+          {WORLD_TIER_ORDER.map((tier) => {
+            const tierArticles = grouped[tier];
+            if (tierArticles.length === 0) {
+              return null;
+            }
 
-        return (
-          <div key={tier} className="space-y-3">
-            <div>
-              <h3 className="text-base font-semibold">{WORLD_TIER_LABELS[tier]}</h3>
-              <p className="text-sm text-[var(--muted)]">{WORLD_TIER_HINTS[tier]}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {tierArticles.map((article) => (
-                <WorldTrendCard key={article.id} article={article} />
-              ))}
-            </div>
-          </div>
-        );
-      })}
+            return (
+              <div key={tier} className="space-y-3">
+                <div>
+                  <h3 className="text-base font-semibold">
+                    {WORLD_TIER_LABELS[tier]}
+                  </h3>
+                  <p className="text-sm text-[var(--muted)]">
+                    {WORLD_TIER_HINTS[tier]}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {tierArticles.map((article) => (
+                    <WorldTrendCard key={article.id} article={article} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
     </section>
   );
 }

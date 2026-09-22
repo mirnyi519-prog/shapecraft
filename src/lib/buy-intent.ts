@@ -34,8 +34,8 @@ export const ZERO_STOCK_MODE_LABELS: Record<ZeroStockMode, string> = {
 };
 
 export const ZERO_STOCK_MODE_HINTS: Record<ZeroStockMode, string> = {
-  soon: "На витрине бейдж «Скоро», можно нажать «Купить»",
-  show: "Виден с «Нет в наличии», можно написать/позвонить",
+  soon: "На витрине бейдж «Скоро», кнопка «Предзаказ»",
+  show: "Виден с «Нет в наличии», кнопка «Уточнить»",
   hide: "Пока остаток 0 — на витрине не показывать",
 };
 

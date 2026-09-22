@@ -147,6 +147,18 @@ export function stockBadgeShort(product: {
   return mode === "soon" ? "Скоро" : "Нет";
 }
 
+/** Текст основной кнопки в карточке товара на витрине. */
+export function storefrontCtaLabel(product: {
+  stock: number;
+  zeroStockMode?: ZeroStockMode | string;
+}): string {
+  if (product.stock > 0) {
+    return "Купить";
+  }
+  const mode = parseZeroStockMode(product.zeroStockMode);
+  return mode === "soon" ? "Предзаказ" : "Уточнить";
+}
+
 export async function getActiveCatalogProducts(
   catalogLine?: CatalogLine,
 ): Promise<CatalogProduct[]> {

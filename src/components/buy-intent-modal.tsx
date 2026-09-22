@@ -8,10 +8,12 @@ import { useScrollLock } from "@/hooks/use-scroll-lock";
 export function BuyIntentModal({
   open,
   productName,
+  title = "Купить",
   onClose,
 }: {
   open: boolean;
   productName?: string;
+  title?: string;
   onClose: () => void;
 }) {
   useScrollLock(open);
@@ -51,7 +53,7 @@ export function BuyIntentModal({
         <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-[var(--border)] bg-white/95 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur sm:px-5">
           <div className="min-w-0 pr-2">
             <h2 id="buy-intent-title" className="text-xl font-bold">
-              Купить
+              {title}
             </h2>
             {productName ? (
               <p className="mt-1 text-sm text-[var(--muted)]">{productName}</p>
@@ -61,7 +63,7 @@ export function BuyIntentModal({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:px-5">
-          <PickupInfo compact productName={productName} />
+          <PickupInfo compact showMap={false} productName={productName} />
         </div>
       </div>
     </div>

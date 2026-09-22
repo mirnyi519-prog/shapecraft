@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { ProductCatalog } from "@/components/product-catalog";
 import { CatalogLineToggle } from "@/components/catalog-line-toggle";
 import { FeedbackForm } from "@/components/feedback-form";
@@ -16,17 +17,95 @@ import {
   getNewCatalogProducts,
   getPopularCatalogProducts,
 } from "@/lib/catalog-product";
+import { prisma } from "@/lib/db";
+import { formatRub } from "@/lib/calculations";
+import { hasListPrice } from "@/lib/pricing";
+import { getPublicSiteUrl } from "@/lib/telegram";
 import {
   getLatestWorldTrendBatchView,
 } from "@/lib/world-trends-data";
 
+function absoluteMediaUrl(url: string | null | undefined): string | null {
+  if (!url?.trim()) {
+    return null;
+  }
+  if (/^https?:\/\//i.test(url)) {
+    return url;
+  }
+  return `${getPublicSiteUrl()}${url.startsWith("/") ? url : `/${url}`}`;
+}
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ line?: string; p?: string }>;
+}): Promise<Metadata> {
+  const params = await searchParams;
+  const productId = params.p?.trim();
+  if (!productId) {
+    return {};
+  }
+
+  const product = await prisma.product.findFirst({
+    where: { id: productId, active: true },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      imageUrl: true,
+      listPrice: true,
+      images: {
+        orderBy: { sortOrder: "asc" },
+        take: 1,
+        select: { url: true },
+      },
+    },
+  });
+
+  if (!product) {
+    return {};
+  }
+
+  const site = getPublicSiteUrl();
+  const cover =
+    absoluteMediaUrl(product.images[0]?.url) ||
+    absoluteMediaUrl(product.imageUrl);
+  const priceBit = hasListPrice(product.listPrice)
+    ? ` · ${formatRub(product.listPrice as number)}`
+    : "";
+  const description =
+    product.description?.trim().slice(0, 160) ||
+    `Сувенир ShapeCraft${priceBit}. Забрать в пекарне «У Светланы».`;
+
+  return {
+    title: `${product.name} — ShapeCraft`,
+    description,
+    openGraph: {
+      title: `${product.name} — ShapeCraft`,
+      description,
+      url: `${site}/?p=${encodeURIComponent(product.id)}`,
+      siteName: "ShapeCraft",
+      locale: "ru_RU",
+      type: "website",
+      ...(cover ? { images: [{ url: cover }] } : {}),
+    },
+    twitter: {
+      card: cover ? "summary_large_image" : "summary",
+      title: `${product.name} — ShapeCraft`,
+      description,
+      ...(cover ? { images: [cover] } : {}),
+    },
+  };
+}
+
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ line?: string }>;
+  searchParams: Promise<{ line?: string; p?: string }>;
 }) {
   const params = await searchParams;
   const catalogLine = parseCatalogLine(params.line);
+  const initialProductId = params.p?.trim() || null;
 
   const [products, newProducts, popularProducts, categories, banner, worldBatch] =
     await Promise.all([
@@ -58,6 +137,7 @@ export default async function HomePage({
           newProducts={newProducts}
           popularProducts={popularProducts}
           catalogLineLabel={lineLabel}
+          initialProductId={initialProductId}
         />
         <LocationBlock />
         <FeedbackForm />

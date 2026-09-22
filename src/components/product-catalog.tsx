@@ -12,10 +12,41 @@ import { useScrollLock } from "@/hooks/use-scroll-lock";
 import { formatRub } from "@/lib/calculations";
 import type { CatalogCategory } from "@/lib/categories";
 import type { CatalogProduct } from "@/lib/catalog-product";
-import { stockBadgeLabel, stockBadgeShort } from "@/lib/catalog-product";
+import {
+  stockBadgeLabel,
+  stockBadgeShort,
+  storefrontCtaLabel,
+} from "@/lib/catalog-product";
 import { hasListPrice } from "@/lib/pricing";
 
 export type { CatalogProduct };
+
+function syncProductQuery(productId: string | null) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const url = new URL(window.location.href);
+  if (productId) {
+    url.searchParams.set("p", productId);
+  } else {
+    url.searchParams.delete("p");
+  }
+  const next = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState(null, "", next);
+}
+
+function findCatalogProduct(
+  productId: string,
+  lists: CatalogProduct[][],
+): CatalogProduct | null {
+  for (const list of lists) {
+    const found = list.find((item) => item.id === productId);
+    if (found) {
+      return found;
+    }
+  }
+  return null;
+}
 
 function ProductCard({
   product,
@@ -164,6 +195,7 @@ export function ProductCatalog({
   popularProducts = [],
   showCost = false,
   catalogLineLabel = "Сувениры",
+  initialProductId = null,
 }: {
   products: CatalogProduct[];
   categories?: CatalogCategory[];
@@ -171,18 +203,30 @@ export function ProductCatalog({
   popularProducts?: CatalogProduct[];
   showCost?: boolean;
   catalogLineLabel?: string;
+  initialProductId?: string | null;
 }) {
   const [selected, setSelected] = useState<CatalogProduct | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useScrollLock(Boolean(selected) || buyOpen || feedbackOpen);
+
+  function openProduct(product: CatalogProduct) {
+    setFeedbackOpen(false);
+    setBuyOpen(false);
+    setLinkCopied(false);
+    setSelected(product);
+    syncProductQuery(product.id);
+  }
 
   function closeProduct() {
     setFeedbackOpen(false);
     setBuyOpen(false);
+    setLinkCopied(false);
     setSelected(null);
+    syncProductQuery(null);
   }
 
   async function handleBuyClick() {
@@ -196,6 +240,37 @@ export function ProductCatalog({
       // клик всё равно открыл модалку; пуш не критичен для UX
     }
   }
+
+  async function handleCopyLink() {
+    if (!selected || typeof window === "undefined") {
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.set("p", selected.id);
+    try {
+      await navigator.clipboard.writeText(url.toString());
+      setLinkCopied(true);
+      window.setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // ignore
+    }
+  }
+
+  useEffect(() => {
+    if (!initialProductId) {
+      return;
+    }
+    const found = findCatalogProduct(initialProductId, [
+      products,
+      newProducts,
+      popularProducts,
+    ]);
+    if (found) {
+      setSelected(found);
+      syncProductQuery(found.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- открытие только по ?p= при загрузке
+  }, [initialProductId]);
 
   useEffect(() => {
     if (!selected) {
@@ -216,7 +291,9 @@ export function ProductCatalog({
     if (!selected) {
       return;
     }
-    void fetch(`/api/products/${selected.id}/view`, { method: "POST" }).catch(() => {});
+    void fetch(`/api/products/${selected.id}/view`, { method: "POST" }).catch(
+      () => {},
+    );
   }, [selected?.id]);
 
   const filteredProducts = useMemo(() => {
@@ -229,6 +306,7 @@ export function ProductCatalog({
   }, [products, categoryId]);
 
   const priced = selected ? hasListPrice(selected.listPrice) : false;
+  const ctaLabel = selected ? storefrontCtaLabel(selected) : "Купить";
   const hasHighlights =
     !categoryId && (newProducts.length > 0 || popularProducts.length > 0);
 
@@ -284,14 +362,14 @@ export function ProductCatalog({
             badge="новое"
             products={newProducts}
             showCost={showCost}
-            onSelect={setSelected}
+            onSelect={openProduct}
           />
           <HighlightStrip
             title="Популярное"
             badge="хит"
             products={popularProducts}
             showCost={showCost}
-            onSelect={setSelected}
+            onSelect={openProduct}
           />
         </div>
       ) : null}
@@ -309,7 +387,7 @@ export function ProductCatalog({
                 key={product.id}
                 product={product}
                 showCost={showCost}
-                onSelect={setSelected}
+                onSelect={openProduct}
               />
             ))}
           </div>
@@ -410,13 +488,21 @@ export function ProductCatalog({
               </div>
             </div>
 
-            <div className="sticky bottom-0 flex flex-col gap-2 border-t border-[var(--border)] bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row">
+            <div className="sticky bottom-0 flex flex-col gap-2 border-t border-[var(--border)] bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:flex-wrap">
               <Button
                 type="button"
                 className="min-h-11 flex-1"
                 onClick={() => void handleBuyClick()}
               >
-                Купить
+                {ctaLabel}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="min-h-11 flex-1"
+                onClick={() => void handleCopyLink()}
+              >
+                {linkCopied ? "Ссылка скопирована" : "Скопировать ссылку"}
               </Button>
               <Button
                 type="button"
@@ -441,6 +527,7 @@ export function ProductCatalog({
       <BuyIntentModal
         open={buyOpen}
         productName={selected?.name}
+        title={ctaLabel}
         onClose={() => setBuyOpen(false)}
       />
     </>
