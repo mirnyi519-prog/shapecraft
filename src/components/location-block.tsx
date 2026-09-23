@@ -3,6 +3,7 @@ import {
   PICKUP_MAP_WIDGET_URL,
   PICKUP_TITLE,
 } from "@/lib/store-contact";
+import { PickupHoursPanel } from "@/components/pickup-hours-panel";
 
 export function LocationBlock() {
   return (
@@ -10,12 +11,15 @@ export function LocationBlock() {
       <div className="grid gap-0 lg:grid-cols-[1.1fr_1fr]">
         <div className="space-y-4 p-5 sm:p-6">
           <div>
-            <h2 className="text-xl font-bold">Как добраться</h2>
+            <h2 className="text-xl font-bold">Где забрать</h2>
             <p className="mt-2 text-sm text-[var(--muted)]">
-              Сувениры ShapeCraft можно купить в пекарне «У Светланы». Откройте
-              карту, чтобы построить маршрут.
+              ShapeCraft — в пекарне «У Светланы». Можно забрать в часы работы
+              точки: посмотрите статус ниже и постройте маршрут на карте.
             </p>
           </div>
+
+          <PickupHoursPanel />
+
           <div className="rounded-xl bg-[var(--bg)] px-4 py-3 text-sm">
             <p className="font-medium">{PICKUP_TITLE}</p>
             <p className="mt-1 text-[var(--muted)]">

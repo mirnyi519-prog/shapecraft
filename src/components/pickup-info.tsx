@@ -7,6 +7,7 @@ import {
   STORE_PHONE_TEL,
   buildWhatsAppUrl,
 } from "@/lib/store-contact";
+import { PickupHoursPanel } from "@/components/pickup-hours-panel";
 
 export function PickupInfo({
   compact = false,
@@ -22,12 +23,14 @@ export function PickupInfo({
   return (
     <div className={compact ? "space-y-4" : "space-y-5"}>
       <div>
-        <h3 className="text-lg font-bold">Как добраться</h3>
+        <h3 className="text-lg font-bold">Где забрать</h3>
         <p className="mt-2 text-sm text-[var(--muted)]">
-          ShapeCraft можно купить в пекарне «У Светланы». Откройте карту, чтобы
-          построить маршрут.
+          ShapeCraft можно купить в пекарне «У Светланы». В часы работы точки —
+          часто в тот же день.
         </p>
       </div>
+
+      <PickupHoursPanel compact={compact} />
 
       <div className="rounded-xl bg-[var(--bg)] px-4 py-3 text-sm">
         <p className="font-medium">{PICKUP_TITLE}</p>
