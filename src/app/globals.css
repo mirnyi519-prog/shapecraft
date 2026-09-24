@@ -29,6 +29,16 @@ body {
   overflow-x: clip;
 }
 
+/* Горизонтальные поля витрины: 1rem + safe-area (вырез iPhone в ландшафте) */
+.page-gutter {
+  padding-left: max(1rem, env(safe-area-inset-left, 0px));
+  padding-right: max(1rem, env(safe-area-inset-right, 0px));
+}
+
+.page-bottom {
+  padding-bottom: max(3rem, calc(2.5rem + env(safe-area-inset-bottom, 0px)));
+}
+
 /* Тёплый фон витрины: градиент + лёгкий шум без «AI-glow» */
 .storefront-atmosphere {
   background:

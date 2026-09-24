@@ -13,19 +13,18 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
   const loginBlocked = !session ? await isIpBlocked(ip) : false;
 
   return (
-    <div className="storefront-atmosphere min-h-screen text-[var(--text)]">
+    <div className="storefront-atmosphere min-h-[100dvh] text-[var(--text)]">
       <VisitBeacon enabled={!session} />
-      <header className="sticky top-0 z-20 border-b border-[var(--border)]/70 bg-white/75 pt-[env(safe-area-inset-top)] backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:py-3.5">
-          <div className="min-w-0">
-            <Link
-              href="/"
-              className="block truncate text-base font-bold text-[var(--brand)] sm:text-lg"
-            >
-              ShapeCraft
-            </Link>
-          </div>
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+      <header className="sticky top-0 z-20 border-b border-[var(--border)]/70 bg-white/75 pt-[env(safe-area-inset-top,0px)] backdrop-blur-md">
+        <div className="page-gutter mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-2 py-3 sm:py-3.5">
+          <div aria-hidden className="min-w-0" />
+          <Link
+            href="/"
+            className="justify-self-center truncate text-center text-base font-bold text-[var(--brand)] sm:text-lg"
+          >
+            ShapeCraft
+          </Link>
+          <div className="flex min-w-0 shrink-0 items-center justify-end gap-2 sm:gap-3">
             {session ? (
               <>
                 <span className="hidden max-w-[9rem] truncate text-sm text-[var(--muted)] sm:inline">
@@ -44,7 +43,9 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-5 pb-12 sm:py-8">{children}</main>
+      <main className="page-gutter page-bottom mx-auto max-w-6xl py-5 sm:py-8">
+        {children}
+      </main>
     </div>
   );
 }
