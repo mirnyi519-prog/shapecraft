@@ -70,6 +70,7 @@ export function isTrackableVisitPath(pathname: string): boolean {
     "/security",
     "/categories",
     "/banner",
+    "/settings",
     "/display",
     "/login",
   ];

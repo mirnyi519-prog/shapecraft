@@ -1,10 +1,51 @@
-import {
-  getPickupOpenStatus,
-  PICKUP_HOURS_ROWS,
-} from "@/lib/pickup-hours";
+"use client";
+
+import { useEffect, useState } from "react";
+import type { PickupOpenStatus } from "@/lib/pickup-hours";
+
+type PickupPublicResponse = {
+  status: PickupOpenStatus;
+  rows: { label: string; value: string }[];
+};
 
 export function PickupHoursPanel({ compact = false }: { compact?: boolean }) {
-  const status = getPickupOpenStatus();
+  const [data, setData] = useState<PickupPublicResponse | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/settings/pickup")
+      .then(async (response) => {
+        if (!response.ok) {
+          return null;
+        }
+        return (await response.json()) as PickupPublicResponse;
+      })
+      .then((payload) => {
+        if (!cancelled && payload?.status && payload.rows) {
+          setData(payload);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!data) {
+    return (
+      <div
+        className={
+          compact
+            ? "rounded-xl border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-sm text-[var(--muted)]"
+            : "rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)]/50 px-4 py-4 text-sm text-[var(--muted)]"
+        }
+      >
+        Загружаем часы работы…
+      </div>
+    );
+  }
+
+  const { status, rows } = data;
 
   return (
     <div
@@ -32,7 +73,7 @@ export function PickupHoursPanel({ compact = false }: { compact?: boolean }) {
           Часы работы
         </p>
         <ul className="mt-2 space-y-1 text-sm">
-          {PICKUP_HOURS_ROWS.map((row) => (
+          {rows.map((row) => (
             <li
               key={row.label}
               className="flex items-baseline justify-between gap-3"

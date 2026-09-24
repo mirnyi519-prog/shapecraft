@@ -172,6 +172,27 @@ async function main() {
     });
   }
 
+  const {
+    DEFAULT_SUMMER_HOURS,
+    DEFAULT_WINTER_HOURS,
+    serializeHoursWeek,
+  } = await import("../src/lib/pickup-hours");
+
+  await prisma.storeSettings.upsert({
+    where: { id: "default" },
+    update: {},
+    create: {
+      id: "default",
+      hoursMode: "auto",
+      winterStartMonth: 11,
+      winterStartDay: 1,
+      winterEndMonth: 3,
+      winterEndDay: 31,
+      summerHoursJson: serializeHoursWeek(DEFAULT_SUMMER_HOURS),
+      winterHoursJson: serializeHoursWeek(DEFAULT_WINTER_HOURS),
+    },
+  });
+
   console.log("Seed complete");
   console.log(`Admin: ${adminLogin} / ${adminPassword}`);
   console.log(`Partner: ${partnerLogin} / ${partnerPassword}`);

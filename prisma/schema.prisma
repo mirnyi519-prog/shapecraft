@@ -165,6 +165,21 @@ model StoreBanner {
   updatedAt DateTime @updatedAt
 }
 
+/// Настройки витрины: график лета/зимы и период зимы.
+model StoreSettings {
+  id                String   @id @default("default")
+  /// auto | summer | winter
+  hoursMode         String   @default("auto")
+  winterStartMonth  Int      @default(11)
+  winterStartDay    Int      @default(1)
+  winterEndMonth    Int      @default(3)
+  winterEndDay      Int      @default(31)
+  /// JSON: Record<weekday, {closed}|{openMinute,closeMinute}>
+  summerHoursJson   String
+  winterHoursJson   String
+  updatedAt         DateTime @updatedAt
+}
+
 model StockReceipt {
   id          String   @id @default(cuid())
   productId   String

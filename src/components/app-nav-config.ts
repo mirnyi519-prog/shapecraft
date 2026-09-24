@@ -15,7 +15,9 @@ export type NavIconName =
   | "feedback"
   | "security"
   | "display"
-  | "world";
+  | "world"
+  | "settings"
+  | "hours";
 
 export type AppNavItem = {
   href: string;
@@ -63,6 +65,14 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
     icon: "products" as const,
   }));
 
+  const settingsChildren: AppNavItem[] = [
+    { href: "/settings/hours", label: "График", icon: "hours" },
+    { href: "/settings/banner", label: "Баннер", icon: "banner" },
+    { href: "/settings/categories", label: "Разделы", icon: "categories" },
+    { href: "/settings/world", label: "В мире", icon: "world" },
+    { href: "/settings/security", label: "Безопасность", icon: "security" },
+  ];
+
   return [
     { href: "/", label: "Витрина", icon: "store" },
     { href: "/display", label: "Экран", icon: "display" },
@@ -73,10 +83,6 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
       icon: "products",
       children: productChildren,
     },
-    ...(admin
-      ? [{ href: "/categories", label: "Разделы", icon: "categories" as const }]
-      : []),
-    ...(admin ? [{ href: "/banner", label: "Баннер", icon: "banner" as const }] : []),
     { href: "/sales", label: "Продажи", icon: "sales" },
     { href: "/sales/new", label: "+ Продажа", icon: "sale-new" },
     { href: "/settlements", label: "Расчёты", icon: "settlements" },
@@ -86,8 +92,16 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
     ...(admin ? [{ href: "/visits", label: "Посещения", icon: "visits" as const }] : []),
     ...(admin ? [{ href: "/views", label: "Просмотры", icon: "views" as const }] : []),
     ...(admin ? [{ href: "/feedback", label: "Обратная связь", icon: "feedback" as const }] : []),
-    ...(admin ? [{ href: "/world", label: "В мире", icon: "world" as const }] : []),
-    ...(admin ? [{ href: "/security", label: "Безопасность", icon: "security" as const }] : []),
+    ...(admin
+      ? [
+          {
+            href: "/settings",
+            label: "Настройки",
+            icon: "settings" as const,
+            children: settingsChildren,
+          },
+        ]
+      : []),
   ];
 }
 
@@ -125,6 +139,10 @@ export function isNavItemActive(
     return pathname === "/products" && !current.get("view");
   }
 
+  if (path === "/settings") {
+    return pathname === "/settings";
+  }
+
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
@@ -132,6 +150,9 @@ export function isNavGroupActive(pathname: string, item: AppNavItem): boolean {
   if (item.children?.length) {
     if (item.href === "/products") {
       return pathname === "/products" || pathname.startsWith("/products/");
+    }
+    if (item.href === "/settings") {
+      return pathname === "/settings" || pathname.startsWith("/settings/");
     }
     return item.children.some((child) => isNavItemActive(pathname, child.href));
   }

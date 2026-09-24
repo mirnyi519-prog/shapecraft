@@ -128,6 +128,25 @@ const iconPaths: Record<NavIconName, ReactNode> = {
       <path d="M12 3a14 14 0 0 0 0 18" />
     </>
   ),
+  settings: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 3v2" />
+      <path d="M12 19v2" />
+      <path d="M3 12h2" />
+      <path d="M19 12h2" />
+      <path d="m5.6 5.6 1.4 1.4" />
+      <path d="m17 17 1.4 1.4" />
+      <path d="m17 7 1.4-1.4" />
+      <path d="m5.6 18.4 1.4-1.4" />
+    </>
+  ),
+  hours: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
 };
 
 export function NavIcon({
