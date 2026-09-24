@@ -9,6 +9,7 @@ import {
   SECURITY_EVENT_TYPES,
   tooManyRequests,
 } from "@/lib/security";
+import { notifyTelegramFeedback } from "@/lib/telegram";
 
 type FeedbackBody = {
   name?: string;
@@ -99,25 +100,38 @@ export async function POST(request: NextRequest) {
     }
 
     let productId: string | null = null;
+    let productName: string | null = null;
     if (typeof body.productId === "string" && body.productId.trim()) {
       const product = await prisma.product.findUnique({
         where: { id: body.productId.trim() },
-        select: { id: true, active: true },
+        select: { id: true, active: true, name: true },
       });
       if (!product || !product.active) {
         return NextResponse.json({ error: "Товар не найден" }, { status: 400 });
       }
       productId = product.id;
+      productName = product.name;
     }
+
+    const name = trimOptional(body.name, 100);
+    const contact = trimOptional(body.contact, 200);
 
     const created = await prisma.feedbackMessage.create({
       data: {
-        name: trimOptional(body.name, 100),
-        contact: trimOptional(body.contact, 200),
+        name,
+        contact,
         message,
-        ipAddress: getClientIp(request),
+        ipAddress: ip,
         productId,
       },
+    });
+
+    notifyTelegramFeedback({
+      message,
+      name,
+      contact,
+      productName,
+      ipAddress: ip,
     });
 
     return NextResponse.json({ ok: true, id: created.id });

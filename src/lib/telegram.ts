@@ -477,6 +477,38 @@ export function notifyTelegramSale(input: {
   );
 }
 
+export function notifyTelegramFeedback(input: {
+  message: string;
+  name?: string | null;
+  contact?: string | null;
+  productName?: string | null;
+  ipAddress?: string | null;
+}) {
+  const siteUrl = getPublicSiteUrl();
+  const text = input.message.trim();
+  const preview =
+    text.length > 500 ? `${text.slice(0, 497).trimEnd()}…` : text;
+
+  fireAndForget(
+    sendTelegramMessage(
+      [
+        "✉️ Обратная связь с витрины",
+        input.productName ? `Товар: ${input.productName}` : null,
+        input.name?.trim() ? `Имя: ${input.name.trim()}` : null,
+        input.contact?.trim() ? `Контакт: ${input.contact.trim()}` : null,
+        "",
+        preview,
+        "",
+        input.ipAddress ? `IP: ${input.ipAddress}` : null,
+        `Админка: ${siteUrl}/feedback`,
+      ]
+        .filter((line) => line !== null)
+        .join("\n"),
+    ),
+    "feedback",
+  );
+}
+
 /** Ручная публикация объявления маркет-ботом (kupipro77 / рабочая группа). */
 export function buildMarketListingCaption(product: {
   name: string;
