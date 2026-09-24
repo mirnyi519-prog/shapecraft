@@ -5,6 +5,7 @@ import { FeedbackForm } from "@/components/feedback-form";
 import { LocationBlock } from "@/components/location-block";
 import { PublicShell } from "@/components/public-shell";
 import { StorefrontBanner } from "@/components/storefront-banner";
+import { StorefrontHero } from "@/components/storefront-hero";
 import { WorldTrendsStrip } from "@/components/world-trends-strip";
 import { getActiveStoreBanner } from "@/lib/banner";
 import { listActiveCategoriesForCatalogLine } from "@/lib/categories-data";
@@ -19,11 +20,11 @@ import {
 } from "@/lib/catalog-product";
 import { prisma } from "@/lib/db";
 import { formatRub } from "@/lib/calculations";
+import { getPickupOpenStatus } from "@/lib/pickup-hours";
 import { hasListPrice } from "@/lib/pricing";
+import { getStoreHoursConfig } from "@/lib/store-settings";
 import { getPublicSiteUrl } from "@/lib/telegram";
-import {
-  getLatestWorldTrendBatchView,
-} from "@/lib/world-trends-data";
+import { getLatestWorldTrendBatchView } from "@/lib/world-trends-data";
 
 function absoluteMediaUrl(url: string | null | undefined): string | null {
   if (!url?.trim()) {
@@ -107,30 +108,34 @@ export default async function HomePage({
   const catalogLine = parseCatalogLine(params.line);
   const initialProductId = params.p?.trim() || null;
 
-  const [products, newProducts, popularProducts, categories, banner, worldBatch] =
-    await Promise.all([
-      getActiveCatalogProducts(catalogLine),
-      getNewCatalogProducts(6, catalogLine),
-      getPopularCatalogProducts(6, catalogLine),
-      listActiveCategoriesForCatalogLine(catalogLine),
-      getActiveStoreBanner(),
-      getLatestWorldTrendBatchView(),
-    ]);
+  const [
+    products,
+    newProducts,
+    popularProducts,
+    categories,
+    banner,
+    worldBatch,
+    hoursConfig,
+  ] = await Promise.all([
+    getActiveCatalogProducts(catalogLine),
+    getNewCatalogProducts(6, catalogLine),
+    getPopularCatalogProducts(6, catalogLine),
+    listActiveCategoriesForCatalogLine(catalogLine),
+    getActiveStoreBanner(),
+    getLatestWorldTrendBatchView(),
+    getStoreHoursConfig(),
+  ]);
 
   const worldTrendArticles = worldBatch?.articles ?? [];
   const lineLabel = CATALOG_LINE_LABELS[catalogLine];
+  const openStatus = getPickupOpenStatus(hoursConfig);
 
   return (
     <PublicShell>
-      <div className="space-y-6">
-        {banner ? <StorefrontBanner banner={banner} /> : null}
+      <div className="space-y-8 sm:space-y-10">
+        <StorefrontHero lineLabel={lineLabel} openStatus={openStatus} />
         <CatalogLineToggle current={catalogLine} />
-        <div>
-          <h1 className="text-2xl font-bold">{lineLabel}</h1>
-          <p className="text-[var(--muted)]">
-            Актуальные цены и остатки в пекарне
-          </p>
-        </div>
+        {banner ? <StorefrontBanner banner={banner} /> : null}
         <ProductCatalog
           products={products}
           categories={categories}

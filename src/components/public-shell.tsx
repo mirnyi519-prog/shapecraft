@@ -13,20 +13,17 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
   const loginBlocked = !session ? await isIpBlocked(ip) : false;
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
+    <div className="storefront-atmosphere min-h-screen text-[var(--text)]">
       <VisitBeacon enabled={!session} />
-      <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-white/95 pt-[env(safe-area-inset-top)] backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:py-4">
+      <header className="sticky top-0 z-20 border-b border-[var(--border)]/70 bg-white/75 pt-[env(safe-area-inset-top)] backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:py-3.5">
           <div className="min-w-0">
             <Link
               href="/"
-              className="block truncate text-lg font-bold text-[var(--brand)] sm:text-xl"
+              className="block truncate text-base font-bold text-[var(--brand)] sm:text-lg"
             >
               ShapeCraft
             </Link>
-            <p className="truncate text-xs text-[var(--muted)] sm:text-sm">
-              3D-сувениры · shapecraft.ru
-            </p>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             {session ? (
@@ -47,7 +44,7 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-4 pb-10 sm:py-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-5 pb-12 sm:py-8">{children}</main>
     </div>
   );
 }

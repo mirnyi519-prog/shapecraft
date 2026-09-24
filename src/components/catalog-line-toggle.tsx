@@ -5,11 +5,6 @@ import {
   type CatalogLine,
 } from "@/lib/catalog-line";
 
-const LINE_HINTS: Record<CatalogLine, string> = {
-  souvenir: "Фигурки, магниты и подарки",
-  home: "Декор и полезные вещи для дома",
-};
-
 export function CatalogLineToggle({
   current,
   basePath = "/",
@@ -18,10 +13,9 @@ export function CatalogLineToggle({
   basePath?: string;
 }) {
   return (
-    <nav aria-label="Направление каталога" className="space-y-2">
-      <p className="text-sm font-medium text-[var(--muted)]">Выберите каталог</p>
+    <nav aria-label="Направление каталога">
       <div
-        className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+        className="inline-flex max-w-full gap-1 overflow-x-auto rounded-full border border-[var(--border)]/80 bg-white/70 p-1 backdrop-blur [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         role="tablist"
       >
         {CATALOG_LINES.map((line) => {
@@ -37,22 +31,13 @@ export function CatalogLineToggle({
               href={href}
               role="tab"
               aria-selected={active}
-              className={`rounded-2xl border-2 px-4 py-4 text-left transition sm:px-5 sm:py-5 ${
+              className={`shrink-0 rounded-full px-4 py-2.5 text-sm font-semibold transition ${
                 active
-                  ? "border-[var(--brand)] bg-[var(--brand)] text-white shadow-sm"
-                  : "border-[var(--border)] bg-white text-[var(--text)] hover:border-[var(--brand)] hover:bg-[var(--brand-soft)]"
+                  ? "bg-[var(--brand)] text-white"
+                  : "text-[var(--muted)] hover:bg-[var(--brand-soft)] hover:text-[var(--text)]"
               }`}
             >
-              <span className="block text-lg font-bold sm:text-xl">
-                {CATALOG_LINE_LABELS[line]}
-              </span>
-              <span
-                className={`mt-1 block text-sm ${
-                  active ? "text-white/90" : "text-[var(--muted)]"
-                }`}
-              >
-                {LINE_HINTS[line]}
-              </span>
+              {CATALOG_LINE_LABELS[line]}
             </Link>
           );
         })}
