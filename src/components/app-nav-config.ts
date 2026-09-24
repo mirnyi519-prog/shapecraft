@@ -74,8 +74,6 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
   ];
 
   return [
-    { href: "/", label: "Витрина", icon: "store" },
-    { href: "/display", label: "Экран", icon: "display" },
     { href: "/dashboard", label: "Сводка", icon: "dashboard" },
     {
       href: "/products",
@@ -84,8 +82,9 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
       children: productChildren,
     },
     { href: "/sales", label: "Продажи", icon: "sales" },
-    { href: "/sales/new", label: "+ Продажа", icon: "sale-new" },
     { href: "/settlements", label: "Расчёты", icon: "settlements" },
+    { href: "/", label: "Витрина", icon: "store" },
+    { href: "/display", label: "Экран", icon: "display" },
     ...(admin ? [{ href: "/receipts", label: "Приход", icon: "receipts" as const }] : []),
     ...(admin ? [{ href: "/packaging", label: "Упаковка", icon: "packaging" as const }] : []),
     ...(admin ? [{ href: "/users", label: "Пользователи", icon: "users" as const }] : []),

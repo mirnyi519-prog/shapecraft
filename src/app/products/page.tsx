@@ -5,6 +5,7 @@ import {
   productsViewTitle,
 } from "@/components/app-nav-config";
 import { ProductsBrowser } from "@/components/products-browser";
+import { ProductsViewChips } from "@/components/products-view-chips";
 import { Button, Card } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
 import { listActiveCategories } from "@/lib/categories-data";
@@ -51,7 +52,8 @@ export default async function ProductsPage({
           <div>
             <h1 className="text-2xl font-bold">{productsViewTitle(view)}</h1>
             <p className="text-[var(--muted)]">
-              Товары и остатки. Красные карточки — без прайса.
+              Товары и остатки. Красные карточки — без прайса. Продажа — из
+              карточки товара.
             </p>
           </div>
           {admin ? (
@@ -61,6 +63,8 @@ export default async function ProductsPage({
           ) : null}
         </div>
 
+        <ProductsViewChips view={view} isAdmin={admin} />
+
         {products.length === 0 ? (
           <Card>
             <p className="text-[var(--muted)]">Каталог пуст. Добавьте первый товар.</p>
@@ -69,7 +73,10 @@ export default async function ProductsPage({
           <ProductsBrowser
             isAdmin={admin}
             view={view}
-            categories={categories.map((item) => ({ id: item.id, name: item.name }))}
+            categories={categories.map((item) => ({
+              id: item.id,
+              name: item.name,
+            }))}
             products={products.map((product) => ({
               id: product.id,
               name: product.name,
@@ -85,7 +92,8 @@ export default async function ProductsPage({
                 .filter((category) => category.active)
                 .sort(
                   (a, b) =>
-                    a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "ru"),
+                    a.sortOrder - b.sortOrder ||
+                    a.name.localeCompare(b.name, "ru"),
                 )
                 .map((category) => ({ id: category.id, name: category.name })),
             }))}

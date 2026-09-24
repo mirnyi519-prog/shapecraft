@@ -10,14 +10,9 @@ import {
 } from "@/components/app-nav-config";
 import { NavIcon } from "@/components/nav-icon";
 
-/** На телефоне в первой полосе — только частое; остальное в «Ещё». */
-const MOBILE_PRIMARY_HREFS = new Set([
-  "/",
-  "/dashboard",
-  "/products",
-  "/sales/new",
-  "/sales",
-]);
+/** На телефоне в первой полосе — операционка; витрина и прочее в «Ещё». */
+const MOBILE_PRIMARY_ORDER = ["/products", "/dashboard", "/sales"] as const;
+const MOBILE_PRIMARY_HREFS = new Set<string>(MOBILE_PRIMARY_ORDER);
 
 function mobileLinkClass(active: boolean): string {
   return [
@@ -223,6 +218,15 @@ export function MobileAppNav({ items }: { items: AppNavItem[] }) {
         moreItems.push(item);
       }
     }
+    primaryItems.sort(
+      (a, b) =>
+        MOBILE_PRIMARY_ORDER.indexOf(
+          a.href as (typeof MOBILE_PRIMARY_ORDER)[number],
+        ) -
+        MOBILE_PRIMARY_ORDER.indexOf(
+          b.href as (typeof MOBILE_PRIMARY_ORDER)[number],
+        ),
+    );
     return { primary: primaryItems, more: moreItems };
   }, [items]);
 

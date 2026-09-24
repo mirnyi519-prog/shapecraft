@@ -80,6 +80,22 @@ async function getDashboardData(role: "admin" | "partner") {
     take: 8,
   });
 
+  const [noPriceCount, outOfStockCount, lowStockCount, unreadFeedback] =
+    await Promise.all([
+      prisma.product.count({
+        where: { active: true, listPrice: null },
+      }),
+      prisma.product.count({
+        where: { active: true, stock: { lte: 0 } },
+      }),
+      prisma.product.count({
+        where: { active: true, stock: { gt: 0, lte: 2 } },
+      }),
+      role === "admin"
+        ? prisma.feedbackMessage.count({ where: { read: false } })
+        : Promise.resolve(0),
+    ]);
+
   const inventory =
     role === "admin"
       ? await prisma.product.findMany({
@@ -116,6 +132,10 @@ async function getDashboardData(role: "admin" | "partner") {
     totals,
     recentSales: pendingSales.slice(0, 8),
     lowStock,
+    noPriceCount,
+    outOfStockCount,
+    lowStockCount,
+    unreadFeedback,
     productViews,
     inventoryStock,
     inventoryCost,
@@ -184,6 +204,58 @@ export default async function DashboardPage({
 
         {tab === "period" ? (
           <section className="space-y-6">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Link
+                href="/products"
+                className="rounded-2xl border border-[var(--brand)] bg-[var(--brand-soft)] p-4 transition hover:shadow-md"
+              >
+                <p className="text-sm font-medium text-[var(--brand-dark)]">
+                  Товары
+                </p>
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Продажа — из карточки
+                </p>
+              </Link>
+              <Link
+                href="/products?view=no-price"
+                className="rounded-2xl border border-red-200 bg-red-50 p-4 transition hover:shadow-md"
+              >
+                <p className="text-sm font-medium text-red-800">Без прайса</p>
+                <p className="mt-1 text-2xl font-bold text-red-700">
+                  {data.noPriceCount}
+                </p>
+              </Link>
+              <Link
+                href="/products?view=out"
+                className="rounded-2xl border border-amber-200 bg-amber-50 p-4 transition hover:shadow-md"
+              >
+                <p className="text-sm font-medium text-amber-900">Нет в наличии</p>
+                <p className="mt-1 text-2xl font-bold text-amber-800">
+                  {data.outOfStockCount}
+                </p>
+              </Link>
+              <Link
+                href="/dashboard?tab=stock"
+                className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:shadow-md"
+              >
+                <p className="text-sm font-medium text-slate-800">Низкий остаток</p>
+                <p className="mt-1 text-2xl font-bold text-slate-900">
+                  {data.lowStockCount}
+                </p>
+              </Link>
+              {admin && data.unreadFeedback > 0 ? (
+                <Link
+                  href="/feedback"
+                  className="rounded-2xl border border-[var(--border)] bg-white p-4 transition hover:border-[var(--brand)] hover:shadow-md sm:col-span-2 xl:col-span-4"
+                >
+                  <p className="text-sm font-medium">Обратная связь</p>
+                  <p className="mt-1 text-lg font-bold text-[var(--brand)]">
+                    Непрочитанных: {data.unreadFeedback}
+                  </p>
+                </Link>
+              ) : null}
+            </div>
+
             <SalesChart
               initialData={salesChart}
               role={session.role}

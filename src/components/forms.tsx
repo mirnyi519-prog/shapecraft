@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ProductPhoto } from "@/components/product-photo";
 import { Button, Input, Textarea } from "@/components/ui";
 import {
@@ -766,6 +766,7 @@ export function SaleForm({
       options[0]?.id ??
       "",
   );
+  const [productQuery, setProductQuery] = useState("");
   const [quantity, setQuantity] = useState(
     initial ? String(initial.quantity) : "1",
   );
@@ -783,6 +784,33 @@ export function SaleForm({
   const skipPriceAutofill = useRef(isEdit);
 
   const selected = options.find((product) => product.id === productId);
+
+  const productMatches = useMemo(() => {
+    const q = productQuery.trim().toLowerCase().replace(/\s+/g, " ");
+    if (!q) {
+      return options.slice(0, 12);
+    }
+    const tokens = q.split(" ").filter(Boolean);
+    return options
+      .map((product) => {
+        const name = product.name.toLowerCase();
+        let score = 0;
+        for (const token of tokens) {
+          if (name.startsWith(token)) {
+            score += 3;
+          } else if (name.includes(token)) {
+            score += 1;
+          } else {
+            return { product, score: -1 };
+          }
+        }
+        return { product, score };
+      })
+      .filter((item) => item.score >= 0)
+      .sort((a, b) => b.score - a.score || a.product.name.localeCompare(b.product.name, "ru"))
+      .slice(0, 12)
+      .map((item) => item.product);
+  }, [options, productQuery]);
 
   useEffect(() => {
     if (!selected || settledOnlyNote || selected.listPrice == null) {
@@ -877,19 +905,53 @@ export function SaleForm({
       ) : null}
       <label className="block space-y-2">
         <span className="text-sm font-medium">Товар</span>
-        <select
-          className="w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base disabled:opacity-60"
-          value={productId}
-          disabled={settledOnlyNote || Boolean(defaultProductId && !isEdit)}
-          onChange={(event) => setProductId(event.target.value)}
-        >
-          {options.map((product) => (
-            <option key={product.id} value={product.id}>
-              {product.name} — остаток {product.stock}, прайс{" "}
-              {product.listPrice ?? "—"} ₽
-            </option>
-          ))}
-        </select>
+        {settledOnlyNote || Boolean(defaultProductId && !isEdit) ? (
+          <p className="rounded-xl border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-sm">
+            {selected?.name ?? "Товар"}
+          </p>
+        ) : (
+          <>
+            <Input
+              label="Поиск"
+              type="search"
+              value={productQuery}
+              onChange={(event) => setProductQuery(event.target.value)}
+              placeholder="Начните вводить название…"
+              autoComplete="off"
+            />
+            <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-[var(--border)] bg-white p-1">
+              {productMatches.length === 0 ? (
+                <p className="px-3 py-2 text-sm text-[var(--muted)]">
+                  Ничего не найдено
+                </p>
+              ) : (
+                productMatches.map((product) => {
+                  const active = product.id === productId;
+                  return (
+                    <button
+                      key={product.id}
+                      type="button"
+                      onClick={() => {
+                        setProductId(product.id);
+                        setProductQuery("");
+                      }}
+                      className={`flex w-full items-start justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition ${
+                        active
+                          ? "bg-[var(--brand-soft)] text-[var(--brand-dark)]"
+                          : "hover:bg-[var(--bg)]"
+                      }`}
+                    >
+                      <span className="min-w-0 font-medium">{product.name}</span>
+                      <span className="shrink-0 text-xs text-[var(--muted)]">
+                        {product.stock} шт · {product.listPrice ?? "—"} ₽
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </>
+        )}
       </label>
       {selected ? (
         <div className="flex items-center gap-4 rounded-xl bg-[var(--bg)] p-4">
