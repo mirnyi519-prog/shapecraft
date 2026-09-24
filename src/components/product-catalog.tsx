@@ -85,7 +85,7 @@ function ProductCard({
             }
             className="transition duration-300 group-hover:scale-[1.01]"
           />
-          <span className="absolute right-3 top-3">
+          <span className="absolute right-3 top-3 z-20 drop-shadow-md">
             <Badge
               tone={
                 product.stock === 0

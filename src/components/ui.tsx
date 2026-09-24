@@ -113,13 +113,15 @@ export function Badge({
   tone?: "neutral" | "success" | "warning";
 }) {
   const styles = {
-    neutral: "bg-[var(--bg)] text-[var(--text)]",
-    success: "bg-green-100 text-green-800",
-    warning: "bg-amber-100 text-amber-800",
+    neutral: "bg-white text-[var(--text)] ring-1 ring-black/10",
+    success: "bg-green-100 text-green-800 ring-1 ring-green-200/80",
+    warning: "bg-amber-100 text-amber-800 ring-1 ring-amber-200/80",
   };
 
   return (
-    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${styles[tone]}`}>
+    <span
+      className={`inline-flex rounded-full px-3 py-1 text-xs font-medium shadow-sm ${styles[tone]}`}
+    >
       {children}
     </span>
   );
