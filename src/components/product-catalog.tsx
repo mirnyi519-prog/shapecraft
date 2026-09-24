@@ -21,6 +21,49 @@ import { hasListPrice } from "@/lib/pricing";
 
 export type { CatalogProduct };
 
+type CatalogSort = "default" | "price-asc" | "price-desc" | "stock";
+
+const CATALOG_SORT_OPTIONS: { value: CatalogSort; label: string }[] = [
+  { value: "default", label: "По умолчанию" },
+  { value: "price-asc", label: "Дешевле" },
+  { value: "price-desc", label: "Дороже" },
+  { value: "stock", label: "По наличию" },
+];
+
+function sortCatalogProducts(
+  list: CatalogProduct[],
+  sort: CatalogSort,
+): CatalogProduct[] {
+  if (sort === "default") {
+    return list;
+  }
+
+  const ranked = [...list];
+  ranked.sort((a, b) => {
+    if (sort === "stock") {
+      if (a.stock !== b.stock) {
+        return b.stock - a.stock;
+      }
+      return a.name.localeCompare(b.name, "ru");
+    }
+
+    const aPriced = hasListPrice(a.listPrice);
+    const bPriced = hasListPrice(b.listPrice);
+    if (aPriced !== bPriced) {
+      return aPriced ? -1 : 1;
+    }
+    if (!aPriced) {
+      return a.name.localeCompare(b.name, "ru");
+    }
+    const diff = (a.listPrice as number) - (b.listPrice as number);
+    if (diff !== 0) {
+      return sort === "price-asc" ? diff : -diff;
+    }
+    return a.name.localeCompare(b.name, "ru");
+  });
+  return ranked;
+}
+
 function syncProductQuery(productId: string | null) {
   if (typeof window === "undefined") {
     return;
@@ -195,6 +238,7 @@ export function ProductCatalog({
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [sort, setSort] = useState<CatalogSort>("default");
   const [linkCopied, setLinkCopied] = useState(false);
 
   useScrollLock(Boolean(selected) || buyOpen || feedbackOpen);
@@ -282,14 +326,28 @@ export function ProductCatalog({
     );
   }, [selected?.id]);
 
-  const filteredProducts = useMemo(() => {
-    if (!categoryId) {
-      return products;
+  const highlightIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const product of newProducts) {
+      ids.add(product.id);
     }
-    return products.filter((product) =>
-      product.categories.some((category) => category.id === categoryId),
-    );
-  }, [products, categoryId]);
+    for (const product of popularProducts) {
+      ids.add(product.id);
+    }
+    return ids;
+  }, [newProducts, popularProducts]);
+
+  const filteredProducts = useMemo(() => {
+    let list = products;
+    if (categoryId) {
+      list = list.filter((product) =>
+        product.categories.some((category) => category.id === categoryId),
+      );
+    } else if (highlightIds.size > 0) {
+      list = list.filter((product) => !highlightIds.has(product.id));
+    }
+    return sortCatalogProducts(list, sort);
+  }, [products, categoryId, highlightIds, sort]);
 
   const priced = selected ? hasListPrice(selected.listPrice) : false;
   const ctaLabel = selected ? storefrontCtaLabel(selected) : "Купить";
@@ -309,7 +367,7 @@ export function ProductCatalog({
   return (
     <>
       {categories.length > 0 ? (
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             type="button"
             onClick={() => setCategoryId(null)}
@@ -360,23 +418,52 @@ export function ProductCatalog({
         </div>
       ) : null}
 
-      {filteredProducts.length > 0 ? (
+      {filteredProducts.length > 0 || products.length > 0 ? (
         <>
-          <h2 className="mb-4 text-lg font-semibold">
-            {categoryId
-              ? categories.find((item) => item.id === categoryId)?.name ?? "Раздел"
-              : `Все · ${catalogLineLabel}`}
-          </h2>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-7 xl:grid-cols-3">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                showCost={showCost}
-                onSelect={openProduct}
-              />
-            ))}
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-lg font-semibold">
+              {categoryId
+                ? (categories.find((item) => item.id === categoryId)?.name ??
+                  "Раздел")
+                : `Все · ${catalogLineLabel}`}
+            </h2>
+            <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
+              <span className="shrink-0">Сортировка</span>
+              <select
+                value={sort}
+                onChange={(event) =>
+                  setSort(event.target.value as CatalogSort)
+                }
+                className="min-h-10 rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm font-medium text-[var(--text)] outline-none transition focus:border-[var(--brand)]"
+              >
+                {CATALOG_SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
+          {filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-7 xl:grid-cols-3">
+              {filteredProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  showCost={showCost}
+                  onSelect={openProduct}
+                />
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <p className="text-[var(--muted)]">
+                {categoryId
+                  ? "В этом разделе пока нет позиций."
+                  : "Все позиции уже показаны в блоках выше."}
+              </p>
+            </Card>
+          )}
         </>
       ) : (
         <Card>

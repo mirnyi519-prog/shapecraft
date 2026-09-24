@@ -108,23 +108,23 @@ export default async function HomePage({
   const catalogLine = parseCatalogLine(params.line);
   const initialProductId = params.p?.trim() || null;
 
-  const [
-    products,
-    newProducts,
-    popularProducts,
-    categories,
-    banner,
-    worldBatch,
-    hoursConfig,
-  ] = await Promise.all([
+  const [products, newProducts] = await Promise.all([
     getActiveCatalogProducts(catalogLine),
-    getNewCatalogProducts(6, catalogLine),
-    getPopularCatalogProducts(6, catalogLine),
-    listActiveCategoriesForCatalogLine(catalogLine),
-    getActiveStoreBanner(),
-    getLatestWorldTrendBatchView(),
-    getStoreHoursConfig(),
+    getNewCatalogProducts(4, catalogLine),
   ]);
+
+  const [popularProducts, categories, banner, worldBatch, hoursConfig] =
+    await Promise.all([
+      getPopularCatalogProducts(
+        4,
+        catalogLine,
+        newProducts.map((product) => product.id),
+      ),
+      listActiveCategoriesForCatalogLine(catalogLine),
+      getActiveStoreBanner(),
+      getLatestWorldTrendBatchView(),
+      getStoreHoursConfig(),
+    ]);
 
   const worldTrendArticles = worldBatch?.articles ?? [];
   const lineLabel = CATALOG_LINE_LABELS[catalogLine];
@@ -137,6 +137,7 @@ export default async function HomePage({
         <CatalogLineToggle current={catalogLine} />
         {banner ? <StorefrontBanner banner={banner} /> : null}
         <ProductCatalog
+          key={catalogLine}
           products={products}
           categories={categories}
           newProducts={newProducts}

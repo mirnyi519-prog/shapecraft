@@ -188,9 +188,13 @@ export async function getNewCatalogProducts(
 export async function getPopularCatalogProducts(
   limit = 6,
   catalogLine?: CatalogLine,
+  excludeProductIds: string[] = [],
 ): Promise<CatalogProduct[]> {
-  const topSold = await getTopSoldProducts(limit);
-  const soldIds = topSold.map((item) => item.productId);
+  const excludeSet = new Set(excludeProductIds);
+  const topSold = await getTopSoldProducts(limit + excludeSet.size);
+  const soldIds = topSold
+    .map((item) => item.productId)
+    .filter((id) => !excludeSet.has(id));
 
   const soldProducts =
     soldIds.length > 0
@@ -212,7 +216,7 @@ export async function getPopularCatalogProducts(
     return ordered.slice(0, limit);
   }
 
-  const excludeIds = ordered.map((item) => item.id);
+  const excludeIds = [...excludeSet, ...ordered.map((item) => item.id)];
   const byViews = await prisma.product.findMany({
     where: {
       ...storefrontWhere(catalogLine),
