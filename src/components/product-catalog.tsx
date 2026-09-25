@@ -496,9 +496,9 @@ export function ProductCatalog({
                       : []
                 }
                 alt={selected.name}
-                frameClassName="aspect-[5/4] h-auto min-h-56 rounded-none sm:min-h-64 sm:rounded-t-3xl"
+                frameClassName="aspect-[5/4] h-auto min-h-48 rounded-none sm:aspect-square sm:min-h-0 sm:rounded-2xl"
               />
-              <div className="absolute right-3 top-3 z-20">
+              <div className="absolute right-3 top-3 z-20 sm:right-2 sm:top-2">
                 <ModalCloseButton onClick={closeProduct} />
               </div>
             </div>

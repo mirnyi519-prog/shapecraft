@@ -60,7 +60,57 @@ body {
   padding-left: env(safe-area-inset-left, 0px);
 }
 
-/* Карточка товара в низком ландшафте (iPhone горизонтально) */
+/* Карточка товара: на ПК и в низком ландшафте — фото слева, компактнее */
+@media (min-width: 640px) {
+  .product-dialog-sheet {
+    flex-direction: row !important;
+    max-height: min(85vh, 34rem) !important;
+    max-width: min(52rem, 100%) !important;
+    border-radius: 1.5rem !important;
+    align-items: stretch;
+  }
+
+  .product-dialog-photo {
+    display: flex;
+    width: 17.5rem;
+    flex-shrink: 0;
+    align-self: stretch;
+    border-right: 1px solid var(--border);
+  }
+
+  .product-dialog-photo > .space-y-3,
+  .product-dialog-photo > .h-full {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    box-sizing: border-box;
+  }
+
+  .product-dialog-photo .product-gallery-main {
+    aspect-ratio: 1 / 1 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    border-radius: 1rem !important;
+    flex: 1 1 auto;
+  }
+
+  .product-dialog-photo .product-gallery-thumbs {
+    display: flex;
+    flex-shrink: 0;
+  }
+
+  .product-dialog-photo .product-gallery-thumbs button {
+    height: 3rem;
+    width: 3rem;
+  }
+}
+
 @media (orientation: landscape) and (max-height: 500px) {
   .product-dialog-sheet {
     flex-direction: row !important;
@@ -72,9 +122,10 @@ body {
 
   .product-dialog-photo {
     display: flex;
-    width: min(42%, 20rem);
+    width: min(42%, 16rem);
     flex-shrink: 0;
     align-self: stretch;
+    border-right: 1px solid var(--border);
   }
 
   .product-dialog-photo > .space-y-3,
@@ -84,6 +135,8 @@ body {
     min-height: 0;
     flex: 1;
     flex-direction: column;
+    padding: 0.5rem;
+    box-sizing: border-box;
   }
 
   .product-dialog-photo .product-gallery-main {
@@ -91,7 +144,7 @@ body {
     height: 100% !important;
     min-height: 0 !important;
     max-height: none !important;
-    border-radius: 0 !important;
+    border-radius: 0.75rem !important;
     flex: 1;
   }
 
