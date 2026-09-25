@@ -39,7 +39,7 @@ export function BuyIntentModal({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center overscroll-none bg-black/50 p-3 sm:items-center sm:p-4"
+      className="safe-overlay fixed inset-0 z-[60] flex items-end justify-center overscroll-none bg-black/50 p-3 sm:items-center sm:p-4"
       onClick={onClose}
       role="presentation"
     >

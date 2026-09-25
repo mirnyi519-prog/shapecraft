@@ -38,17 +38,17 @@ export function ProductGallery({
   const current = list[safeIndex]!;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 h-full">
       <button
         type="button"
         onClick={() => setLightboxOpen(true)}
-        className="group relative block w-full cursor-zoom-in text-left"
+        className="group relative block h-full w-full cursor-zoom-in text-left"
         aria-label={`Открыть фото «${alt}» на весь экран`}
       >
         <ProductPhoto
           src={current}
           alt={alt}
-          frameClassName={frameClassName}
+          frameClassName={`product-gallery-main ${frameClassName}`}
         />
         <span className="pointer-events-none absolute bottom-3 right-3 z-20 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium text-white opacity-90 backdrop-blur-sm transition group-hover:opacity-100">
           <ExpandIcon />
@@ -56,7 +56,7 @@ export function ProductGallery({
         </span>
       </button>
       {list.length > 1 ? (
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="product-gallery-thumbs flex gap-2 overflow-x-auto pb-1">
           {list.map((url, i) => {
             const active = i === safeIndex;
             return (

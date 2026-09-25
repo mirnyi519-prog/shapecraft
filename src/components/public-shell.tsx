@@ -13,7 +13,7 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
   const loginBlocked = !session ? await isIpBlocked(ip) : false;
 
   return (
-    <div className="storefront-atmosphere min-h-[100dvh] text-[var(--text)]">
+    <div className="storefront-atmosphere text-[var(--text)]">
       <VisitBeacon enabled={!session} />
       <header className="sticky top-0 z-20 border-b border-[var(--border)]/70 bg-white/75 pt-[env(safe-area-inset-top,0px)] backdrop-blur-md">
         <div className="page-gutter mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-2 py-3 sm:py-3.5">

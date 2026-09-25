@@ -89,14 +89,14 @@ export function ProductLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex flex-col bg-black/95"
+      className="safe-overlay fixed inset-0 z-[80] flex flex-col bg-black/95"
       role="dialog"
       aria-modal="true"
       aria-label={`Фото: ${alt}`}
       onClick={onClose}
     >
       <div
-        className="flex items-center justify-between gap-3 pt-[max(0.75rem,env(safe-area-inset-top,0px))] pb-2 pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))]"
+        className="flex items-center justify-between gap-3 px-3 pb-2 pt-3"
         onClick={(event) => event.stopPropagation()}
       >
         <p className="min-w-0 truncate text-sm font-medium text-white/90">
@@ -118,7 +118,7 @@ export function ProductLightbox({
       </div>
 
       <div
-        className="relative flex min-h-0 flex-1 items-center justify-center px-[max(0.5rem,env(safe-area-inset-left,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]"
+        className="relative flex min-h-0 flex-1 items-center justify-center px-2"
         onClick={(event) => event.stopPropagation()}
         onTouchStart={(event) => {
           touchX.current = event.changedTouches[0]?.clientX ?? null;
@@ -158,7 +158,7 @@ export function ProductLightbox({
               type="button"
               onClick={goPrev}
               aria-label="Предыдущее фото"
-              className="absolute left-[max(0.25rem,env(safe-area-inset-left,0px))] top-1/2 hidden min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition hover:bg-white/25 sm:inline-flex"
+              className="absolute left-1 top-1/2 hidden min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition hover:bg-white/25 sm:inline-flex"
             >
               ‹
             </button>
@@ -166,7 +166,7 @@ export function ProductLightbox({
               type="button"
               onClick={goNext}
               aria-label="Следующее фото"
-              className="absolute right-[max(0.25rem,env(safe-area-inset-right,0px))] top-1/2 hidden min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition hover:bg-white/25 sm:inline-flex"
+              className="absolute right-1 top-1/2 hidden min-h-11 min-w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur transition hover:bg-white/25 sm:inline-flex"
             >
               ›
             </button>
@@ -182,7 +182,7 @@ export function ProductLightbox({
 
       {list.length > 1 ? (
         <div
-          className="flex justify-center gap-2 overflow-x-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2"
+          className="flex justify-center gap-2 overflow-x-auto px-4 pb-3 pt-2"
           onClick={(event) => event.stopPropagation()}
         >
           {list.map((url, i) => {
@@ -205,7 +205,7 @@ export function ProductLightbox({
           })}
         </div>
       ) : (
-        <div className="pb-[max(1rem,env(safe-area-inset-bottom,0px))]" />
+        <div className="pb-3" />
       )}
     </div>
   );

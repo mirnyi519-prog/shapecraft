@@ -18,6 +18,14 @@ type ScrollSnapshot = {
 let lockCount = 0;
 let snapshot: ScrollSnapshot | null = null;
 
+function applyLockGeometry() {
+  document.body.style.position = "fixed";
+  document.body.style.left = "0";
+  document.body.style.right = "0";
+  document.body.style.width = "100%";
+  document.body.style.maxWidth = "100%";
+}
+
 function lockScroll() {
   if (typeof document === "undefined") {
     return;
@@ -25,7 +33,10 @@ function lockScroll() {
 
   if (lockCount === 0) {
     const scrollY = window.scrollY;
-    const scrollbarGap = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+    const scrollbarGap = Math.max(
+      0,
+      window.innerWidth - document.documentElement.clientWidth,
+    );
 
     snapshot = {
       overflow: document.body.style.overflow,
@@ -43,11 +54,8 @@ function lockScroll() {
     document.documentElement.style.overflow = "hidden";
     document.documentElement.style.overscrollBehavior = "none";
     document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
     document.body.style.top = `-${scrollY}px`;
-    document.body.style.left = "0";
-    document.body.style.right = "0";
-    document.body.style.width = "100%";
+    applyLockGeometry();
     if (scrollbarGap > 0) {
       document.body.style.paddingRight = `${scrollbarGap}px`;
     }
@@ -71,6 +79,7 @@ function unlockScroll() {
     document.body.style.left = styles.left;
     document.body.style.right = styles.right;
     document.body.style.width = styles.width;
+    document.body.style.maxWidth = "";
     document.body.style.paddingRight = styles.paddingRight;
     snapshot = null;
     window.scrollTo(0, scrollY);
@@ -85,7 +94,21 @@ export function useScrollLock(locked: boolean) {
     }
 
     lockScroll();
+
+    function syncAfterRotate() {
+      if (lockCount === 0) {
+        return;
+      }
+      // После поворота iOS часто оставляет body шириной портрета
+      applyLockGeometry();
+    }
+
+    window.addEventListener("orientationchange", syncAfterRotate);
+    window.addEventListener("resize", syncAfterRotate);
+
     return () => {
+      window.removeEventListener("orientationchange", syncAfterRotate);
+      window.removeEventListener("resize", syncAfterRotate);
       unlockScroll();
     };
   }, [locked]);

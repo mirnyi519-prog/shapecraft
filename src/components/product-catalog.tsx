@@ -475,7 +475,7 @@ export function ProductCatalog({
 
       {selected ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center overscroll-none bg-black/55 p-0 sm:items-center sm:p-4"
+          className="safe-overlay fixed inset-0 z-50 flex items-end justify-center overscroll-none bg-black/55 p-0 sm:items-center sm:p-4"
           onClick={closeProduct}
           role="presentation"
         >
@@ -483,10 +483,10 @@ export function ProductCatalog({
             role="dialog"
             aria-modal="true"
             aria-labelledby="product-dialog-title"
-            className="flex max-h-[min(96vh,100dvh)] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border-0 bg-white shadow-2xl sm:rounded-3xl sm:border sm:border-[var(--border)]"
+            className="product-dialog-sheet flex max-h-[min(96vh,100dvh)] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl border-0 bg-white shadow-2xl sm:rounded-3xl sm:border sm:border-[var(--border)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="relative shrink-0">
+            <div className="product-dialog-photo relative shrink-0">
               <ProductGallery
                 images={
                   selected.imageUrls?.length
@@ -498,92 +498,94 @@ export function ProductCatalog({
                 alt={selected.name}
                 frameClassName="aspect-[5/4] h-auto min-h-56 rounded-none sm:min-h-64 sm:rounded-t-3xl"
               />
-              <div className="absolute right-3 top-3 z-20 pt-[env(safe-area-inset-top)]">
+              <div className="absolute right-3 top-3 z-20">
                 <ModalCloseButton onClick={closeProduct} />
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
-              <div>
-                <h2
-                  id="product-dialog-title"
-                  className="text-2xl font-bold tracking-tight sm:text-3xl"
-                >
-                  {selected.name}
-                </h2>
-                {selected.categories.length > 0 ? (
-                  <p className="mt-2 text-sm text-[var(--muted)]">
-                    {selected.categories
-                      .map((category) => category.name)
-                      .join(" · ")}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+                <div>
+                  <h2
+                    id="product-dialog-title"
+                    className="text-2xl font-bold tracking-tight sm:text-3xl"
+                  >
+                    {selected.name}
+                  </h2>
+                  {selected.categories.length > 0 ? (
+                    <p className="mt-2 text-sm text-[var(--muted)]">
+                      {selected.categories
+                        .map((category) => category.name)
+                        .join(" · ")}
+                    </p>
+                  ) : null}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {priced ? (
+                      <p className="text-2xl font-bold text-[var(--brand)]">
+                        {formatRub(selected.listPrice as number)}
+                      </p>
+                    ) : (
+                      <p className="text-lg font-semibold text-red-700">
+                        Цена уточняется
+                      </p>
+                    )}
+                    <Badge
+                      tone={
+                        selected.stock === 0
+                          ? selected.zeroStockMode === "soon"
+                            ? "neutral"
+                            : "warning"
+                          : selected.stock <= 2
+                            ? "neutral"
+                            : "success"
+                      }
+                    >
+                      {stockBadgeLabel(selected)}
+                    </Badge>
+                  </div>
+                </div>
+
+                {selected.description ? (
+                  <p className="whitespace-pre-wrap text-[var(--text)] leading-relaxed">
+                    {selected.description}
                   </p>
                 ) : null}
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {priced ? (
-                    <p className="text-2xl font-bold text-[var(--brand)]">
-                      {formatRub(selected.listPrice as number)}
-                    </p>
-                  ) : (
-                    <p className="text-lg font-semibold text-red-700">
-                      Цена уточняется
-                    </p>
-                  )}
-                  <Badge
-                    tone={
-                      selected.stock === 0
-                        ? selected.zeroStockMode === "soon"
-                          ? "neutral"
-                          : "warning"
-                        : selected.stock <= 2
-                          ? "neutral"
-                          : "success"
-                    }
-                  >
-                    {stockBadgeLabel(selected)}
-                  </Badge>
+
+                <div>
+                  <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                    Вес и габариты
+                  </h3>
+                  <ProductSpecsBlock product={selected} />
                 </div>
               </div>
 
-              {selected.description ? (
-                <p className="whitespace-pre-wrap text-[var(--text)] leading-relaxed">
-                  {selected.description}
-                </p>
-              ) : null}
-
-              <div>
-                <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                  Вес и габариты
-                </h3>
-                <ProductSpecsBlock product={selected} />
-              </div>
-            </div>
-
-            <div className="sticky bottom-0 space-y-2 border-t border-[var(--border)] bg-white/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
-              <Button
-                type="button"
-                className="min-h-12 w-full text-base"
-                onClick={() => void handleBuyClick()}
-              >
-                {ctaLabel}
-                {priced ? ` · ${formatRub(selected.listPrice as number)}` : ""}
-              </Button>
-              <div className="flex gap-2">
+              <div className="shrink-0 space-y-2 border-t border-[var(--border)] bg-white/95 p-4 backdrop-blur">
                 <Button
                   type="button"
-                  variant="secondary"
-                  className="min-h-11 flex-1"
-                  onClick={() => void handleCopyLink()}
+                  className="min-h-12 w-full text-base"
+                  onClick={() => void handleBuyClick()}
                 >
-                  {linkCopied ? "Скопировано" : "Ссылка"}
+                  {ctaLabel}
+                  {priced ? ` · ${formatRub(selected.listPrice as number)}` : ""}
                 </Button>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="min-h-11 flex-1"
-                  onClick={() => setFeedbackOpen(true)}
-                >
-                  Написать нам
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="min-h-11 flex-1"
+                    onClick={() => void handleCopyLink()}
+                  >
+                    {linkCopied ? "Скопировано" : "Ссылка"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="min-h-11 flex-1"
+                    onClick={() => setFeedbackOpen(true)}
+                  >
+                    Написать нам
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
