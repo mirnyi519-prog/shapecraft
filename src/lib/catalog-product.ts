@@ -5,6 +5,7 @@ import type { CatalogLine } from "@/lib/catalog-line";
 import type { ZeroStockMode } from "@/lib/buy-intent";
 import { parseZeroStockMode } from "@/lib/buy-intent";
 import { resolveProductImageList } from "@/lib/product-images";
+import { heldQuantityByProduct } from "@/lib/product-holds";
 
 export const catalogProductSelect = {
   id: true,
@@ -42,6 +43,8 @@ export type CatalogProduct = {
   imageUrls: string[];
   listPrice: number | null;
   stock: number;
+  /** Свободно на витрине: склад минус активные брони. */
+  availableStock: number;
   catalogLine?: string;
   zeroStockMode: ZeroStockMode;
   weightGrams: number | null;
@@ -102,6 +105,7 @@ function mapProduct(product: DbProduct): CatalogProduct {
     imageUrls,
     listPrice: product.listPrice,
     stock: product.stock,
+    availableStock: product.stock,
     catalogLine: product.catalogLine,
     zeroStockMode: parseZeroStockMode(product.zeroStockMode),
     weightGrams: product.weightGrams,
@@ -122,12 +126,33 @@ function mapProduct(product: DbProduct): CatalogProduct {
   };
 }
 
+export function availableStockOf(product: {
+  stock: number;
+  availableStock?: number;
+}): number {
+  const value = product.availableStock ?? product.stock;
+  return Math.max(0, value);
+}
+
+/** На складе есть, но всё занято бронью. */
+export function isFullyHeld(product: {
+  stock: number;
+  availableStock?: number;
+}): boolean {
+  return product.stock > 0 && availableStockOf(product) === 0;
+}
+
 export function stockBadgeLabel(product: {
   stock: number;
+  availableStock?: number;
   zeroStockMode?: ZeroStockMode | string;
 }): string {
-  if (product.stock > 0) {
-    return `${product.stock} шт`;
+  const free = availableStockOf(product);
+  if (free > 0) {
+    return `${free} шт`;
+  }
+  if (isFullyHeld(product)) {
+    return "В брони";
   }
   const mode = parseZeroStockMode(product.zeroStockMode);
   if (mode === "soon") {
@@ -138,10 +163,15 @@ export function stockBadgeLabel(product: {
 
 export function stockBadgeShort(product: {
   stock: number;
+  availableStock?: number;
   zeroStockMode?: ZeroStockMode | string;
 }): string {
-  if (product.stock > 0) {
-    return `${product.stock} шт`;
+  const free = availableStockOf(product);
+  if (free > 0) {
+    return `${free} шт`;
+  }
+  if (isFullyHeld(product)) {
+    return "В брони";
   }
   const mode = parseZeroStockMode(product.zeroStockMode);
   return mode === "soon" ? "Скоро" : "Нет";
@@ -150,13 +180,27 @@ export function stockBadgeShort(product: {
 /** Текст основной кнопки в карточке товара на витрине. */
 export function storefrontCtaLabel(product: {
   stock: number;
+  availableStock?: number;
   zeroStockMode?: ZeroStockMode | string;
 }): string {
-  if (product.stock > 0) {
+  if (availableStockOf(product) > 0) {
     return "Купить";
+  }
+  if (isFullyHeld(product)) {
+    return "В брони";
   }
   const mode = parseZeroStockMode(product.zeroStockMode);
   return mode === "soon" ? "Предзаказ" : "Уточнить";
+}
+
+async function withAvailableStock(
+  products: CatalogProduct[],
+): Promise<CatalogProduct[]> {
+  const held = await heldQuantityByProduct(products.map((item) => item.id));
+  return products.map((product) => ({
+    ...product,
+    availableStock: Math.max(0, product.stock - (held.get(product.id) ?? 0)),
+  }));
 }
 
 export async function getActiveCatalogProducts(
@@ -168,7 +212,7 @@ export async function getActiveCatalogProducts(
     select: catalogProductSelect,
   });
 
-  return products.map(mapProduct);
+  return withAvailableStock(products.map(mapProduct));
 }
 
 export async function getNewCatalogProducts(
@@ -182,7 +226,7 @@ export async function getNewCatalogProducts(
     select: catalogProductSelect,
   });
 
-  return products.map(mapProduct);
+  return withAvailableStock(products.map(mapProduct));
 }
 
 export async function getPopularCatalogProducts(
@@ -213,7 +257,7 @@ export async function getPopularCatalogProducts(
     .filter((item): item is CatalogProduct => Boolean(item));
 
   if (ordered.length >= limit) {
-    return ordered.slice(0, limit);
+    return withAvailableStock(ordered.slice(0, limit));
   }
 
   const excludeIds = [...excludeSet, ...ordered.map((item) => item.id)];
@@ -227,5 +271,5 @@ export async function getPopularCatalogProducts(
     select: catalogProductSelect,
   });
 
-  return [...ordered, ...byViews.map(mapProduct)];
+  return withAvailableStock([...ordered, ...byViews.map(mapProduct)]);
 }

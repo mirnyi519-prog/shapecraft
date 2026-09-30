@@ -45,6 +45,7 @@ model Product {
   feedbackMessages FeedbackMessage[]
   categories       ProductCategory[]
   buyClicks        ProductBuyClick[]
+  holds            ProductHold[]
   images           ProductImage[]
   packagingId      String?
   packaging        Packaging?        @relation(fields: [packagingId], references: [id], onDelete: SetNull)
@@ -207,6 +208,26 @@ model SiteVisit {
   @@index([ipAddress])
   @@index([visitedAt])
   @@index([visitorId])
+}
+
+/// Бронь на витрине: 1 шт на 2 часа, остаток на складе не списывается.
+model ProductHold {
+  id          String    @id @default(cuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  phone       String
+  quantity    Int       @default(1)
+  visitorId   String?
+  ipAddress   String?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  releasedAt  DateTime?
+  /// sold | cancelled
+  releaseReason String?
+
+  @@index([productId, expiresAt])
+  @@index([phone, productId])
+  @@index([expiresAt])
 }
 
 model ProductBuyClick {

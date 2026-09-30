@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ActiveHoldsPanel } from "@/components/active-holds-panel";
 import { AppShell } from "@/components/app-shell";
 import { PriceListPrint } from "@/components/price-list-print";
 import { ProductThumb } from "@/components/product-thumb";
@@ -201,6 +202,8 @@ export default async function DashboardPage({
             );
           })}
         </div>
+
+        <ActiveHoldsPanel />
 
         {tab === "period" ? (
           <section className="space-y-6">

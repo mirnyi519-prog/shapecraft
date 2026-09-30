@@ -8,7 +8,12 @@ import { Badge } from "@/components/ui";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
 import { formatDateTime, formatRub } from "@/lib/calculations";
 import type { CatalogProduct } from "@/lib/catalog-product";
-import { stockBadgeLabel, stockBadgeShort } from "@/lib/catalog-product";
+import {
+  availableStockOf,
+  isFullyHeld,
+  stockBadgeLabel,
+  stockBadgeShort,
+} from "@/lib/catalog-product";
 import { hasListPrice } from "@/lib/pricing";
 
 export function DisplayCatalog({ products }: { products: CatalogProduct[] }) {
@@ -71,11 +76,11 @@ export function DisplayCatalog({ products }: { products: CatalogProduct[] }) {
                     <h2 className="text-2xl font-bold">{product.name}</h2>
                     <Badge
                       tone={
-                        product.stock === 0
-                          ? product.zeroStockMode === "soon"
-                            ? "neutral"
-                            : "warning"
-                          : product.stock <= 2
+                        availableStockOf(product) === 0
+                          ? isFullyHeld(product) || product.zeroStockMode !== "soon"
+                            ? "warning"
+                            : "neutral"
+                          : availableStockOf(product) <= 2
                             ? "neutral"
                             : "success"
                       }
@@ -117,11 +122,11 @@ export function DisplayCatalog({ products }: { products: CatalogProduct[] }) {
                 <div className="mt-2">
                   <Badge
                     tone={
-                      selected.stock === 0
-                        ? selected.zeroStockMode === "soon"
-                          ? "neutral"
-                          : "warning"
-                        : selected.stock <= 2
+                      availableStockOf(selected) === 0
+                        ? isFullyHeld(selected) || selected.zeroStockMode !== "soon"
+                          ? "warning"
+                          : "neutral"
+                        : availableStockOf(selected) <= 2
                           ? "neutral"
                           : "success"
                     }

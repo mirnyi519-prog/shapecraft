@@ -5,6 +5,7 @@ import {
 } from "@/lib/auth";
 import { calculateSaleSplit } from "@/lib/calculations";
 import { prisma } from "@/lib/db";
+import { releaseHoldsForSale } from "@/lib/product-holds";
 import { notifyTelegramSale } from "@/lib/telegram";
 
 export async function GET() {
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
         where: { id: product.id },
         data: { stock: { decrement: quantity } },
       });
+      await releaseHoldsForSale(tx, product.id, quantity);
 
       return created;
     });

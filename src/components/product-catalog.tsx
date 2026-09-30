@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { BuyIntentModal } from "@/components/buy-intent-modal";
 import { FeedbackModal } from "@/components/feedback-modal";
 import { ModalCloseButton } from "@/components/modal-close-button";
@@ -13,6 +14,8 @@ import { formatRub } from "@/lib/calculations";
 import type { CatalogCategory } from "@/lib/categories";
 import type { CatalogProduct } from "@/lib/catalog-product";
 import {
+  availableStockOf,
+  isFullyHeld,
   stockBadgeLabel,
   stockBadgeShort,
   storefrontCtaLabel,
@@ -41,8 +44,10 @@ function sortCatalogProducts(
   const ranked = [...list];
   ranked.sort((a, b) => {
     if (sort === "stock") {
-      if (a.stock !== b.stock) {
-        return b.stock - a.stock;
+      const aFree = availableStockOf(a);
+      const bFree = availableStockOf(b);
+      if (aFree !== bFree) {
+        return bFree - aFree;
       }
       return a.name.localeCompare(b.name, "ru");
     }
@@ -131,11 +136,11 @@ function ProductCard({
           <span className="absolute right-3 top-3 z-20 drop-shadow-md">
             <Badge
               tone={
-                product.stock === 0
-                  ? product.zeroStockMode === "soon"
-                    ? "neutral"
-                    : "warning"
-                  : product.stock <= 2
+                availableStockOf(product) === 0
+                  ? isFullyHeld(product) || product.zeroStockMode !== "soon"
+                    ? "warning"
+                    : "neutral"
+                  : availableStockOf(product) <= 2
                     ? "neutral"
                     : "success"
               }
@@ -234,6 +239,7 @@ export function ProductCatalog({
   catalogLineLabel?: string;
   initialProductId?: string | null;
 }) {
+  const router = useRouter();
   const [selected, setSelected] = useState<CatalogProduct | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
@@ -242,6 +248,20 @@ export function ProductCatalog({
   const [linkCopied, setLinkCopied] = useState(false);
 
   useScrollLock(Boolean(selected) || buyOpen || feedbackOpen);
+
+  useEffect(() => {
+    if (!selected) {
+      return;
+    }
+    const fresh = findCatalogProduct(selected.id, [
+      products,
+      newProducts,
+      popularProducts,
+    ]);
+    if (fresh && fresh.availableStock !== selected.availableStock) {
+      setSelected(fresh);
+    }
+  }, [products, newProducts, popularProducts, selected]);
 
   function openProduct(product: CatalogProduct) {
     setFeedbackOpen(false);
@@ -529,17 +549,17 @@ export function ProductCatalog({
                         Цена уточняется
                       </p>
                     )}
-                    <Badge
-                      tone={
-                        selected.stock === 0
-                          ? selected.zeroStockMode === "soon"
-                            ? "neutral"
-                            : "warning"
-                          : selected.stock <= 2
-                            ? "neutral"
-                            : "success"
-                      }
-                    >
+                  <Badge
+                    tone={
+                      availableStockOf(selected) === 0
+                        ? isFullyHeld(selected) || selected.zeroStockMode !== "soon"
+                          ? "warning"
+                          : "neutral"
+                        : availableStockOf(selected) <= 2
+                          ? "neutral"
+                          : "success"
+                    }
+                  >
                       {stockBadgeLabel(selected)}
                     </Badge>
                   </div>
@@ -601,9 +621,12 @@ export function ProductCatalog({
 
       <BuyIntentModal
         open={buyOpen}
+        productId={selected?.id}
         productName={selected?.name}
+        canReserve={selected ? availableStockOf(selected) > 0 : false}
         title={ctaLabel}
         onClose={() => setBuyOpen(false)}
+        onReserved={() => router.refresh()}
       />
     </>
   );
