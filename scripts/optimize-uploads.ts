@@ -14,11 +14,25 @@ import { loadProjectEnv } from "./load-env";
 loadProjectEnv();
 
 import { prisma } from "../src/lib/db";
+import {
+  ensureCardVariant,
+  shrinkAnimatedGif,
+  stillWebpPoster,
+} from "../src/lib/image-variants";
 import { optimizeImageBuffer } from "../src/lib/optimize-image";
 import { getUploadsDir } from "../src/lib/upload";
 
-const SKIP_EXT = new Set([".gif", ".svg", ".mp4", ".webm", ".mov"]);
-const IMAGE_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"]);
+const SKIP_EXT = new Set([".svg", ".mp4", ".webm", ".mov"]);
+const IMAGE_EXT = new Set([
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".gif",
+  ".bmp",
+  ".tif",
+  ".tiff",
+]);
 
 function mediaUrl(filename: string): string {
   return `/api/media/${filename}`;
@@ -82,7 +96,7 @@ async function main() {
 
   for (const name of entries) {
     const ext = path.extname(name).toLowerCase();
-    if (SKIP_EXT.has(ext) || !IMAGE_EXT.has(ext)) {
+    if (name.endsWith(".card.webp") || SKIP_EXT.has(ext) || !IMAGE_EXT.has(ext)) {
       skipped += 1;
       continue;
     }
@@ -100,29 +114,59 @@ async function main() {
 
     const input = await readFile(filePath);
     const before = input.length;
-    const optimized = await optimizeImageBuffer(input);
+    const isWorldGif = ext === ".gif" && name.startsWith("world-");
+    const isProductGif = ext === ".gif" && !isWorldGif;
 
-    if (optimized.skipped) {
-      console.log(`skip  ${name} (${optimized.reason}, ${before} B)`);
+    let nextBuffer: Buffer = input;
+    let newName = name;
+    let changed = false;
+
+    if (isWorldGif) {
+      nextBuffer = Buffer.from(await stillWebpPoster(input));
+      newName = `${path.basename(name, ext)}.webp`;
+      changed = true;
+    } else if (isProductGif) {
+      nextBuffer = Buffer.from(await shrinkAnimatedGif(input));
+      changed = nextBuffer.length < before;
+    } else {
+      const optimized = await optimizeImageBuffer(input);
+      if (!optimized.skipped) {
+        nextBuffer = Buffer.from(optimized.buffer);
+        newName =
+          ext === ".webp"
+            ? name
+            : `${path.basename(name, ext)}${optimized.extension}`;
+        changed = true;
+      }
+    }
+
+    const after = nextBuffer.length;
+    const newPath = path.join(uploadDir, newName);
+
+    if (!changed) {
+      console.log(`skip  ${name} (${before} B)`);
       skipped += 1;
+      if (!dryRun) {
+        try {
+          await ensureCardVariant(filePath);
+        } catch (error) {
+          console.error("card", name, error);
+        }
+      }
       continue;
     }
 
-    const after = optimized.buffer.length;
-    const newName =
-      ext === ".webp"
-        ? name
-        : `${path.basename(name, ext)}${optimized.extension}`;
-    const newPath = path.join(uploadDir, newName);
-    const fromUrl = mediaUrl(name);
-    const toUrl = mediaUrl(newName);
-
     console.log(
-      `${dryRun ? "would " : ""}opt   ${name} → ${newName}  ${before} → ${after} B (−${Math.round((1 - after / before) * 100)}%)`,
+      `${dryRun ? "would " : ""}${isWorldGif ? "poster" : "opt   "} ${name} → ${newName}  ${before} → ${after} B (−${Math.round((1 - after / before) * 100)}%)`,
     );
 
     if (!dryRun) {
-      await writeFile(newPath, optimized.buffer);
+      await writeFile(newPath, nextBuffer);
+      try {
+        await unlink(`${filePath}.card.webp`);
+      } catch {
+        // кэша карточки ещё нет
+      }
       if (newName !== name) {
         try {
           await unlink(filePath);
@@ -130,9 +174,15 @@ async function main() {
           // ignore
         }
       }
+      const fromUrl = mediaUrl(name);
+      const toUrl = mediaUrl(newName);
       dbHits += await replaceUrlEverywhere(fromUrl, toUrl);
-      // legacy path without /api
       dbHits += await replaceUrlEverywhere(`/uploads/${name}`, toUrl);
+      try {
+        await ensureCardVariant(newPath);
+      } catch (error) {
+        console.error("card", newName, error);
+      }
     }
 
     savedBytes += before - after;

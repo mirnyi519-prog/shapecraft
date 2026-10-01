@@ -70,6 +70,7 @@ export function DisplayCatalog({ products }: { products: CatalogProduct[] }) {
                   <ProductPhoto
                     src={product.imageUrl}
                     alt={product.name}
+                    variant="card"
                     frameClassName="aspect-[4/3] h-auto min-h-52"
                   />
                   <div className="mt-4 flex items-start justify-between gap-3">

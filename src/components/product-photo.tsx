@@ -1,3 +1,5 @@
+import { cardMediaUrl } from "@/lib/image-variants";
+
 type ProductPhotoProps = {
   src: string | null | undefined;
   alt: string;
@@ -6,6 +8,8 @@ type ProductPhotoProps = {
   frameClassName?: string;
   /** Для LCP-картинки (баннер / первый экран). */
   priority?: boolean;
+  /** card — уменьшенная копия для сетки; full — исходник для просмотра. */
+  variant?: "card" | "full";
 };
 
 /**
@@ -18,22 +22,25 @@ export function ProductPhoto({
   className = "",
   frameClassName = "h-48",
   priority = false,
+  variant = "full",
 }: ProductPhotoProps) {
+  const displaySrc = variant === "card" ? (cardMediaUrl(src) ?? src) : src;
+
   return (
     <div
       className={`relative overflow-hidden rounded-xl bg-[var(--brand-soft)]/35 ${frameClassName} ${className}`}
     >
-      {src ? (
+      {displaySrc ? (
         <>
           <div
             aria-hidden
             className="absolute inset-0 scale-110 bg-cover bg-center opacity-35 blur-xl"
-            style={{ backgroundImage: `url(${JSON.stringify(src)})` }}
+            style={{ backgroundImage: `url(${JSON.stringify(displaySrc)})` }}
           />
           <div className="absolute inset-0 bg-white/25" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={src}
+            src={displaySrc}
             alt={alt}
             loading={priority ? "eager" : "lazy"}
             decoding="async"

@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { prisma } from "@/lib/db";
+import { stillWebpPoster } from "@/lib/image-variants";
 import { optimizeImageBuffer } from "@/lib/optimize-image";
 import { getUploadsDir } from "@/lib/upload";
 import {
@@ -167,7 +168,18 @@ async function saveRemoteImage(
       return null;
     }
 
-    const optimized = await optimizeImageBuffer(buffer, contentType);
+    const isGif =
+      contentType === "image/gif" ||
+      (buffer.length >= 6 &&
+        buffer[0] === 0x47 &&
+        buffer[1] === 0x49 &&
+        buffer[2] === 0x46);
+    const optimized = isGif
+      ? {
+          buffer: await stillWebpPoster(buffer),
+          extension: ".webp",
+        }
+      : await optimizeImageBuffer(buffer, contentType);
     const uploadDir = getUploadsDir();
     await mkdir(uploadDir, { recursive: true });
     const filename = `world-${filenameStem}${optimized.extension}`;

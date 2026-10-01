@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { cardMediaUrl } from "@/lib/image-variants";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
@@ -26,13 +26,13 @@ function ArticleCard({
     <Card className="h-full overflow-hidden p-0">
       <div className="relative aspect-[4/3] bg-[var(--brand-soft)]">
         {article.imageUrl ? (
-          <Image
-            src={article.imageUrl}
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={cardMediaUrl(article.imageUrl) ?? article.imageUrl}
             alt={article.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 33vw"
-            unoptimized
+            className="absolute inset-0 h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
           />
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[var(--muted)]">

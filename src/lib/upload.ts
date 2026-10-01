@@ -1,6 +1,7 @@
 import { put } from "@vercel/blob";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import { shrinkAnimatedGif } from "@/lib/image-variants";
 import { optimizeImageBuffer } from "@/lib/optimize-image";
 
 const MIME_TO_EXT: Record<string, string> = {
@@ -49,9 +50,16 @@ export async function saveUploadedImage(
 
   if (!options?.skipOptimize) {
     const optimized = await optimizeImageBuffer(buffer, mimeType);
-    outBuffer = optimized.buffer;
-    outMime = optimized.mimeType;
-    ext = optimized.extension;
+    if (optimized.extension === ".gif" || optimized.reason === "gif" || optimized.reason === "animated") {
+      const smaller = await shrinkAnimatedGif(optimized.buffer);
+      outBuffer = smaller;
+      outMime = "image/gif";
+      ext = ".gif";
+    } else {
+      outBuffer = optimized.buffer;
+      outMime = optimized.mimeType;
+      ext = optimized.extension;
+    }
   }
 
   const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;

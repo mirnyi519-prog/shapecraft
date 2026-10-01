@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
+import { cardMediaUrl } from "@/lib/image-variants";
 
 type ProductLightboxProps = {
   images: string[];
@@ -199,7 +200,11 @@ export function ProductLightbox({
                 aria-current={active ? "true" : undefined}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="" className="h-full w-full object-cover" />
+                <img
+                  src={cardMediaUrl(url) ?? url}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
               </button>
             );
           })}

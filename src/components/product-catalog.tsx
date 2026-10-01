@@ -126,6 +126,7 @@ function ProductCard({
           <ProductPhoto
             src={product.imageUrl}
             alt={product.name}
+            variant="card"
             frameClassName={
               compact
                 ? "aspect-[4/3] h-auto min-h-36 rounded-3xl"

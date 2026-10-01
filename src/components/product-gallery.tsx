@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ProductLightbox } from "@/components/product-lightbox";
 import { ProductPhoto } from "@/components/product-photo";
+import { cardMediaUrl } from "@/lib/image-variants";
 
 type ProductGalleryProps = {
   images: string[];
@@ -74,7 +75,7 @@ export function ProductGallery({
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={url}
+                  src={cardMediaUrl(url) ?? url}
                   alt=""
                   className="h-full w-full object-cover"
                 />
