@@ -60,6 +60,13 @@ body {
   padding-left: env(safe-area-inset-left, 0px);
 }
 
+/* Два баннера входа: в горизонте телефона оба видны без огромной высоты */
+@media (orientation: landscape) and (max-height: 520px) {
+  .gate-mosaic {
+    height: 7.5rem;
+  }
+}
+
 /* Карточка товара: на ПК и в низком ландшафте — фото слева, компактнее */
 @media (min-width: 640px) {
   .product-dialog-sheet {

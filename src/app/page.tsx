@@ -5,13 +5,16 @@ import { FeedbackForm } from "@/components/feedback-form";
 import { LocationBlock } from "@/components/location-block";
 import { PublicShell } from "@/components/public-shell";
 import { StorefrontBanner } from "@/components/storefront-banner";
+import { StorefrontGate, type GatePhoto } from "@/components/storefront-gate";
 import { StorefrontHero } from "@/components/storefront-hero";
 import { WorldTrendsStrip } from "@/components/world-trends-strip";
 import { getActiveStoreBanner } from "@/lib/banner";
 import { listActiveCategoriesForCatalogLine } from "@/lib/categories-data";
 import {
   CATALOG_LINE_LABELS,
+  isCatalogLine,
   parseCatalogLine,
+  type CatalogLine,
 } from "@/lib/catalog-line";
 import {
   getActiveCatalogProducts,
@@ -25,6 +28,39 @@ import { hasListPrice } from "@/lib/pricing";
 import { getStoreHoursConfig } from "@/lib/store-settings";
 import { getPublicSiteUrl } from "@/lib/telegram";
 import { getLatestWorldTrendBatchView } from "@/lib/world-trends-data";
+
+async function lineCoverPhotos(line: CatalogLine): Promise<GatePhoto[]> {
+  const products = await prisma.product.findMany({
+    where: {
+      active: true,
+      catalogLine: line,
+      NOT: {
+        AND: [{ stock: { lte: 0 } }, { zeroStockMode: "hide" }],
+      },
+    },
+    orderBy: [{ stock: "desc" }, { name: "asc" }],
+    take: 16,
+    select: {
+      id: true,
+      name: true,
+      imageUrl: true,
+      images: {
+        orderBy: { sortOrder: "asc" },
+        take: 1,
+        select: { url: true },
+      },
+    },
+  });
+
+  return products
+    .map((product) => ({
+      id: product.id,
+      name: product.name,
+      imageUrl: product.images[0]?.url || product.imageUrl || "",
+    }))
+    .filter((product) => product.imageUrl.trim())
+    .slice(0, 5);
+}
 
 function absoluteMediaUrl(url: string | null | undefined): string | null {
   if (!url?.trim()) {
@@ -105,8 +141,30 @@ export default async function HomePage({
   searchParams: Promise<{ line?: string; p?: string }>;
 }) {
   const params = await searchParams;
-  const catalogLine = parseCatalogLine(params.line);
+  const rawLine = Array.isArray(params.line) ? params.line[0] : params.line;
   const initialProductId = params.p?.trim() || null;
+  let catalogLine: CatalogLine | null = isCatalogLine(rawLine) ? rawLine : null;
+
+  if (!catalogLine && initialProductId) {
+    const linked = await prisma.product.findFirst({
+      where: { id: initialProductId, active: true },
+      select: { catalogLine: true },
+    });
+    catalogLine = parseCatalogLine(linked?.catalogLine);
+  }
+
+  if (!catalogLine) {
+    const [souvenir, home] = await Promise.all([
+      lineCoverPhotos("souvenir"),
+      lineCoverPhotos("home"),
+    ]);
+
+    return (
+      <PublicShell>
+        <StorefrontGate covers={{ souvenir, home }} />
+      </PublicShell>
+    );
+  }
 
   const [products, newProducts] = await Promise.all([
     getActiveCatalogProducts(catalogLine),

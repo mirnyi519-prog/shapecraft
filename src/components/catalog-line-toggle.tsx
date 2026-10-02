@@ -20,10 +20,7 @@ export function CatalogLineToggle({
       >
         {CATALOG_LINES.map((line) => {
           const active = current === line;
-          const href =
-            line === "souvenir"
-              ? basePath
-              : `${basePath}${basePath.includes("?") ? "&" : "?"}line=${line}`;
+          const href = `${basePath}${basePath.includes("?") ? "&" : "?"}line=${line}`;
 
           return (
             <Link
