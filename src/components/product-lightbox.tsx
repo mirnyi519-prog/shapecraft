@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
-import { cardMediaUrl } from "@/lib/image-variants";
+import { cardMediaUrl } from "@/lib/card-media-url";
 
 type ProductLightboxProps = {
   images: string[];

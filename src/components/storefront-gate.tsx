@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { cardMediaUrl } from "@/lib/image-variants";
+import { cardMediaUrl } from "@/lib/card-media-url";
 import {
   CATALOG_LINE_LABELS,
   type CatalogLine,

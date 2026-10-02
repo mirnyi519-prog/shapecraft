@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ProductLightbox } from "@/components/product-lightbox";
 import { ProductPhoto } from "@/components/product-photo";
-import { cardMediaUrl } from "@/lib/image-variants";
+import { cardMediaUrl } from "@/lib/card-media-url";
 
 type ProductGalleryProps = {
   images: string[];

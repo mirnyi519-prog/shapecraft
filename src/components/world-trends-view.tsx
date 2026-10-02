@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { cardMediaUrl } from "@/lib/image-variants";
+import { cardMediaUrl } from "@/lib/card-media-url";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";

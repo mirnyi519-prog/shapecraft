@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
-import { cardMediaUrl } from "@/lib/image-variants";
+import { cardMediaUrl } from "@/lib/card-media-url";
 import {
   WORLD_TIER_HINTS,
   WORLD_TIER_LABELS,

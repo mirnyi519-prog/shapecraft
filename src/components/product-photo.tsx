@@ -1,4 +1,4 @@
-import { cardMediaUrl } from "@/lib/image-variants";
+import { cardMediaUrl } from "@/lib/card-media-url";
 
 type ProductPhotoProps = {
   src: string | null | undefined;
