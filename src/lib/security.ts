@@ -52,10 +52,7 @@ export function tooManyRequests(
   );
 }
 
-/** Максимальный размер загружаемого изображения */
-export const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
-/** Видео для автоконвертации в GIF (входной файл). */
-export const MAX_VIDEO_UPLOAD_BYTES = 40 * 1024 * 1024;
+export { MAX_UPLOAD_BYTES, MAX_VIDEO_UPLOAD_BYTES } from "@/lib/upload-limits";
 
 
 export {

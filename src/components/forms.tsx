@@ -18,6 +18,10 @@ import {
 } from "@/lib/buy-intent";
 import { MAX_PRODUCT_IMAGES } from "@/lib/product-images";
 import {
+  MAX_UPLOAD_BYTES,
+  MAX_VIDEO_UPLOAD_BYTES,
+} from "@/lib/upload-limits";
+import {
   packagingRecommendHint,
   suggestPackagingCode,
   type PackagingCode,
@@ -25,6 +29,21 @@ import {
 } from "@/lib/packaging";
 
 export { LoginForm } from "@/components/login-form";
+
+/** Имя только из латиницы: кириллица в имени файла ломает разбор multipart. */
+function fileForUpload(file: File, video: boolean): File {
+  const original = file.name?.trim() || "";
+  const extMatch = original.match(
+    video ? /\.(mp4|webm|mov|m4v)$/i : /\.(png|jpe?g|webp|gif)$/i,
+  );
+  const ext = (extMatch?.[0] ?? (video ? ".mp4" : ".jpg")).toLowerCase();
+  if (original && original !== "blob" && /^[\w.-]+$/.test(original)) {
+    return file;
+  }
+  return new File([file], `${video ? "video" : "photo"}-${Date.now()}${ext}`, {
+    type: file.type || (video ? "video/mp4" : "image/jpeg"),
+  });
+}
 
 export function ProductForm({
   initial,
@@ -141,17 +160,23 @@ export function ProductForm({
       return currentUrls;
     }
 
+    if (looksLikeVideo && file.size > MAX_VIDEO_UPLOAD_BYTES) {
+      setError(
+        "Видео слишком большое (макс. 40 МБ). На телефоне выберите более короткий ролик.",
+      );
+      return currentUrls;
+    }
+
+    if (looksLikeImage && file.size > MAX_UPLOAD_BYTES) {
+      setError("Файл слишком большой (макс. 8 МБ)");
+      return currentUrls;
+    }
+
     setUploading(true);
     setError("");
     setNotice("");
     const formData = new FormData();
-    const named =
-      file.name && file.name !== "blob"
-        ? file
-        : new File([file], `paste-${Date.now()}.png`, {
-            type: type || "image/png",
-          });
-    formData.append("file", named);
+    formData.append("file", fileForUpload(file, looksLikeVideo));
 
     try {
       const response = await fetch("/api/upload", {

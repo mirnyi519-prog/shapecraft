@@ -152,12 +152,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
     }
     console.error("upload error", error);
+    const message = error instanceof Error ? error.message : "";
+    if (message.includes("Failed to parse body as FormData")) {
+      return NextResponse.json(
+        {
+          error:
+            "Файл оборвался по дороге. Видео с телефона часто больше 40 МБ — выберите более короткий ролик.",
+        },
+        { status: 400 },
+      );
+    }
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? `Ошибка загрузки: ${error.message}`
-            : "Ошибка загрузки",
+        error: message ? `Ошибка загрузки: ${message}` : "Ошибка загрузки",
       },
       { status: 500 },
     );
