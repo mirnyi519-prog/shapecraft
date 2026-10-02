@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { HappyMealNote } from "@/components/happy-meal-note";
 import {
   WorldTrendsAdmin,
   WorldTrendsView,
@@ -36,6 +37,8 @@ export default async function SettingsWorldPage() {
             Еженедельная подборка актуальных сувениров для 3D-печати по миру
           </p>
         </div>
+
+        <HappyMealNote />
 
         <WorldTrendsAdmin
           lastGenerated={batch?.generatedAt ?? null}
