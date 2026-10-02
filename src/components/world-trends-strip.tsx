@@ -47,10 +47,15 @@ function WorldTrendCard({ article }: { article: WorldTrendArticleView }) {
 
 export function WorldTrendsStrip({
   articles,
+  expanded = false,
+  title = "Сейчас в тренде у 3D-мейкеров",
 }: {
   articles: WorldTrendArticleView[];
+  expanded?: boolean;
+  title?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(expanded);
+  const visible = expanded || open;
 
   if (articles.length === 0) {
     return null;
@@ -63,24 +68,26 @@ export function WorldTrendsStrip({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">Сейчас в тренде у 3D-мейкеров</h2>
+            <h2 className="text-lg font-semibold">{title}</h2>
             <Badge tone="neutral">мир</Badge>
           </div>
           <p className="mt-1 text-sm text-[var(--muted)]">
             Идеи, популярные у 3D-печатников · {articles.length} моделей
           </p>
         </div>
-        <Button
-          type="button"
-          variant="secondary"
-          className="min-h-11 shrink-0"
-          onClick={() => setOpen((value) => !value)}
-        >
-          {open ? "Свернуть" : "Показать идеи"}
-        </Button>
+        {expanded ? null : (
+          <Button
+            type="button"
+            variant="secondary"
+            className="min-h-11 shrink-0"
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? "Свернуть" : "Показать идеи"}
+          </Button>
+        )}
       </div>
 
-      {open ? (
+      {visible ? (
         <div className="space-y-6">
           {WORLD_TIER_ORDER.map((tier) => {
             const tierArticles = grouped[tier];

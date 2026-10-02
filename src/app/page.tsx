@@ -27,7 +27,11 @@ import { getPickupOpenStatus } from "@/lib/pickup-hours";
 import { hasListPrice } from "@/lib/pricing";
 import { getStoreHoursConfig } from "@/lib/store-settings";
 import { getPublicSiteUrl } from "@/lib/telegram";
-import { getLatestWorldTrendBatchView } from "@/lib/world-trends-data";
+import type { WorldTrendArticleView } from "@/lib/world-trends";
+import {
+  getLatestWorldTrendBatchView,
+  pickWorldTrendHighlights,
+} from "@/lib/world-trends-data";
 
 async function lineCoverPhotos(line: CatalogLine): Promise<GatePhoto[]> {
   const products = await prisma.product.findMany({
@@ -60,6 +64,24 @@ async function lineCoverPhotos(line: CatalogLine): Promise<GatePhoto[]> {
     }))
     .filter((product) => product.imageUrl.trim())
     .slice(0, 5);
+}
+
+function worldCoverPhotos(articles: WorldTrendArticleView[]): GatePhoto[] {
+  const preferred = pickWorldTrendHighlights(articles, 5);
+  const seen = new Set(preferred.map((article) => article.id));
+  const ordered = [
+    ...preferred,
+    ...articles.filter((article) => !seen.has(article.id)),
+  ];
+
+  return ordered
+    .filter((article) => article.imageUrl?.trim())
+    .slice(0, 5)
+    .map((article) => ({
+      id: article.id,
+      name: article.name,
+      imageUrl: article.imageUrl as string,
+    }));
 }
 
 function absoluteMediaUrl(url: string | null | undefined): string | null {
@@ -138,10 +160,11 @@ export async function generateMetadata({
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ line?: string; p?: string }>;
+  searchParams: Promise<{ line?: string; p?: string; view?: string }>;
 }) {
   const params = await searchParams;
   const rawLine = Array.isArray(params.line) ? params.line[0] : params.line;
+  const rawView = Array.isArray(params.view) ? params.view[0] : params.view;
   const initialProductId = params.p?.trim() || null;
   let catalogLine: CatalogLine | null = isCatalogLine(rawLine) ? rawLine : null;
 
@@ -153,15 +176,39 @@ export default async function HomePage({
     catalogLine = parseCatalogLine(linked?.catalogLine);
   }
 
+  if (!catalogLine && !initialProductId && rawView === "world") {
+    const worldBatch = await getLatestWorldTrendBatchView();
+    const articles = worldBatch?.articles ?? [];
+
+    return (
+      <PublicShell>
+        <div className="space-y-8 sm:space-y-10">
+          <WorldTrendsStrip articles={articles} expanded title="В мире" />
+          {articles.length === 0 ? (
+            <p className="text-sm text-[var(--muted)]">
+              Подборка идей скоро появится.
+            </p>
+          ) : null}
+          <LocationBlock />
+          <FeedbackForm />
+        </div>
+      </PublicShell>
+    );
+  }
+
   if (!catalogLine) {
-    const [souvenir, home] = await Promise.all([
+    const [souvenir, home, worldBatch] = await Promise.all([
       lineCoverPhotos("souvenir"),
       lineCoverPhotos("home"),
+      getLatestWorldTrendBatchView(),
     ]);
 
     return (
       <PublicShell>
-        <StorefrontGate covers={{ souvenir, home }} />
+        <StorefrontGate
+          covers={{ souvenir, home }}
+          worldPhotos={worldCoverPhotos(worldBatch?.articles ?? [])}
+        />
       </PublicShell>
     );
   }
