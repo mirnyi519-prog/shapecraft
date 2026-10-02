@@ -26,9 +26,19 @@ export type ImportWorldTrendsResult = {
   imagesLoaded: number;
 };
 
-const TIER_LIMIT = 5;
+const MIN_PER_TIER = 5;
+const MAX_PER_TIER = 40;
 const KEEP_BATCHES = 8;
 const MAKERWORLD_MODEL_ID_RE = /\/models\/(\d+)/;
+
+/** Один и тот же файл MakerWorld не должен попасть в подборку дважды. */
+export function worldSourceKey(sourceUrl: string): string {
+  const match = sourceUrl.match(MAKERWORLD_MODEL_ID_RE);
+  if (match) {
+    return `mw:${match[1]}`;
+  }
+  return sourceUrl.trim().toLowerCase();
+}
 const MAKERWORLD_CDN_HOSTS = ["makerworld.bblmw.com", "public-cdn.bblmw.com"];
 const IMAGE_EXT_TO_MIME: Record<string, string> = {
   ".png": "image/png",
@@ -279,18 +289,24 @@ export function normalizeImportArticles(
     medium: [],
     cheap: [],
   };
+  const seen = new Set<string>();
 
   for (const article of articles) {
+    const key = worldSourceKey(article.sourceUrl);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
     const bucket = buckets[article.priceTier];
-    if (bucket.length < TIER_LIMIT) {
+    if (bucket.length < MAX_PER_TIER) {
       bucket.push(article);
     }
   }
 
   for (const tier of ["expensive", "medium", "cheap"] as WorldPriceTier[]) {
-    if (buckets[tier].length !== TIER_LIMIT) {
+    if (buckets[tier].length < MIN_PER_TIER) {
       throw new Error(
-        `Нужно по ${TIER_LIMIT} моделей в каждом сегменте, получено: expensive=${buckets.expensive.length}, medium=${buckets.medium.length}, cheap=${buckets.cheap.length}`,
+        `Нужно минимум ${MIN_PER_TIER} моделей в каждом сегменте, получено: expensive=${buckets.expensive.length}, medium=${buckets.medium.length}, cheap=${buckets.cheap.length}`,
       );
     }
   }

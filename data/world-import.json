@@ -119,6 +119,126 @@
       "priceLabel": "450–750 ₽",
       "sourceUrl": "https://makerworld.com/en/models/1548507-gear-shift-fidget-toy-v2-print-in-place",
       "imageUrl": null
+    },
+    {
+      "name": "Elder Crystal Dragon",
+      "description": "Гибкий кристаллический дракон длиннее метра, print-in-place, около 270 г пластика. Витринный премиум-сувенир: долго печатается, но даёт сильный акцент на полке. Не детский — кристаллы острые.",
+      "priceTier": "expensive",
+      "priceLabel": "4500–6500 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/179666-elder-crystal-dragon-flexible-print-in-place",
+      "imageUrl": null
+    },
+    {
+      "name": "Phoenix Dragon — крылья на 360°",
+      "description": "Феникс-дракон с поворотными крыльями и подвижным телом. Печать около 12 часов, без поддержек на корпусе. Яркий подарочный сувенир для витрины, особенно в шёлковом PLA.",
+      "priceTier": "expensive",
+      "priceLabel": "3000–4800 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/1673535-articulated-phoenix-dragon",
+      "imageUrl": null
+    },
+    {
+      "name": "Tulip Dragon — цветочный articulated",
+      "description": "Дракон в лепестках тюльпанов, печать около 10 часов на двухцветном или трёхцветном пластике. Сезонный премиум-сувенир к весне и к 8 марта, хорошо смотрится парой на полке.",
+      "priceTier": "expensive",
+      "priceLabel": "2800–4200 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/1390205-articulated-flexi-dragon-tulips",
+      "imageUrl": null
+    },
+    {
+      "name": "Hydrangea Dragon",
+      "description": "Дракон с соцветиями гортензии, около 190 г и 12 часов печати. Двухтонный филамент даёт цветочный градиент без ручной покраски. Подарочный сувенир в премиум-сегменте.",
+      "priceTier": "expensive",
+      "priceLabel": "2800–4200 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/1506400-articulated-flexi-dragon-hydrangea-flower-dragon",
+      "imageUrl": null
+    },
+    {
+      "name": "Rose Dragon",
+      "description": "Самая скачиваемая цветочная линия: дракон из роз, single и multicolor. Долгая печать и узнаваемый силуэт — сувенир «на вау» для витрины и подарочных наборов.",
+      "priceTier": "expensive",
+      "priceLabel": "3000–4500 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2292474-articulated-flexi-dragon-roses",
+      "imageUrl": null
+    },
+    {
+      "name": "Flexi Hammerhead Shark",
+      "description": "Подвижная акула-молот под AMS: жёлтый, синий и красный прямо с плиты, без поддержек. Средний чек как морской сувенир для стола и полки, суставы освобождаются сразу после печати.",
+      "priceTier": "medium",
+      "priceLabel": "1200–2000 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2777691-flexi-hammerhead-shark-articulated-ams-multicolor",
+      "imageUrl": null
+    },
+    {
+      "name": "Chill Articulated Capybara",
+      "description": "Расслабленная капибара с головой, которая крутится почти на полный оборот. Сборка не нужна, печать простая. Устойчивый средний сувенир: мем плюс приятная тактильность.",
+      "priceTier": "medium",
+      "priceLabel": "900–1600 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2700908-chill-articulated-capybara-print",
+      "imageUrl": null
+    },
+    {
+      "name": "Cute Flexi Baby Dragon",
+      "description": "Маленький дракон около 14 см и отдельный брелок в одном файле, print-in-place, без поддержек. Удобный средний сувенир: крупный экземпляр на полку и мелкий на ключи.",
+      "priceTier": "medium",
+      "priceLabel": "1100–1800 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2532585-cute-flexi-baby-dragon-toy-keychain",
+      "imageUrl": null
+    },
+    {
+      "name": "Flexi Axolotl",
+      "description": "Аксолотль с жабрами и пятнами, тело печатается в два цвета, глаза вставляются отдельно. Компактный desk-сувенир около 7 см, хорошо идёт в пастели и silk.",
+      "priceTier": "medium",
+      "priceLabel": "800–1400 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2306542-flexi-axolotl",
+      "imageUrl": null
+    },
+    {
+      "name": "Flexi Fox",
+      "description": "Лиса с подвижным телом: одноцвет за 40 минут или AMS-версия подлиннее. Простой сувенир среднего сегмента, без поддержек, есть вариант с отверстием под кольцо.",
+      "priceTier": "medium",
+      "priceLabel": "800–1500 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2949399-flexi-fox-articulated",
+      "imageUrl": null
+    },
+    {
+      "name": "Flexi Turtle",
+      "description": "Морская черепаха print-in-place: панцирь, ласты и голова двигаются сразу с плиты. Около 18 г и меньше часа печати — лёгкий бюджетный сувенир у кассы.",
+      "priceTier": "cheap",
+      "priceLabel": "350–650 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2663335-flexi-turtle",
+      "imageUrl": null
+    },
+    {
+      "name": "Tiny Flexi Dragon",
+      "description": "Крошечный дракон-брелок без поддержек, single и multicolor. Быстрый сувенир на кольцо и в мелкий подарок, печать короткая, брак низкий.",
+      "priceTier": "cheap",
+      "priceLabel": "250–500 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2057666-tiny-flexi-dragon-articulated-keychain",
+      "imageUrl": null
+    },
+    {
+      "name": "Cute Flexi Dragon Keychain",
+      "description": "Дракон-брелок с подвижным телом и хвостом, AMS-дружелюбный, без поддержек. Бюджетный сувенир на рюкзак и ключи, хорошо смотрится в шёлке.",
+      "priceTier": "cheap",
+      "priceLabel": "250–500 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2875235-cute-flexi-dragon-keychain",
+      "imageUrl": null
+    },
+    {
+      "name": "Flexi Mini Fidget Whale",
+      "description": "Мини-кит с сегментами: в руке извивается, на столе лежит плашмя. Одноцвет или касатка чёрно-белая. Дешёвый морской сувенир, печатается быстро.",
+      "priceTier": "cheap",
+      "priceLabel": "300–550 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2812683-flexi-mini-fidget-whale",
+      "imageUrl": null
+    },
+    {
+      "name": "Clicket — fidget slider",
+      "description": "Полностью печатный слайдер со щелчком, как сверчок: две половинки и пружина. Сборка на минуту, расход маленький. Бюджетный антистресс-сувенир рядом с кассой.",
+      "priceTier": "cheap",
+      "priceLabel": "400–700 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/951908-clicket-fidget-slider",
+      "imageUrl": null
     }
   ]
 }

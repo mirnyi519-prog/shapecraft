@@ -32,9 +32,9 @@ export const WORLD_TIER_LABELS: Record<WorldPriceTier, string> = {
 };
 
 export const WORLD_TIER_HINTS: Record<WorldPriceTier, string> = {
-  expensive: "Топ-5 дорогих сувениров для 3D-печати",
-  medium: "Топ-5 моделей среднего ценового сегмента",
-  cheap: "Топ-5 доступных и популярных моделей",
+  expensive: "Дорогие сувениры для 3D-печати",
+  medium: "Модели среднего ценового сегмента",
+  cheap: "Доступные и популярные модели",
 };
 
 export function isWorldPriceTier(value: string): value is WorldPriceTier {
