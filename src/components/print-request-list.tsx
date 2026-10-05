@@ -92,14 +92,14 @@ export function PrintRequestList({ initial }: { initial: PrintRequestRow[] }) {
           <p className="mt-1 text-sm text-[var(--muted)]">
             {formatDateTime(row.createdAt)}
           </p>
-          {row.sourceUrl ? (
+          {row.source === "world" && row.sourceUrl ? (
             <a
               href={row.sourceUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 inline-block text-sm font-medium text-[var(--brand)] hover:underline"
+              className="mt-2 inline-block break-all text-sm font-medium text-[var(--brand)] hover:underline"
             >
-              Источник модели
+              Ссылка на модель
             </a>
           ) : null}
           <label className="mt-3 flex items-center gap-2 text-sm">

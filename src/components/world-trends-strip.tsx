@@ -25,7 +25,7 @@ function WorldTrendCard({
     <button
       type="button"
       onClick={() => onOpen(article)}
-      className="h-full overflow-hidden rounded-2xl border border-[var(--border)] bg-white p-0 text-left shadow-sm transition hover:border-[var(--brand)]"
+      className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-white p-0 text-left shadow-sm transition hover:border-[var(--brand)]"
     >
       <div className="relative aspect-[4/3] bg-[var(--brand-soft)]">
         {article.imageUrl ? (
@@ -43,16 +43,13 @@ function WorldTrendCard({
           </div>
         )}
       </div>
-      <div className="space-y-2 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-base font-semibold leading-snug">{article.name}</h3>
-          {article.priceLabel ? (
+      <div className="flex flex-1 flex-col gap-2 p-4">
+        <h3 className="text-base font-semibold leading-snug">{article.name}</h3>
+        {article.priceLabel ? (
+          <div className="mt-auto">
             <Badge tone="warning">{article.priceLabel}</Badge>
-          ) : null}
-        </div>
-        <p className="line-clamp-3 text-sm text-[var(--muted)]">
-          {article.description}
-        </p>
+          </div>
+        ) : null}
       </div>
     </button>
   );

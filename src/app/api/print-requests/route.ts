@@ -7,6 +7,7 @@ import {
   parsePrintCustomerName,
   parsePrintPhone,
   parsePrintQuantity,
+  parsePrintSourceUrl,
 } from "@/lib/print-request";
 import { rateLimit } from "@/lib/rate-limit";
 import {
@@ -107,9 +108,7 @@ export async function POST(request: NextRequest) {
       const note =
         typeof body.priceNote === "string" ? body.priceNote.trim().slice(0, 80) : "";
       priceLabel = note || null;
-      const url =
-        typeof body.sourceUrl === "string" ? body.sourceUrl.trim().slice(0, 500) : "";
-      sourceUrl = url || null;
+      sourceUrl = parsePrintSourceUrl(body.sourceUrl);
     }
 
     const created = await prisma.printRequest.create({
@@ -127,18 +126,22 @@ export async function POST(request: NextRequest) {
     });
 
     const when = formatDateTime(created.createdAt);
-    const telegram = await sendTelegramMessage(
-      [
-        "🖨️ Заявка на печать",
-        `Модель: ${title}`,
-        source === "world" ? "Откуда: В мире" : "Откуда: витрина",
-        priceLabel ? `Цена: ${priceLabel}` : "Цена: уточнить",
-        `Имя: ${customerName}`,
-        `Телефон: ${formatHoldPhone(phone)}`,
-        `Количество: ${quantity}`,
-        `Когда: ${when}`,
-      ].join("\n"),
+    const lines = [
+      "🖨️ Заявка на печать",
+      `Модель: ${title}`,
+      source === "world" ? "Откуда: В мире" : "Откуда: витрина",
+    ];
+    if (source === "world" && sourceUrl) {
+      lines.push(`Ссылка: ${sourceUrl}`);
+    }
+    lines.push(
+      priceLabel ? `Цена: ${priceLabel}` : "Цена: уточнить",
+      `Имя: ${customerName}`,
+      `Телефон: ${formatHoldPhone(phone)}`,
+      `Количество: ${quantity}`,
+      `Когда: ${when}`,
     );
+    const telegram = await sendTelegramMessage(lines.join("\n"));
     if (!telegram.ok) {
       console.error("print-request telegram", telegram.error ?? "failed");
     }

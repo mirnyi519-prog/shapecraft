@@ -35,7 +35,7 @@ function PhotoCell({
 }) {
   const src = photo ? (cardMediaUrl(photo.imageUrl) ?? photo.imageUrl) : null;
   return (
-    <div className={`overflow-hidden rounded-2xl bg-[var(--brand-soft)] ${className}`}>
+    <div className={`h-full min-h-0 overflow-hidden rounded-2xl bg-[var(--brand-soft)] ${className}`}>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -56,30 +56,16 @@ function PhotoMosaic({ photos, label }: { photos: GatePhoto[]; label: string }) 
   const slots = Array.from({ length: 5 }, (_, index) => photos[index] ?? null);
 
   return (
-    <>
-      <div className="grid grid-cols-6 gap-1.5 sm:hidden">
-        {slots.map((photo, index) => (
-          <PhotoCell
-            key={photo?.id ?? `m-${index}`}
-            photo={photo}
-            label={index === 0 ? label : ""}
-            className={
-              index < 2 ? "col-span-3 aspect-[4/3]" : "col-span-2 aspect-square"
-            }
-          />
-        ))}
-      </div>
-      <div className="gate-mosaic hidden h-56 grid-cols-4 grid-rows-2 gap-2 sm:grid">
-        {slots.map((photo, index) => (
-          <PhotoCell
-            key={photo?.id ?? `d-${index}`}
-            photo={photo}
-            label={index === 0 ? label : ""}
-            className={index === 0 ? "col-span-2 row-span-2" : ""}
-          />
-        ))}
-      </div>
-    </>
+    <div className="gate-mosaic grid h-40 grid-cols-4 grid-rows-2 gap-1.5 sm:h-56 sm:gap-2">
+      {slots.map((photo, index) => (
+        <PhotoCell
+          key={photo?.id ?? `slot-${index}`}
+          photo={photo}
+          label={index === 0 ? label : ""}
+          className={index === 0 ? "col-span-2 row-span-2" : ""}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -100,18 +86,20 @@ function GateCard({
     <Link
       href={href}
       aria-label={ariaLabel}
-      className="group overflow-hidden rounded-3xl border border-[var(--border)]/70 bg-white/80 shadow-sm backdrop-blur-sm transition hover:border-[var(--brand)] hover:shadow-md"
+      className="group flex h-full flex-col overflow-hidden rounded-3xl border border-[var(--border)]/70 bg-white/80 shadow-sm backdrop-blur-sm transition hover:border-[var(--brand)] hover:shadow-md"
     >
       <div className="p-3 sm:p-4">
         <PhotoMosaic photos={photos} label={label} />
       </div>
-      <div className="flex flex-col gap-3 px-4 pb-4 sm:px-4 sm:pb-4">
+      <div className="flex flex-1 flex-col px-4 pb-4">
         <div className="min-w-0">
           <p className="text-sm font-medium text-[var(--brand)]">ShapeCraft</p>
           <h2 className="mt-1 text-2xl font-bold tracking-tight">{label}</h2>
-          <p className="mt-1 text-sm leading-snug text-[var(--muted)]">{hint}</p>
+          <p className="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-[var(--muted)]">
+            {hint}
+          </p>
         </div>
-        <span className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[var(--brand)] px-4 text-sm font-semibold text-white transition group-hover:bg-[var(--brand-dark)]">
+        <span className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[var(--brand)] px-4 text-sm font-semibold text-white transition group-hover:bg-[var(--brand-dark)]">
           Смотреть
         </span>
       </div>
@@ -129,7 +117,7 @@ export function StorefrontGate({
   const lines: CatalogLine[] = ["souvenir", "home"];
 
   return (
-    <section className="grid gap-4 pt-2 sm:grid-cols-2 sm:gap-4 sm:pt-4 xl:grid-cols-3">
+    <section className="grid items-stretch gap-4 pt-2 sm:grid-cols-2 sm:gap-4 sm:pt-4 xl:grid-cols-3">
       {lines.map((line) => (
         <GateCard
           key={line}

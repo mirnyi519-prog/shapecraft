@@ -22,6 +22,7 @@ import {
   storefrontCtaLabel,
 } from "@/lib/catalog-product";
 import { hasListPrice } from "@/lib/pricing";
+import { hasProductSpecs } from "@/lib/product-specs";
 
 export type { CatalogProduct };
 
@@ -448,7 +449,7 @@ export function ProductCatalog({
         </div>
       ) : null}
 
-      {filteredProducts.length > 0 || products.length > 0 ? (
+      {categoryId || filteredProducts.length > 0 ? (
         <>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-semibold">
@@ -495,13 +496,7 @@ export function ProductCatalog({
             </Card>
           )}
         </>
-      ) : (
-        <Card>
-          <p className="text-[var(--muted)]">
-            В этом разделе пока нет позиций.
-          </p>
-        </Card>
-      )}
+      ) : null}
 
       {selected ? (
         <div
@@ -581,12 +576,14 @@ export function ProductCatalog({
                   </p>
                 ) : null}
 
-                <div>
-                  <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
-                    Вес и габариты
-                  </h3>
-                  <ProductSpecsBlock product={selected} />
-                </div>
+                {hasProductSpecs(selected) ? (
+                  <div>
+                    <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
+                      Вес и габариты
+                    </h3>
+                    <ProductSpecsBlock product={selected} />
+                  </div>
+                ) : null}
               </div>
 
               <div className="shrink-0 space-y-2 border-t border-[var(--border)] bg-white/95 p-4 backdrop-blur">
@@ -602,7 +599,6 @@ export function ProductCatalog({
                   }}
                 >
                   {ctaLabel}
-                  {priced ? ` · ${formatRub(selected.listPrice as number)}` : ""}
                 </Button>
                 <div className="flex gap-2">
                   <Button

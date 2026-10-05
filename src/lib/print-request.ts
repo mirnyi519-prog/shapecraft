@@ -50,3 +50,22 @@ export function parsePrintPhone(value: unknown): string | null {
   }
   return normalizeHoldPhone(value);
 }
+
+export function parsePrintSourceUrl(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const raw = value.trim();
+  if (!raw || raw.length > 500) {
+    return null;
+  }
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
