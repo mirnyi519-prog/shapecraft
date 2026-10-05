@@ -13,6 +13,7 @@ export type NavIconName =
   | "visits"
   | "views"
   | "feedback"
+  | "print"
   | "security"
   | "display"
   | "world"
@@ -91,6 +92,7 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
     ...(admin ? [{ href: "/visits", label: "Посещения", icon: "visits" as const }] : []),
     ...(admin ? [{ href: "/views", label: "Просмотры", icon: "views" as const }] : []),
     ...(admin ? [{ href: "/feedback", label: "Обратная связь", icon: "feedback" as const }] : []),
+    ...(admin ? [{ href: "/print-requests", label: "Печать", icon: "print" as const }] : []),
     ...(admin
       ? [
           {

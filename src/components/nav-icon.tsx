@@ -100,6 +100,13 @@ const iconPaths: Record<NavIconName, ReactNode> = {
       <circle cx="18" cy="12" r="2" />
     </>
   ),
+  print: (
+    <>
+      <path d="M7 8V4h10v4" />
+      <rect x="6" y="13" width="12" height="7" rx="1" />
+      <path d="M6 17H4a1 1 0 0 1-1-1v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a1 1 0 0 1-1 1h-2" />
+    </>
+  ),
   feedback: (
     <>
       <path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H8l-4 3V6a1 1 0 0 1 1-1Z" />

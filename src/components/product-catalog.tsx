@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BuyIntentModal } from "@/components/buy-intent-modal";
+import { PrintOrderModal } from "@/components/print-order-modal";
 import { FeedbackModal } from "@/components/feedback-modal";
 import { ModalCloseButton } from "@/components/modal-close-button";
 import { ProductGallery } from "@/components/product-gallery";
@@ -244,11 +245,12 @@ export function ProductCatalog({
   const [selected, setSelected] = useState<CatalogProduct | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [buyOpen, setBuyOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [sort, setSort] = useState<CatalogSort>("default");
   const [linkCopied, setLinkCopied] = useState(false);
 
-  useScrollLock(Boolean(selected) || buyOpen || feedbackOpen);
+  useScrollLock(Boolean(selected) || buyOpen || printOpen || feedbackOpen);
 
   useEffect(() => {
     if (!selected) {
@@ -267,6 +269,7 @@ export function ProductCatalog({
   function openProduct(product: CatalogProduct) {
     setFeedbackOpen(false);
     setBuyOpen(false);
+    setPrintOpen(false);
     setLinkCopied(false);
     setSelected(product);
     syncProductQuery(product.id);
@@ -275,6 +278,7 @@ export function ProductCatalog({
   function closeProduct() {
     setFeedbackOpen(false);
     setBuyOpen(false);
+    setPrintOpen(false);
     setLinkCopied(false);
     setSelected(null);
     syncProductQuery(null);
@@ -329,14 +333,14 @@ export function ProductCatalog({
     }
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !feedbackOpen && !buyOpen) {
+      if (event.key === "Escape" && !feedbackOpen && !buyOpen && !printOpen) {
         closeProduct();
       }
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selected, feedbackOpen, buyOpen]);
+  }, [selected, feedbackOpen, buyOpen, printOpen]);
 
   useEffect(() => {
     if (!selected) {
@@ -371,7 +375,12 @@ export function ProductCatalog({
   }, [products, categoryId, highlightIds, sort]);
 
   const priced = selected ? hasListPrice(selected.listPrice) : false;
-  const ctaLabel = selected ? storefrontCtaLabel(selected) : "Купить";
+  const inStock = selected ? availableStockOf(selected) > 0 : false;
+  const ctaLabel = !selected
+    ? "Купить"
+    : inStock
+      ? storefrontCtaLabel(selected)
+      : "Заказать";
   const hasHighlights =
     !categoryId && (newProducts.length > 0 || popularProducts.length > 0);
 
@@ -584,7 +593,13 @@ export function ProductCatalog({
                 <Button
                   type="button"
                   className="min-h-12 w-full text-base"
-                  onClick={() => void handleBuyClick()}
+                  onClick={() => {
+                    if (inStock) {
+                      void handleBuyClick();
+                      return;
+                    }
+                    setPrintOpen(true);
+                  }}
                 >
                   {ctaLabel}
                   {priced ? ` · ${formatRub(selected.listPrice as number)}` : ""}
@@ -618,6 +633,17 @@ export function ProductCatalog({
         onClose={() => setFeedbackOpen(false)}
         productId={selected?.id}
         productName={selected?.name}
+      />
+
+      <PrintOrderModal
+        open={printOpen}
+        source="catalog"
+        title={selected?.name ?? ""}
+        priceNote={
+          selected && priced ? formatRub(selected.listPrice as number) : null
+        }
+        productId={selected?.id}
+        onClose={() => setPrintOpen(false)}
       />
 
       <BuyIntentModal

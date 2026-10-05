@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Badge, Button, Card } from "@/components/ui";
+import { useEffect, useState } from "react";
+import { ModalCloseButton } from "@/components/modal-close-button";
+import { PrintOrderModal } from "@/components/print-order-modal";
+import { Badge, Button } from "@/components/ui";
+import { useScrollLock } from "@/hooks/use-scroll-lock";
 import { cardMediaUrl } from "@/lib/card-media-url";
 import {
   WORLD_TIER_HINTS,
@@ -11,9 +14,19 @@ import {
   type WorldTrendArticleView,
 } from "@/lib/world-trends";
 
-function WorldTrendCard({ article }: { article: WorldTrendArticleView }) {
+function WorldTrendCard({
+  article,
+  onOpen,
+}: {
+  article: WorldTrendArticleView;
+  onOpen: (article: WorldTrendArticleView) => void;
+}) {
   return (
-    <Card className="h-full overflow-hidden p-0">
+    <button
+      type="button"
+      onClick={() => onOpen(article)}
+      className="h-full overflow-hidden rounded-2xl border border-[var(--border)] bg-white p-0 text-left shadow-sm transition hover:border-[var(--brand)]"
+    >
       <div className="relative aspect-[4/3] bg-[var(--brand-soft)]">
         {article.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -41,7 +54,7 @@ function WorldTrendCard({ article }: { article: WorldTrendArticleView }) {
           {article.description}
         </p>
       </div>
-    </Card>
+    </button>
   );
 }
 
@@ -55,7 +68,23 @@ export function WorldTrendsStrip({
   title?: string;
 }) {
   const [open, setOpen] = useState(expanded);
+  const [selected, setSelected] = useState<WorldTrendArticleView | null>(null);
+  const [orderOpen, setOrderOpen] = useState(false);
   const visible = expanded || open;
+  useScrollLock(Boolean(selected) || orderOpen);
+
+  useEffect(() => {
+    if (!selected) {
+      return;
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !orderOpen) {
+        setSelected(null);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selected, orderOpen]);
 
   if (articles.length === 0) {
     return null;
@@ -107,7 +136,11 @@ export function WorldTrendsStrip({
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {tierArticles.map((article) => (
-                    <WorldTrendCard key={article.id} article={article} />
+                    <WorldTrendCard
+                      key={article.id}
+                      article={article}
+                      onOpen={setSelected}
+                    />
                   ))}
                 </div>
               </div>
@@ -115,6 +148,75 @@ export function WorldTrendsStrip({
           })}
         </div>
       ) : null}
+
+      {selected ? (
+        <div
+          className="safe-overlay fixed inset-0 z-50 flex items-end justify-center overscroll-none bg-black/55 p-0 sm:items-center sm:p-4"
+          onClick={() => {
+            if (!orderOpen) {
+              setSelected(null);
+            }
+          }}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="world-model-title"
+            className="flex max-h-[min(96vh,100dvh)] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl sm:border sm:border-[var(--border)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="relative aspect-[4/3] shrink-0 bg-[var(--brand-soft)]">
+              {selected.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={cardMediaUrl(selected.imageUrl) ?? selected.imageUrl}
+                  alt={selected.name}
+                  className="absolute inset-0 h-full w-full object-cover"
+                />
+              ) : null}
+              <div className="absolute right-3 top-3 z-20">
+                <ModalCloseButton onClick={() => setSelected(null)} />
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+              <h2 id="world-model-title" className="text-2xl font-bold">
+                {selected.name}
+              </h2>
+              {selected.priceLabel ? (
+                <p className="text-lg font-semibold text-[var(--brand)]">
+                  примерно {selected.priceLabel}
+                </p>
+              ) : (
+                <p className="text-sm text-[var(--muted)]">Цену оценим по телефону</p>
+              )}
+              <p className="text-sm leading-relaxed text-[var(--text)]">
+                {selected.description}
+              </p>
+            </div>
+            <div className="shrink-0 border-t border-[var(--border)] p-4">
+              <Button
+                type="button"
+                className="min-h-12 w-full text-base"
+                onClick={() => setOrderOpen(true)}
+              >
+                Заказать
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <PrintOrderModal
+        open={orderOpen && Boolean(selected)}
+        source="world"
+        title={selected?.name ?? ""}
+        priceNote={
+          selected?.priceLabel ? `примерно ${selected.priceLabel}` : null
+        }
+        sourceUrl={selected?.sourceUrl}
+        onClose={() => setOrderOpen(false)}
+      />
     </section>
   );
 }

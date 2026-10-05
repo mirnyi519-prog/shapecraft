@@ -47,6 +47,7 @@ model Product {
   buyClicks        ProductBuyClick[]
   holds            ProductHold[]
   images           ProductImage[]
+  printRequests    PrintRequest[]
   packagingId      String?
   packaging        Packaging?        @relation(fields: [packagingId], references: [id], onDelete: SetNull)
 
@@ -248,6 +249,28 @@ model ProductBuyClick {
   @@index([ipAddress])
   @@index([visitorId])
   @@index([outcome])
+}
+
+model PrintRequest {
+  id           String   @id @default(cuid())
+  /// catalog — свой товар без свободного остатка; world — модель из «В мире»
+  source       String
+  productId    String?
+  product      Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+  title        String
+  priceLabel   String?
+  sourceUrl    String?
+  customerName String
+  phone        String
+  quantity     Int
+  /// new | printing | ready | cancelled
+  status       String   @default("new")
+  ipAddress    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([productId])
 }
 
 model FeedbackMessage {
