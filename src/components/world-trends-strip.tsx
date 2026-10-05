@@ -94,11 +94,21 @@ export function WorldTrendsStrip({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">{title}</h2>
+            <h2
+              className={`font-bold tracking-tight text-[var(--text)] ${
+                expanded ? "text-2xl sm:text-3xl" : "text-lg"
+              }`}
+            >
+              {title}
+            </h2>
             <Badge tone="neutral">мир</Badge>
           </div>
-          <p className="mt-1 text-sm text-[var(--muted)]">
+          <p className="mt-1.5 text-sm leading-snug text-[#3d3d3e] sm:text-base">
             Идеи, популярные у 3D-печатников · {articles.length} моделей
+          </p>
+          <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-[var(--brand-soft)] px-3.5 py-1.5 text-sm font-semibold text-[var(--brand-dark)]">
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]" />
+            Вы можете заказать
           </p>
         </div>
         {expanded ? null : (
@@ -124,10 +134,10 @@ export function WorldTrendsStrip({
             return (
               <div key={tier} className="space-y-3">
                 <div>
-                  <h3 className="text-base font-semibold">
+                  <h3 className="text-lg font-bold tracking-tight text-[var(--text)]">
                     {WORLD_TIER_LABELS[tier]}
                   </h3>
-                  <p className="text-sm text-[var(--muted)]">
+                  <p className="text-sm leading-snug text-[#3d3d3e]">
                     {WORLD_TIER_HINTS[tier]}
                   </p>
                 </div>

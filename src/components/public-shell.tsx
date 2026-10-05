@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { getSession } from "@/lib/auth";
 import { isIpBlocked } from "@/lib/access-control";
 import { getRequestIp } from "@/lib/request-ip";
 import { LogoutButton } from "@/components/logout-button";
 import { ShopMark } from "@/components/shop-mark";
+import { StorefrontBackLink } from "@/components/storefront-back-link";
 import { VisitBeacon } from "@/components/visit-beacon";
 import { Button } from "@/components/ui";
 
@@ -45,6 +47,9 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
       </header>
       <main className="page-gutter page-bottom mx-auto max-w-6xl py-5 sm:py-8">
         {children}
+        <Suspense fallback={null}>
+          <StorefrontBackLink />
+        </Suspense>
       </main>
     </div>
   );

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { ProductCatalog } from "@/components/product-catalog";
-import { CatalogLineToggle } from "@/components/catalog-line-toggle";
 import { FeedbackForm } from "@/components/feedback-form";
 import { LocationBlock } from "@/components/location-block";
 import { PublicShell } from "@/components/public-shell";
@@ -239,7 +238,6 @@ export default async function HomePage({
     <PublicShell>
       <div className="space-y-8 sm:space-y-10">
         <StorefrontHero lineLabel={lineLabel} openStatus={openStatus} />
-        <CatalogLineToggle current={catalogLine} />
         {banner ? <StorefrontBanner banner={banner} /> : null}
         <ProductCatalog
           key={catalogLine}
