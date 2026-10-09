@@ -3,6 +3,7 @@ import {
   WORLD_TIER_ORDER,
   groupArticlesByTier,
   isWorldPriceTier,
+  worldCollectionOf,
 } from "@/lib/world-trends";
 import { getLatestWorldTrendBatch } from "@/lib/world-trends-bot";
 
@@ -21,6 +22,7 @@ export function mapWorldTrendBatch(
       sourceUrl: item.sourceUrl,
       priceTier: isWorldPriceTier(item.priceTier) ? item.priceTier : "medium",
       priceLabel: item.priceLabel,
+      collection: worldCollectionOf(item.collection),
       sortOrder: item.sortOrder,
     })),
   };

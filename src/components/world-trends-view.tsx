@@ -11,6 +11,7 @@ import {
   WORLD_TIER_LABELS,
   WORLD_TIER_ORDER,
   groupArticlesByTier,
+  worldCollectionOf,
   type WorldTrendArticleView,
   type WorldTrendBatchView,
 } from "@/lib/world-trends";
@@ -39,6 +40,11 @@ function ArticleCard({
             Фото модели
           </div>
         )}
+        {article.collection === "new" ? (
+          <div className="absolute left-3 top-3">
+            <Badge tone="warning">новое</Badge>
+          </div>
+        ) : null}
       </div>
       <div className="space-y-3 p-5">
         <div className="flex items-start justify-between gap-3">
@@ -65,6 +71,35 @@ function ArticleCard({
   );
 }
 
+function AdminTierGrid({ articles }: { articles: WorldTrendArticleView[] }) {
+  const grouped = groupArticlesByTier(articles);
+
+  return (
+    <div className="space-y-8">
+      {WORLD_TIER_ORDER.map((tier) => {
+        const tierArticles = grouped[tier];
+        if (tierArticles.length === 0) {
+          return null;
+        }
+
+        return (
+          <section key={tier} className="space-y-4">
+            <div>
+              <h3 className="text-lg font-bold">{WORLD_TIER_LABELS[tier]}</h3>
+              <p className="text-sm text-[#3d3d3e]">{WORLD_TIER_HINTS[tier]}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {tierArticles.map((article) => (
+                <ArticleCard key={article.id} article={article} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 export function WorldTrendsView({
   batch,
 }: {
@@ -81,7 +116,12 @@ export function WorldTrendsView({
     );
   }
 
-  const grouped = groupArticlesByTier(batch.articles);
+  const fresh = batch.articles.filter(
+    (article) => worldCollectionOf(article.collection) === "new",
+  );
+  const popular = batch.articles.filter(
+    (article) => worldCollectionOf(article.collection) !== "new",
+  );
   const generatedAt = new Date(batch.generatedAt).toLocaleDateString("ru-RU", {
     day: "2-digit",
     month: "long",
@@ -94,26 +134,18 @@ export function WorldTrendsView({
         Неделя от {generatedAt} · {batch.articles.length} моделей
       </p>
 
-      {WORLD_TIER_ORDER.map((tier) => {
-        const articles = grouped[tier];
-        if (articles.length === 0) {
-          return null;
-        }
-
-        return (
-          <section key={tier} className="space-y-4">
-            <div>
-              <h2 className="text-xl font-bold">{WORLD_TIER_LABELS[tier]}</h2>
-              <p className="text-sm text-[var(--muted)]">{WORLD_TIER_HINTS[tier]}</p>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {articles.map((article) => (
-                <ArticleCard key={article.id} article={article} />
-              ))}
-            </div>
-          </section>
-        );
-      })}
+      {fresh.length > 0 ? (
+        <section className="space-y-4">
+          <h2 className="text-xl font-bold">Новинки · {fresh.length}</h2>
+          <AdminTierGrid articles={fresh} />
+        </section>
+      ) : null}
+      <section className="space-y-4">
+        {fresh.length > 0 ? (
+          <h2 className="text-xl font-bold">Популярные · {popular.length}</h2>
+        ) : null}
+        <AdminTierGrid articles={popular} />
+      </section>
     </div>
   );
 }

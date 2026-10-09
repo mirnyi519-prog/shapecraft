@@ -7,6 +7,7 @@ import { getUploadsDir } from "@/lib/upload";
 import {
   getWeekLabel,
   isWorldPriceTier,
+  worldCollectionOf,
   type WorldPriceTier,
 } from "@/lib/world-trends";
 
@@ -17,6 +18,7 @@ export type WorldTrendImportArticle = {
   priceLabel: string;
   sourceUrl: string;
   imageUrl?: string | null;
+  collection?: "popular" | "new";
 };
 
 export type ImportWorldTrendsResult = {
@@ -275,6 +277,9 @@ export function parseImportArticles(raw: unknown): WorldTrendImportArticle[] {
       sourceUrl: sourceUrl.slice(0, 500),
       imageUrl:
         typeof row.imageUrl === "string" ? row.imageUrl.slice(0, 500) : null,
+      collection: worldCollectionOf(
+        typeof row.collection === "string" ? row.collection : null,
+      ),
     });
   }
 
@@ -359,6 +364,7 @@ export async function importWorldTrends(input: {
             sourceUrl: article.sourceUrl,
             priceTier: article.priceTier,
             priceLabel: article.priceLabel,
+            collection: worldCollectionOf(article.collection),
             sortOrder: index,
           })),
         },

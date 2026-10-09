@@ -4,6 +4,7 @@ import {
 } from "@/lib/timezone";
 
 export type WorldPriceTier = "expensive" | "medium" | "cheap";
+export type WorldCollection = "popular" | "new";
 
 export type WorldTrendArticleView = {
   id: string;
@@ -13,6 +14,7 @@ export type WorldTrendArticleView = {
   sourceUrl: string | null;
   priceTier: WorldPriceTier;
   priceLabel: string | null;
+  collection: WorldCollection;
   sortOrder: number;
 };
 
@@ -39,6 +41,10 @@ export const WORLD_TIER_HINTS: Record<WorldPriceTier, string> = {
 
 export function isWorldPriceTier(value: string): value is WorldPriceTier {
   return value === "expensive" || value === "medium" || value === "cheap";
+}
+
+export function worldCollectionOf(value: string | null | undefined): WorldCollection {
+  return value === "new" ? "new" : "popular";
 }
 
 export function groupArticlesByTier(

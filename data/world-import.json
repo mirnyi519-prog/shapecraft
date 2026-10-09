@@ -239,6 +239,276 @@
       "priceLabel": "400–700 ₽",
       "sourceUrl": "https://makerworld.com/en/models/951908-clicket-fidget-slider",
       "imageUrl": null
+    },
+    {
+      "name": "Crystal Dragon Remix 36 см",
+      "description": "Свежий ремикс кристаллического дракона длиной около 36 см, вышедший в мае 2026. Гранёные сегменты хорошо смотрятся в silk и marble. Крупный витринный сувенир, печать долгая, но эффект на полке сильный.",
+      "priceTier": "expensive",
+      "priceLabel": "3200–4800 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2757286-articulated-crystal-dragon-remix",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Prismor — каменный кристалл-дракон",
+      "description": "Новинка мая 2026: низкополигональный дракон из «каменных» кристаллов, print-in-place. Камни можно перекрасить в слайсере. Премиум-сувенир для полки и подарка, печать долгая.",
+      "priceTier": "expensive",
+      "priceLabel": "3000–4600 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2838391-prismor-articulated-crystal-stone-dragon",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Crystal Dragon — быстрый flexi",
+      "description": "Кристаллический дракон print-in-place с острыми кластерами от головы до хвоста. Профиль около шести часов — это уже не мелочь, а заметный сувенир для витрины в шёлке и мультицвете.",
+      "priceTier": "expensive",
+      "priceLabel": "2800–4200 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/3328998-articulated-crystal-dragon-fast-cool-looking-flexy",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Articulated Flexi Dragon 30 см",
+      "description": "Дракон 25 или 30 см с шипами вдоль всего тела, без сборки. Более длинная версия даёт витринный силуэт. Сувенир для полки и подарка, печать спокойная и предсказуемая.",
+      "priceTier": "expensive",
+      "priceLabel": "2600–4000 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2733435-articulated-flexi-dragon",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Reptile Kingdom — набор рептилий",
+      "description": "Набор 2026: кукурузная змея, геккон и хамелеон плюс пеньки и камни для мини-сцены. Автор прямо разрешает коммерческое использование. Готовый премиум-сувенир «террариум на полке».",
+      "priceTier": "expensive",
+      "priceLabel": "3500–5200 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2791681-reptile-kingdom-articulated-flexible-corn-snake-ge",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Flexi Light Fury",
+      "description": "Светлая фурия в пару к ночной: подвижное тело, print-in-place, без поддержек. Собирается в витринный комплект драконов. Премиум-сувенир для любителей fantasy.",
+      "priceTier": "expensive",
+      "priceLabel": "2600–3900 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/1708563-flexi-light-fury-dragon-articulated-toy",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Night Light Dragons — набор",
+      "description": "Набор ночных драконов-светильников: несколько фигур в одной серии, articulated, без поддержек. Продаётся как комплект, поэтому это дорогой сувенир, а не одиночный брелок.",
+      "priceTier": "expensive",
+      "priceLabel": "3000–4500 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2669362-flexi-night-light-dragons-articulated-desk-pets",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Большой Ender Dragon",
+      "description": "Крупный эндер-дракон print-in-place: хвост, крылья и лапы двигаются сразу после печати. Заметный игровой сувенир на полку, печать длиннее карманной версии.",
+      "priceTier": "expensive",
+      "priceLabel": "2800–4500 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2813330-articulated-ender-dragon-print-in-place",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Длинный дракон с кристаллическим хвостом",
+      "description": "Усиленная версия длинного flexi-дракона: толще хвост и крупнее кристаллы. Витринный сувенир, который можно обернуть вокруг подставки. Печать долгая, маржа выше мелких брелков.",
+      "priceTier": "expensive",
+      "priceLabel": "3000–4600 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/707005-flexi-long-dragon-crystal-tail-print-in-place-v2",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Aquatic Dragon 43 см",
+      "description": "Водный дракон около 43 см, встаёт даже на стол A1 mini, глаза печатные или стеклянные. Длинный морской сувенир для полки, print-in-place, без поддержек.",
+      "priceTier": "expensive",
+      "priceLabel": "2800–4200 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/1670005-aquatic-dragon-with-printed-eyes-or-glass-eyes",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Flexi Sheep",
+      "description": "Овечка мая 2026: подвижное тело, профиль около 3,5 часа, без сложной сборки. Тёплый фермерский сувенир среднего чека, хорошо идёт в однотонном и пастельном PLA.",
+      "priceTier": "medium",
+      "priceLabel": "1200–1900 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2805203-flexi-sheep-articulated",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Chameleon Flexi",
+      "description": "Хамелеон августа 2026, print-in-place, около трёх часов. В шёлке и «галактике» цвет играет на свету. Средний сувенир на стол и в подарок.",
+      "priceTier": "medium",
+      "priceLabel": "1000–1700 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/3151876-chameleon-flexi-toy",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Flexi Chameleon без поддержек",
+      "description": "Хамелеон февраля 2026: лапы и тело гнутся, печатается одним куском. Можно ставить на ветку или край полки. Удобный средний сувенир без сборки.",
+      "priceTier": "medium",
+      "priceLabel": "1100–1800 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2346741-flexi-chameleon-print-in-place-no-support",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Flexi Boat",
+      "description": "Лодка из трёх–пяти сегментов, обновление шарниров в мае 2026. Print-in-place, детский и настольный сувенир среднего размера. Длину можно выбрать под витрину.",
+      "priceTier": "medium",
+      "priceLabel": "900–1500 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2300830-flexi-boat-articulated-bath-toy",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Flexi Gronckle",
+      "description": "Гронкл января 2026: круглая голова, зубы и гибкое тело одним куском. Настольный fantasy-сувенир среднего чека, без поддержек, хорошо стоит рядом с другими драконами серии.",
+      "priceTier": "medium",
+      "priceLabel": "1400–2200 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2305435-flexi-gronckle-dragon-articulated-fidget-desk-pet",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Малыш Беззубик",
+      "description": "Стилизованный беззубик февраля 2026, около двух часов, есть одноцветный профиль. Подвижный сувенир на стол, печать проще крупных драконов.",
+      "priceTier": "medium",
+      "priceLabel": "1000–1600 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2426663-cute-articulated-toothless-dragon",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Flexi Manta Ray",
+      "description": "Скат января 2026 с гибкими «крыльями», print-in-place. Морской сувенир среднего размера: и на стол, и в руки. Без поддержек.",
+      "priceTier": "medium",
+      "priceLabel": "900–1500 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2319309-articulated-manta-ray-toy-flexi-ocean-creature",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Manta Ray без поддержек",
+      "description": "Второй скат, февраль 2026: крылья и хвост двигаются, brim и поддержки не нужны. Компактнее витринных драконов, но крупнее брелка. Хороший морской сувенир в среднем чеке.",
+      "priceTier": "medium",
+      "priceLabel": "800–1400 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2373512-flexi-manta-ray-print-in-place-no-support",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Flexi Raccoon",
+      "description": "Енот с маской и гибким телом. Цветной профиль около 3,7 часа, одноцвет заметно быстрее. Средний лесной сувенир, без поддержек, есть вариант с отверстием под кольцо.",
+      "priceTier": "medium",
+      "priceLabel": "1200–2000 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/3015728-cute-flexi-raccoon",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Flexi Tractor Train",
+      "description": "Трактор с сочленёнными прицепами: несколько вагонов, print-in-place. Набор длиннее одного зверька, поэтому это средний-плюс сувенир для полки, а не мелочь у кассы.",
+      "priceTier": "medium",
+      "priceLabel": "1500–2300 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2203027-flexi-tractor-train-with-articulated-trailers",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Pikachu Flexy — брелок",
+      "description": "Пикачу апреля 2026: усиленные шарниры, есть одноцвет и AMS. Карманный сувенир на ключи и рюкзак, печать короткая.",
+      "priceTier": "cheap",
+      "priceLabel": "350–600 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2662719-pokemon-pikachu-flexy-articulated-keychain",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Брелок Беззубик",
+      "description": "Брелок-беззубик марта 2026, стилизованный и подвижный. Мелкий fantasy-сувенир на кольцо, печатается быстро и без поддержек.",
+      "priceTier": "cheap",
+      "priceLabel": "350–600 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2465337-articulated-toothless-dragon-keychain",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Карманный Ender Dragon",
+      "description": "Маленький эндер-дракон: хвост, крылья и лапы двигаются. Есть фигура и брелок. Бюджетный игровой сувенир, крупная версия остаётся в премиуме.",
+      "priceTier": "cheap",
+      "priceLabel": "400–700 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/3088825-mini-articulated-ender-dragon-cute-pocket-dragon",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Flexi Mini Cow",
+      "description": "Мини-корова июля 2026: одноцвет около 45 минут, без поддержек. Фермерский сувенир у кассы, цветной профиль можно отложить в средний чек.",
+      "priceTier": "cheap",
+      "priceLabel": "350–550 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/3102850-flexi-mini-cow",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Брелок Вегета",
+      "description": "Вегета апреля 2026 как подвижный брелок и подвеска на рюкзак. Яркий персонажный сувенир, печать короткая, хорошо идёт в мультицвете.",
+      "priceTier": "cheap",
+      "priceLabel": "400–650 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2692970-dragonball-vegeta-flexi-keychain",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Брелок Charizard",
+      "description": "Сияющий чарзард марта 2026: лапы и хвост гнутся, петля под кольцо уже в модели. Компактный сувенир на ключи, print-in-place.",
+      "priceTier": "cheap",
+      "priceLabel": "400–700 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2571235-articulated-shiny-charizard-flexi-keychain-chibi",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Кликер 2×2",
+      "description": "Сетка из четырёх клавиш на кольцо, профиль около 45 минут, май 2026. Нужен механический свитч. Бюджетный кликер-сувенир, который печатается пачками.",
+      "priceTier": "cheap",
+      "priceLabel": "450–750 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2743610-2x2-grid-fidget-clicker-and-keychain",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Осьминог на палец",
+      "description": "Осьминог апреля 2026: щупальца двигаются, глаза отдельной деталью, около 15 грамм пластика. Самый лёгкий морской сувенир в новинках, печатается быстро.",
+      "priceTier": "cheap",
+      "priceLabel": "280–480 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2651542-cute-articulated-octopus",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Брелок каменный дракон",
+      "description": "Карманная версия каменного дракона с петлёй под кольцо. Маленький fantasy-сувенир к крупной модели 26 см, печать короткая и без поддержек.",
+      "priceTier": "cheap",
+      "priceLabel": "300–550 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/2901890-flexi-stone-dragon-keychain-toy",
+      "imageUrl": null,
+      "collection": "new"
+    },
+    {
+      "name": "Маленький Flexi Raccoon",
+      "description": "Компактный енот print-in-place, профиль около полутора часов. Бюджетный лесной сувенир: маска, гибкое тело, без клея. Крупный цветной енот остаётся в среднем сегменте.",
+      "priceTier": "cheap",
+      "priceLabel": "450–750 ₽",
+      "sourceUrl": "https://makerworld.com/en/models/3038788-cute-flexy-raccoon-articulated-fidget-toy",
+      "imageUrl": null,
+      "collection": "new"
     }
   ]
 }

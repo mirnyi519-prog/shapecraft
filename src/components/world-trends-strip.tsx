@@ -42,6 +42,11 @@ function WorldTrendCard({
             Фото модели
           </div>
         )}
+        {article.collection === "new" ? (
+          <span className="absolute left-3 top-3 z-10">
+            <Badge tone="warning">новое</Badge>
+          </span>
+        ) : null}
       </div>
       <div className="flex flex-1 flex-col gap-2 p-4">
         <h3 className="text-base font-semibold leading-snug">{article.name}</h3>
@@ -52,6 +57,49 @@ function WorldTrendCard({
         ) : null}
       </div>
     </button>
+  );
+}
+
+function TierGrid({
+  articles,
+  onOpen,
+}: {
+  articles: WorldTrendArticleView[];
+  onOpen: (article: WorldTrendArticleView) => void;
+}) {
+  const grouped = groupArticlesByTier(articles);
+
+  return (
+    <div className="space-y-6">
+      {WORLD_TIER_ORDER.map((tier) => {
+        const tierArticles = grouped[tier];
+        if (tierArticles.length === 0) {
+          return null;
+        }
+
+        return (
+          <div key={tier} className="space-y-3">
+            <div>
+              <h3 className="text-lg font-bold tracking-tight text-[var(--text)]">
+                {WORLD_TIER_LABELS[tier]}
+              </h3>
+              <p className="text-sm leading-snug text-[#3d3d3e]">
+                {WORLD_TIER_HINTS[tier]}
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {tierArticles.map((article) => (
+                <WorldTrendCard
+                  key={article.id}
+                  article={article}
+                  onOpen={onOpen}
+                />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -87,7 +135,8 @@ export function WorldTrendsStrip({
     return null;
   }
 
-  const grouped = groupArticlesByTier(articles);
+  const fresh = articles.filter((article) => article.collection === "new");
+  const popular = articles.filter((article) => article.collection !== "new");
 
   return (
     <section className="space-y-4">
@@ -104,7 +153,7 @@ export function WorldTrendsStrip({
             <Badge tone="neutral">мир</Badge>
           </div>
           <p className="mt-1.5 text-sm leading-snug text-[#3d3d3e] sm:text-base">
-            Идеи, популярные у 3D-печатников · {articles.length} моделей
+            Новинки и популярные идеи · {articles.length} моделей
           </p>
           <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-[var(--brand-soft)] px-3.5 py-1.5 text-sm font-semibold text-[var(--brand-dark)]">
             <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--brand)]" />
@@ -124,35 +173,29 @@ export function WorldTrendsStrip({
       </div>
 
       {visible ? (
-        <div className="space-y-6">
-          {WORLD_TIER_ORDER.map((tier) => {
-            const tierArticles = grouped[tier];
-            if (tierArticles.length === 0) {
-              return null;
-            }
-
-            return (
-              <div key={tier} className="space-y-3">
-                <div>
-                  <h3 className="text-lg font-bold tracking-tight text-[var(--text)]">
-                    {WORLD_TIER_LABELS[tier]}
-                  </h3>
-                  <p className="text-sm leading-snug text-[#3d3d3e]">
-                    {WORLD_TIER_HINTS[tier]}
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {tierArticles.map((article) => (
-                    <WorldTrendCard
-                      key={article.id}
-                      article={article}
-                      onOpen={setSelected}
-                    />
-                  ))}
-                </div>
+        <div className="space-y-8">
+          {fresh.length > 0 ? (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-xl font-bold tracking-tight">Новинки</h3>
+                <p className="text-sm leading-snug text-[#3d3d3e]">
+                  Свежие модели, которых ещё не было в подборке · {fresh.length}
+                </p>
               </div>
-            );
-          })}
+              <TierGrid articles={fresh} onOpen={setSelected} />
+            </div>
+          ) : null}
+          <div className="space-y-4">
+            {fresh.length > 0 ? (
+              <div>
+                <h3 className="text-xl font-bold tracking-tight">Популярные</h3>
+                <p className="text-sm leading-snug text-[#3d3d3e]">
+                  Проверенные идеи, которые уже печатают · {popular.length}
+                </p>
+              </div>
+            ) : null}
+            <TierGrid articles={popular} onOpen={setSelected} />
+          </div>
         </div>
       ) : null}
 

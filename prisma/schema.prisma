@@ -331,6 +331,8 @@ model WorldTrendArticle {
   sourceUrl   String?
   priceTier   String
   priceLabel  String?
+  /// popular — уже были в подборке; new — новинки этого завоза
+  collection  String          @default("popular")
   sortOrder   Int             @default(0)
   createdAt   DateTime        @default(now())
 
