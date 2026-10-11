@@ -17,55 +17,70 @@ import {
 function WorldTrendCard({
   article,
   onOpen,
+  onOrder,
 }: {
   article: WorldTrendArticleView;
   onOpen: (article: WorldTrendArticleView) => void;
+  onOrder: (article: WorldTrendArticleView) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(article)}
-      className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-white p-0 text-left shadow-sm transition hover:border-[var(--brand)]"
-    >
-      <div className="relative aspect-[4/3] bg-[var(--brand-soft)]">
-        {article.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={cardMediaUrl(article.imageUrl) ?? article.imageUrl}
-            alt={article.name}
-            className="absolute inset-0 h-full w-full object-cover"
-            loading="lazy"
-            decoding="async"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center px-4 text-center text-sm text-[var(--muted)]">
-            Фото модели
-          </div>
-        )}
-        {article.collection === "new" ? (
-          <span className="absolute left-3 top-3 z-10">
-            <Badge tone="warning">новое</Badge>
-          </span>
-        ) : null}
+    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-sm transition hover:border-[var(--brand)]">
+      <button
+        type="button"
+        onClick={() => onOpen(article)}
+        className="flex flex-1 flex-col p-0 text-left"
+      >
+        <span className="relative block aspect-[4/3] bg-[var(--brand-soft)]">
+          {article.imageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={cardMediaUrl(article.imageUrl) ?? article.imageUrl}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
+          ) : (
+            <span className="flex h-full items-center justify-center px-4 text-center text-sm text-[var(--muted)]">
+              Фото модели
+            </span>
+          )}
+          {article.collection === "new" ? (
+            <span className="absolute left-3 top-3 z-10">
+              <Badge tone="warning">новое</Badge>
+            </span>
+          ) : null}
+        </span>
+        <span className="flex flex-1 flex-col gap-2 p-4">
+          <span className="text-base font-semibold leading-snug">{article.name}</span>
+          {article.priceLabel ? (
+            <span className="mt-auto">
+              <Badge tone="warning">{article.priceLabel}</Badge>
+            </span>
+          ) : null}
+        </span>
+      </button>
+      <div className="px-4 pb-4">
+        <Button
+          type="button"
+          className="min-h-11 w-full"
+          onClick={() => onOrder(article)}
+        >
+          Заказать печать
+        </Button>
       </div>
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <h3 className="text-base font-semibold leading-snug">{article.name}</h3>
-        {article.priceLabel ? (
-          <div className="mt-auto">
-            <Badge tone="warning">{article.priceLabel}</Badge>
-          </div>
-        ) : null}
-      </div>
-    </button>
+    </article>
   );
 }
 
 function TierGrid({
   articles,
   onOpen,
+  onOrder,
 }: {
   articles: WorldTrendArticleView[];
   onOpen: (article: WorldTrendArticleView) => void;
+  onOrder: (article: WorldTrendArticleView) => void;
 }) {
   const grouped = groupArticlesByTier(articles);
 
@@ -93,6 +108,7 @@ function TierGrid({
                   key={article.id}
                   article={article}
                   onOpen={onOpen}
+                  onOrder={onOrder}
                 />
               ))}
             </div>
@@ -114,22 +130,28 @@ export function WorldTrendsStrip({
 }) {
   const [open, setOpen] = useState(expanded);
   const [selected, setSelected] = useState<WorldTrendArticleView | null>(null);
-  const [orderOpen, setOrderOpen] = useState(false);
+  const [orderArticle, setOrderArticle] = useState<WorldTrendArticleView | null>(
+    null,
+  );
   const visible = expanded || open;
-  useScrollLock(Boolean(selected) || orderOpen);
+  useScrollLock(Boolean(selected) || Boolean(orderArticle));
+
+  function openOrder(article: WorldTrendArticleView) {
+    setOrderArticle(article);
+  }
 
   useEffect(() => {
     if (!selected) {
       return;
     }
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !orderOpen) {
+      if (event.key === "Escape" && !orderArticle) {
         setSelected(null);
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selected, orderOpen]);
+  }, [selected, orderArticle]);
 
   if (articles.length === 0) {
     return null;
@@ -182,7 +204,11 @@ export function WorldTrendsStrip({
                   Свежие модели, которых ещё не было в подборке · {fresh.length}
                 </p>
               </div>
-              <TierGrid articles={fresh} onOpen={setSelected} />
+              <TierGrid
+                articles={fresh}
+                onOpen={setSelected}
+                onOrder={openOrder}
+              />
             </div>
           ) : null}
           <div className="space-y-4">
@@ -194,7 +220,11 @@ export function WorldTrendsStrip({
                 </p>
               </div>
             ) : null}
-            <TierGrid articles={popular} onOpen={setSelected} />
+            <TierGrid
+              articles={popular}
+              onOpen={setSelected}
+              onOrder={openOrder}
+            />
           </div>
         </div>
       ) : null}
@@ -203,7 +233,7 @@ export function WorldTrendsStrip({
         <div
           className="safe-overlay fixed inset-0 z-50 flex items-end justify-center overscroll-none bg-black/55 p-0 sm:items-center sm:p-4"
           onClick={() => {
-            if (!orderOpen) {
+            if (!orderArticle) {
               setSelected(null);
             }
           }}
@@ -248,9 +278,9 @@ export function WorldTrendsStrip({
               <Button
                 type="button"
                 className="min-h-12 w-full text-base"
-                onClick={() => setOrderOpen(true)}
+                onClick={() => openOrder(selected)}
               >
-                Заказать
+                Заказать печать
               </Button>
             </div>
           </div>
@@ -258,14 +288,14 @@ export function WorldTrendsStrip({
       ) : null}
 
       <PrintOrderModal
-        open={orderOpen && Boolean(selected)}
+        open={Boolean(orderArticle)}
         source="world"
-        title={selected?.name ?? ""}
+        title={orderArticle?.name ?? ""}
         priceNote={
-          selected?.priceLabel ? `примерно ${selected.priceLabel}` : null
+          orderArticle?.priceLabel ? `примерно ${orderArticle.priceLabel}` : null
         }
-        sourceUrl={selected?.sourceUrl}
-        onClose={() => setOrderOpen(false)}
+        sourceUrl={orderArticle?.sourceUrl}
+        onClose={() => setOrderArticle(null)}
       />
     </section>
   );
