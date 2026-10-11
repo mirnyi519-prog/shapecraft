@@ -48,6 +48,7 @@ model Product {
   holds            ProductHold[]
   images           ProductImage[]
   printRequests    PrintRequest[]
+  deliveryLines    DeliveryOrderLine[]
   packagingId      String?
   packaging        Packaging?        @relation(fields: [packagingId], references: [id], onDelete: SetNull)
 
@@ -179,6 +180,10 @@ model StoreSettings {
   /// JSON: Record<weekday, {closed}|{openMinute,closeMinute}>
   summerHoursJson   String
   winterHoursJson   String
+  /// Регистрация покупателя и заказ с доставкой. Пока false — на витрине этого нет.
+  ordersEnabled     Boolean  @default(false)
+  /// Строка «Продавец» на адресном ярлыке 100×150.
+  sellerName        String   @default("")
   updatedAt         DateTime @updatedAt
 }
 
@@ -249,6 +254,90 @@ model ProductBuyClick {
   @@index([ipAddress])
   @@index([visitorId])
   @@index([outcome])
+}
+
+/// Покупатель витрины. Вход по телефону, без отдельного пароля.
+model ShopCustomer {
+  id        String          @id @default(cuid())
+  phone     String          @unique
+  name      String?
+  email     String?
+  createdAt DateTime        @default(now())
+  orders    DeliveryOrder[]
+}
+
+/// Заказ с доставкой СДЭК. Пока заказы выключены, с витрины не создаётся.
+/// Свободный остаток занимает только статус paid.
+/// Отмена возвращает резерв. Передача в СДЭК списывает Product.stock.
+model DeliveryOrder {
+  id              String               @id @default(cuid())
+  /// Номер в нашей системе. В СДЭК уходит как number.
+  number          String               @unique
+  customerId      String
+  customer        ShopCustomer         @relation(fields: [customerId], references: [id])
+  /// pvz — до пункта выдачи; door — курьер до двери
+  deliveryMode    String
+  recipientName   String
+  recipientPhone  String
+  recipientEmail  String?
+  city            String
+  /// Курьер: улица, дом, квартира
+  address         String?
+  /// ПВЗ: код точки СДЭК (delivery_point)
+  pvzCode         String?
+  pvzAddress      String?
+  comment         String?
+  goodsAmount     Float
+  deliveryAmount  Float                @default(0)
+  /// Наложенный платёж. При оплате сразу всегда 0.
+  codAmount       Float                @default(0)
+  /// awaiting_payment | paid | handed_to_cdek | cancelled
+  status          String               @default("awaiting_payment")
+  /// unpaid | paid
+  paymentStatus   String               @default("unpaid")
+  paidAt          DateTime?
+  tariffCode      Int?
+  cdekUuid        String?
+  /// Трек СДЭК
+  cdekNumber      String?
+  cdekStatus      String?
+  handedToCdekAt  DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  lines           DeliveryOrderLine[]
+  events          DeliveryOrderEvent[]
+
+  @@index([status, createdAt])
+  @@index([customerId])
+  @@index([cdekNumber])
+}
+
+model DeliveryOrderLine {
+  id          String        @id @default(cuid())
+  orderId     String
+  order       DeliveryOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product       @relation(fields: [productId], references: [id])
+  name        String
+  quantity    Int
+  price       Float
+  weightGrams Float?
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+/// История заказа: оплата, отмена, передача в СДЭК.
+model DeliveryOrderEvent {
+  id        String        @id @default(cuid())
+  orderId   String
+  order     DeliveryOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    String
+  note      String?
+  createdAt DateTime      @default(now())
+
+  @@index([orderId, createdAt])
 }
 
 model PrintRequest {

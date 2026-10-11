@@ -28,7 +28,8 @@ export function AppShellFrame({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const showFeedbackPanel = admin && !pathname.startsWith("/feedback");
+  const showFeedbackPanel =
+    admin && feedbackMessages.length > 0 && !pathname.startsWith("/feedback");
 
   return (
     <>
@@ -37,11 +38,11 @@ export function AppShellFrame({
       </Suspense>
 
       <div className={showFeedbackPanel ? "lg:pl-60 lg:pr-80" : "lg:pl-60"}>
-        <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-white/95 pt-[env(safe-area-inset-top)] backdrop-blur lg:border-b-0 lg:bg-transparent lg:pt-0 lg:backdrop-blur-none">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:py-4 lg:justify-end lg:py-3">
-            <div className="min-w-0 lg:hidden">
+        <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-white/95 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:py-4">
+            <div className="min-w-0">
               <Link
-                href="/"
+                href="/dashboard"
                 className="block truncate text-lg font-bold text-[var(--brand)] sm:text-xl"
               >
                 ShapeCraft

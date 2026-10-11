@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { formatDateTime } from "@/lib/calculations";
+import { freeUnits, heldUnitsInTx, reservedUnitsInTx } from "@/lib/free-stock";
 import {
   HOLD_MS,
   activeHoldWhere,
@@ -77,11 +78,9 @@ export async function POST(request: Request, context: RouteContext) {
         return { hold: existing, product, already: true };
       }
 
-      const held = await tx.productHold.aggregate({
-        where: { productId: id, ...activeHoldWhere(now) },
-        _sum: { quantity: true },
-      });
-      const free = product.stock - (held._sum.quantity ?? 0);
+      const held = await heldUnitsInTx(tx, id, now);
+      const reserved = await reservedUnitsInTx(tx, id);
+      const free = freeUnits(product.stock, held, reserved);
       if (free < 1) {
         return { error: "Свободных штук нет — всё в брони или разобрали", status: 409 as const };
       }

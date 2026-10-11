@@ -94,12 +94,12 @@ export default async function PricePrintPage() {
                       <img
                         src={product.imageUrl}
                         alt=""
-                        width={48}
-                        height={48}
-                        className="h-12 w-12 rounded-md bg-[var(--brand-soft)] object-contain"
+                        width={64}
+                        height={64}
+                        className="h-16 w-16 rounded-md bg-[var(--brand-soft)] object-contain"
                       />
                     ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-md bg-[var(--bg)] text-xs text-[var(--muted)]">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-md bg-[var(--bg)] text-xs text-[var(--muted)]">
                         —
                       </div>
                     )}

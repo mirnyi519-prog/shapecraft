@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AnalyticsSwitch } from "@/components/analytics-switch";
 import { AppShell } from "@/components/app-shell";
 import { VisitsChart } from "@/components/visits-chart";
 import { VisitsHourlyChart } from "@/components/visits-hourly-chart";
@@ -34,7 +35,10 @@ export default async function VisitsPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold">Посещения сайта</h1>
-            <p className="text-[var(--muted)]">
+            <div className="mt-3">
+              <AnalyticsSwitch current="visits" />
+            </div>
+            <p className="mt-3 text-[var(--muted)]">
               Витрина («/»), гости без входа. Повтор с того же IP/cookie не чаще
               раза в 30 мин (чтобы F5 не раздувал статистику). Админка, экран,
               логин и боты превью (TelegramBot) не считаются. Сортировка по

@@ -17,6 +17,7 @@ export type NavIconName =
   | "security"
   | "display"
   | "world"
+  | "orders"
   | "settings"
   | "hours";
 
@@ -66,15 +67,7 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
     icon: "products" as const,
   }));
 
-  const settingsChildren: AppNavItem[] = [
-    { href: "/settings/hours", label: "График", icon: "hours" },
-    { href: "/settings/banner", label: "Баннер", icon: "banner" },
-    { href: "/settings/categories", label: "Разделы", icon: "categories" },
-    { href: "/settings/world", label: "В мире", icon: "world" },
-    { href: "/settings/security", label: "Безопасность", icon: "security" },
-  ];
-
-  return [
+  const mainChildren: AppNavItem[] = [
     { href: "/dashboard", label: "Сводка", icon: "dashboard" },
     {
       href: "/products",
@@ -83,27 +76,61 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
       children: productChildren,
     },
     { href: "/sales", label: "Продажи", icon: "sales" },
-    { href: "/settlements", label: "Расчёты", icon: "settlements" },
-    { href: "/", label: "Витрина", icon: "store" },
-    { href: "/display", label: "Экран", icon: "display" },
-    ...(admin ? [{ href: "/receipts", label: "Приход", icon: "receipts" as const }] : []),
-    ...(admin ? [{ href: "/packaging", label: "Упаковка", icon: "packaging" as const }] : []),
-    ...(admin ? [{ href: "/users", label: "Пользователи", icon: "users" as const }] : []),
-    ...(admin ? [{ href: "/visits", label: "Посещения", icon: "visits" as const }] : []),
-    ...(admin ? [{ href: "/views", label: "Просмотры", icon: "views" as const }] : []),
-    ...(admin ? [{ href: "/feedback", label: "Обратная связь", icon: "feedback" as const }] : []),
-    ...(admin ? [{ href: "/print-requests", label: "Печать", icon: "print" as const }] : []),
-    ...(admin
-      ? [
-          {
-            href: "/settings",
-            label: "Настройки",
-            icon: "settings" as const,
-            children: settingsChildren,
-          },
-        ]
-      : []),
   ];
+  if (admin) {
+    mainChildren.push(
+      { href: "/receipts", label: "Приход", icon: "receipts" },
+      { href: "/delivery-orders", label: "Заказы СДЭК", icon: "orders" },
+      { href: "/print-requests", label: "Печать", icon: "print" },
+    );
+  }
+
+  const showcaseChildren: AppNavItem[] = [
+    { href: "/", label: "Открыть витрину", icon: "store" },
+    { href: "/display", label: "Экран", icon: "display" },
+  ];
+  if (admin) {
+    showcaseChildren.push(
+      { href: "/settings/banner", label: "Баннер", icon: "banner" },
+      { href: "/settings/categories", label: "Разделы", icon: "categories" },
+      { href: "/settings/hours", label: "График", icon: "hours" },
+      { href: "/settings/world", label: "В мире", icon: "world" },
+    );
+  }
+
+  const items: AppNavItem[] = [
+    {
+      href: "/dashboard",
+      label: "Основное",
+      icon: "dashboard",
+      children: mainChildren,
+    },
+    { href: "/settlements", label: "Расчёты", icon: "settlements" },
+    {
+      href: "/",
+      label: "Витрина",
+      icon: "store",
+      children: showcaseChildren,
+    },
+  ];
+
+  if (admin) {
+    items.push({
+      href: "/settings",
+      label: "Контроль",
+      icon: "settings",
+      children: [
+        { href: "/users", label: "Пользователи", icon: "users" },
+        { href: "/visits", label: "Аналитика", icon: "visits" },
+        { href: "/feedback", label: "Обратная связь", icon: "feedback" },
+        { href: "/packaging", label: "Упаковка", icon: "packaging" },
+        { href: "/settings/security", label: "Безопасность", icon: "security" },
+        { href: "/settings/orders", label: "Режим заказов", icon: "orders" },
+      ],
+    });
+  }
+
+  return items;
 }
 
 function pathAndQuery(href: string): { path: string; query: URLSearchParams } {
@@ -147,15 +174,25 @@ export function isNavItemActive(
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
-export function isNavGroupActive(pathname: string, item: AppNavItem): boolean {
-  if (item.children?.length) {
-    if (item.href === "/products") {
-      return pathname === "/products" || pathname.startsWith("/products/");
-    }
-    if (item.href === "/settings") {
-      return pathname === "/settings" || pathname.startsWith("/settings/");
-    }
-    return item.children.some((child) => isNavItemActive(pathname, child.href));
+export function isNavGroupActive(
+  pathname: string,
+  item: AppNavItem,
+  search = "",
+): boolean {
+  if (
+    item.href === "/products" &&
+    (pathname === "/products" || pathname.startsWith("/products/"))
+  ) {
+    return true;
   }
-  return isNavItemActive(pathname, item.href);
+  if (
+    item.href === "/visits" &&
+    (pathname === "/visits" || pathname === "/views" || pathname.startsWith("/views/"))
+  ) {
+    return true;
+  }
+  if (item.children?.some((child) => isNavGroupActive(pathname, child, search))) {
+    return true;
+  }
+  return isNavItemActive(pathname, item.href, search);
 }

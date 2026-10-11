@@ -71,6 +71,7 @@ export function isTrackableVisitPath(pathname: string): boolean {
     "/categories",
     "/banner",
     "/settings",
+    "/delivery-orders",
     "/display",
     "/login",
   ];

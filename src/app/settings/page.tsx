@@ -3,27 +3,28 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Card } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
+import { getDeliveryOrdersEnabled } from "@/lib/store-settings";
 
 const SECTIONS = [
   {
-    href: "/settings/hours",
-    title: "График работы",
-    text: "Лето / зима, период зимы, часы по дням",
+    href: "/users",
+    title: "Пользователи",
+    text: "Кто входит в админку",
   },
   {
-    href: "/settings/banner",
-    title: "Баннер",
-    text: "Текст и картинка сверху на витрине",
+    href: "/visits",
+    title: "Аналитика",
+    text: "Посещения витрины и просмотры карточек",
   },
   {
-    href: "/settings/categories",
-    title: "Разделы",
-    text: "Фильтры каталога на витрине",
+    href: "/feedback",
+    title: "Обратная связь",
+    text: "Сообщения с витрины",
   },
   {
-    href: "/settings/world",
-    title: "В мире",
-    text: "Еженедельная подборка трендов",
+    href: "/packaging",
+    title: "Упаковка",
+    text: "Остатки коробок и рекомендации для товаров",
   },
   {
     href: "/settings/security",
@@ -41,17 +42,29 @@ export default async function SettingsHubPage() {
     redirect("/dashboard");
   }
 
+  const ordersEnabled = await getDeliveryOrdersEnabled();
+  const sections = [
+    ...SECTIONS,
+    {
+      href: "/settings/orders",
+      title: "Режим заказов",
+      text: ordersEnabled
+        ? "Включены. Оформление на витрине ещё не выложено"
+        : "Выключены. На витрине нет регистрации и доставки",
+    },
+  ];
+
   return (
     <AppShell>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Настройки</h1>
+          <h1 className="text-2xl font-bold">Контроль</h1>
           <p className="text-[var(--muted)]">
-            Витрина, контент и безопасность — в одном месте
+            Люди, аналитика и безопасность. Баннер, разделы, график и «В мире» — в разделе «Витрина».
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          {SECTIONS.map((item) => (
+          {sections.map((item) => (
             <Link key={item.href} href={item.href} className="block">
               <Card
                 title={item.title}

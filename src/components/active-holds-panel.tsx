@@ -44,7 +44,7 @@ export function ActiveHoldsPanel() {
     await load();
   }
 
-  if (holds === null) {
+  if (holds === null || (holds.length === 0 && !error)) {
     return null;
   }
 
@@ -55,9 +55,7 @@ export function ActiveHoldsPanel() {
         Держим 1 шт два часа. После продажи со стойки бронь снимается сама.
       </p>
       {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
-      {holds.length === 0 ? (
-        <p className="mt-4 text-sm text-[var(--muted)]">Активных броней нет.</p>
-      ) : (
+      {holds.length === 0 ? null : (
         <ul className="mt-4 space-y-3">
           {holds.map((hold) => (
             <li

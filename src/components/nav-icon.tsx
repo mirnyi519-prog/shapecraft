@@ -127,6 +127,13 @@ const iconPaths: Record<NavIconName, ReactNode> = {
       <path d="M12 16v4" />
     </>
   ),
+  orders: (
+    <>
+      <path d="M4 7h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7Z" />
+      <path d="M8 7V5a4 4 0 0 1 8 0v2" />
+      <path d="M9 12h6" />
+    </>
+  ),
   world: (
     <>
       <circle cx="12" cy="12" r="9" />

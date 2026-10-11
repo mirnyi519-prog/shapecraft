@@ -8,11 +8,11 @@ import {
   isNavGroupActive,
   isNavItemActive,
 } from "@/components/app-nav-config";
+import { LogoutButton } from "@/components/logout-button";
 import { NavIcon } from "@/components/nav-icon";
 
-/** На телефоне в первой полосе — операционка; витрина и прочее в «Ещё». */
-const MOBILE_PRIMARY_ORDER = ["/products", "/dashboard", "/sales"] as const;
-const MOBILE_PRIMARY_HREFS = new Set<string>(MOBILE_PRIMARY_ORDER);
+/** На телефоне в первой полосе — ежедневные экраны; остальное в «Ещё». */
+const MOBILE_PRIMARY_LABELS = ["Товары", "Сводка", "Продажи"] as const;
 
 function mobileLinkClass(active: boolean): string {
   return [
@@ -58,11 +58,11 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
-function DesktopNavGroup({ item }: { item: AppNavItem }) {
+function DesktopNavGroup({ item, nested = false }: { item: AppNavItem; nested?: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams.toString();
-  const groupActive = isNavGroupActive(pathname, item);
+  const groupActive = isNavGroupActive(pathname, item, search);
   const [open, setOpen] = useState(groupActive);
 
   useEffect(() => {
@@ -77,44 +77,56 @@ function DesktopNavGroup({ item }: { item: AppNavItem }) {
       <li>
         <Link
           href={item.href}
-          className={desktopLinkClass(active)}
+          className={nested ? desktopChildClass(active) : desktopLinkClass(active)}
           aria-current={active ? "page" : undefined}
         >
-          <NavIcon name={item.icon} className="h-5 w-5 shrink-0" />
+          {nested ? null : <NavIcon name={item.icon} className="h-5 w-5 shrink-0" />}
           <span className="truncate">{item.label}</span>
         </Link>
       </li>
     );
   }
 
+  const rowClass = nested ? desktopChildClass(groupActive) : desktopLinkClass(groupActive);
+
   return (
     <li>
-      <button
-        type="button"
-        onClick={() => setOpen((value) => !value)}
-        className={`${desktopLinkClass(groupActive)} w-full`}
-        aria-expanded={open}
-      >
-        <NavIcon name={item.icon} className="h-5 w-5 shrink-0" />
-        <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
-        <Chevron open={open} />
-      </button>
+      <div className="flex items-center gap-1">
+        <Link
+          href={item.href}
+          className={`${rowClass} min-w-0 flex-1`}
+          aria-current={isNavItemActive(pathname, item.href, search) ? "page" : undefined}
+        >
+          {nested ? null : <NavIcon name={item.icon} className="h-5 w-5 shrink-0" />}
+          <span className="truncate">{item.label}</span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--bg)]"
+          aria-expanded={open}
+          aria-label={open ? `Свернуть «${item.label}»` : `Развернуть «${item.label}»`}
+        >
+          <Chevron open={open} />
+        </button>
+      </div>
       {open ? (
         <ul className="mt-1 space-y-0.5 border-l border-[var(--border)] ml-5 pl-2">
-          {item.children.map((child) => {
-            const active = isNavItemActive(pathname, child.href, search);
-            return (
-              <li key={child.href}>
+          {item.children.map((child) =>
+            child.children?.length ? (
+              <DesktopNavGroup key={`${child.label}:${child.href}`} item={child} nested />
+            ) : (
+              <li key={`${child.label}:${child.href}`}>
                 <Link
                   href={child.href}
-                  className={desktopChildClass(active)}
-                  aria-current={active ? "page" : undefined}
+                  className={desktopChildClass(isNavItemActive(pathname, child.href, search))}
+                  aria-current={isNavItemActive(pathname, child.href, search) ? "page" : undefined}
                 >
                   {child.label}
                 </Link>
               </li>
-            );
-          })}
+            ),
+          )}
         </ul>
       ) : null}
     </li>
@@ -150,7 +162,7 @@ function MobileNavEntry({
     );
   }
 
-  const groupActive = isNavGroupActive(pathname, item);
+  const groupActive = isNavGroupActive(pathname, item, search);
   const open = expandedHref === item.href;
   return (
     <button
@@ -209,30 +221,43 @@ export function MobileAppNav({ items }: { items: AppNavItem[] }) {
   const [moreOpen, setMoreOpen] = useState(false);
 
   const { primary, more } = useMemo(() => {
-    const primaryItems: AppNavItem[] = [];
-    const moreItems: AppNavItem[] = [];
-    for (const item of items) {
-      if (MOBILE_PRIMARY_HREFS.has(item.href)) {
-        primaryItems.push(item);
-      } else {
-        moreItems.push(item);
+    function findLabel(list: AppNavItem[], label: string): AppNavItem | undefined {
+      for (const item of list) {
+        if (item.label === label) {
+          return { ...item, children: undefined };
+        }
+        if (item.children) {
+          const found = findLabel(item.children, label);
+          if (found) return found;
+        }
       }
+      return undefined;
     }
-    primaryItems.sort(
-      (a, b) =>
-        MOBILE_PRIMARY_ORDER.indexOf(
-          a.href as (typeof MOBILE_PRIMARY_ORDER)[number],
-        ) -
-        MOBILE_PRIMARY_ORDER.indexOf(
-          b.href as (typeof MOBILE_PRIMARY_ORDER)[number],
-        ),
+
+    function withoutPrimary(item: AppNavItem): AppNavItem | null {
+      if ((MOBILE_PRIMARY_LABELS as readonly string[]).includes(item.label)) {
+        return null;
+      }
+      if (!item.children?.length) return item;
+      const children = item.children
+        .map(withoutPrimary)
+        .filter((child): child is AppNavItem => child !== null);
+      if (children.length === 0) return null;
+      return { ...item, children };
+    }
+
+    const primaryItems = MOBILE_PRIMARY_LABELS.map((label) => findLabel(items, label)).filter(
+      (item): item is AppNavItem => Boolean(item),
     );
+    const moreItems = items
+      .map(withoutPrimary)
+      .filter((item): item is AppNavItem => item !== null);
     return { primary: primaryItems, more: moreItems };
   }, [items]);
 
   const moreActive = useMemo(
-    () => more.some((item) => isNavGroupActive(pathname, item)),
-    [more, pathname],
+    () => more.some((item) => isNavGroupActive(pathname, item, search)),
+    [more, pathname, search],
   );
 
   function closeMenus() {
@@ -307,23 +332,33 @@ export function MobileAppNav({ items }: { items: AppNavItem[] }) {
               );
             }
 
-            const groupActive = isNavGroupActive(pathname, item);
+            const groupActive = isNavGroupActive(pathname, item, search);
             const open = expandedHref === item.href;
             return (
-              <div key={item.href} className="col-span-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setExpandedHref((current) =>
-                      current === item.href ? null : item.href,
-                    )
-                  }
-                  className={`${mobileLinkClass(open || groupActive)} inline-flex w-full items-center justify-between gap-1`}
-                  aria-expanded={open}
-                >
-                  {item.label}
-                  <Chevron open={open} />
-                </button>
+              <div key={`${item.label}:${item.href}`} className="col-span-2">
+                <div className="flex items-center gap-1">
+                  <Link
+                    href={item.href}
+                    className={`${mobileLinkClass(groupActive)} min-w-0 flex-1 text-left`}
+                    aria-current={isNavItemActive(pathname, item.href, search) ? "page" : undefined}
+                    onClick={closeMenus}
+                  >
+                    {item.label}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExpandedHref((current) =>
+                        current === item.href ? null : item.href,
+                      )
+                    }
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--muted)]"
+                    aria-expanded={open}
+                    aria-label={open ? `Свернуть «${item.label}»` : `Развернуть «${item.label}»`}
+                  >
+                    <Chevron open={open} />
+                  </button>
+                </div>
                 {open ? (
                   <MobileNavChildren
                     item={item}
@@ -350,7 +385,7 @@ export function DesktopAppSidebar({
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col border-r border-[var(--border)] bg-white lg:flex">
       <div className="border-b border-[var(--border)] px-4 py-5">
-        <Link href="/" className="block">
+        <Link href="/dashboard" className="block">
           <span className="text-lg font-bold text-[var(--brand)]">ShapeCraft</span>
           <span className="mt-0.5 block text-xs text-[var(--muted)]">shapecraft.ru</span>
         </Link>
@@ -364,11 +399,10 @@ export function DesktopAppSidebar({
         </ul>
       </nav>
 
-      {userName ? (
-        <div className="border-t border-[var(--border)] px-4 py-3">
-          <p className="truncate text-sm text-[var(--muted)]">{userName}</p>
-        </div>
-      ) : null}
+      <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] px-3 py-3">
+        <p className="min-w-0 truncate text-sm text-[var(--muted)]">{userName ?? "Вход"}</p>
+        <LogoutButton />
+      </div>
     </aside>
   );
 }

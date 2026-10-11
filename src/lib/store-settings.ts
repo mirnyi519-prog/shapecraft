@@ -60,6 +60,53 @@ export async function ensureStoreSettings(): Promise<StoreSettingsView> {
   return mapRow(created);
 }
 
+export async function getDeliveryOrdersEnabled(): Promise<boolean> {
+  const row = await prisma.storeSettings.findUnique({
+    where: { id: "default" },
+    select: { ordersEnabled: true },
+  });
+  if (!row) {
+    await ensureStoreSettings();
+    return false;
+  }
+  return row.ordersEnabled;
+}
+
+export async function setDeliveryOrdersEnabled(
+  enabled: boolean,
+): Promise<boolean> {
+  await ensureStoreSettings();
+  const updated = await prisma.storeSettings.update({
+    where: { id: "default" },
+    data: { ordersEnabled: enabled },
+    select: { ordersEnabled: true },
+  });
+  return updated.ordersEnabled;
+}
+
+export async function getSellerName(): Promise<string> {
+  const row = await prisma.storeSettings.findUnique({
+    where: { id: "default" },
+    select: { sellerName: true },
+  });
+  if (!row) {
+    await ensureStoreSettings();
+    return "";
+  }
+  return row.sellerName;
+}
+
+export async function setSellerName(name: string): Promise<string> {
+  const sellerName = name.trim().slice(0, 80);
+  await ensureStoreSettings();
+  const updated = await prisma.storeSettings.update({
+    where: { id: "default" },
+    data: { sellerName },
+    select: { sellerName: true },
+  });
+  return updated.sellerName;
+}
+
 export async function getStoreHoursConfig(): Promise<StoreHoursConfig> {
   const settings = await ensureStoreSettings();
   return {

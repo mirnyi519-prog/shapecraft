@@ -5,6 +5,7 @@ import {
 } from "@/lib/auth";
 import { calculateSaleSplit } from "@/lib/calculations";
 import { prisma } from "@/lib/db";
+import { freeUnits, heldUnitsInTx, reservedUnitsInTx } from "@/lib/free-stock";
 import { releaseHoldsForSale } from "@/lib/product-holds";
 import { notifyTelegramSale } from "@/lib/telegram";
 
@@ -72,9 +73,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (product.stock < quantity) {
+    const [heldNow, reservedNow] = await Promise.all([
+      heldUnitsInTx(prisma, product.id),
+      reservedUnitsInTx(prisma, product.id),
+    ]);
+    const freeNow = freeUnits(product.stock, heldNow, reservedNow);
+    if (freeNow < quantity) {
       return NextResponse.json(
-        { error: `Недостаточно остатка (есть ${product.stock})` },
+        { error: `Недостаточно свободного остатка (свободно ${freeNow})` },
         { status: 400 },
       );
     }
@@ -88,6 +94,19 @@ export async function POST(request: NextRequest) {
     );
 
     const sale = await prisma.$transaction(async (tx) => {
+      const current = await tx.product.findUnique({
+        where: { id: product.id },
+        select: { stock: true },
+      });
+      const free = freeUnits(
+        current?.stock ?? 0,
+        await heldUnitsInTx(tx, product.id),
+        await reservedUnitsInTx(tx, product.id),
+      );
+      if (free < quantity) {
+        throw new Error(`FREE_STOCK:${free}`);
+      }
+
       const created = await tx.sale.create({
         data: {
           productId: product.id,
@@ -126,6 +145,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(sale, { status: 201 });
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith("FREE_STOCK:")) {
+      const free = error.message.slice("FREE_STOCK:".length);
+      return NextResponse.json(
+        { error: `Недостаточно свободного остатка (свободно ${free})` },
+        { status: 400 },
+      );
+    }
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
     }

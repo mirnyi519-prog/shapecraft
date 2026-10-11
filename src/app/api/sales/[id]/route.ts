@@ -5,6 +5,7 @@ import {
 } from "@/lib/auth";
 import { calculateSaleSplit } from "@/lib/calculations";
 import { prisma } from "@/lib/db";
+import { freeUnits, heldUnitsInTx, reservedUnitsInTx } from "@/lib/free-stock";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -92,13 +93,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       );
     }
 
-    const availableStock =
-      product.stock +
-      (product.id === existing.productId ? existing.quantity : 0);
+    const [heldNow, reservedNow] = await Promise.all([
+      heldUnitsInTx(prisma, product.id),
+      reservedUnitsInTx(prisma, product.id),
+    ]);
+    const returned =
+      product.id === existing.productId ? existing.quantity : 0;
+    const availableStock = freeUnits(product.stock + returned, heldNow, reservedNow);
 
     if (availableStock < quantity) {
       return NextResponse.json(
-        { error: `Недостаточно остатка (доступно ${availableStock})` },
+        { error: `Недостаточно свободного остатка (свободно ${availableStock})` },
         { status: 400 },
       );
     }
@@ -118,7 +123,19 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         data: { stock: { increment: existing.quantity } },
       });
 
-      // списать новый остаток
+      const current = await tx.product.findUnique({
+        where: { id: product.id },
+        select: { stock: true },
+      });
+      const free = freeUnits(
+        current?.stock ?? 0,
+        await heldUnitsInTx(tx, product.id),
+        await reservedUnitsInTx(tx, product.id),
+      );
+      if (free < quantity) {
+        throw new Error(`FREE_STOCK:${free}`);
+      }
+
       await tx.product.update({
         where: { id: product.id },
         data: { stock: { decrement: quantity } },
@@ -148,6 +165,13 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
     return NextResponse.json(sale);
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith("FREE_STOCK:")) {
+      const free = error.message.slice("FREE_STOCK:".length);
+      return NextResponse.json(
+        { error: `Недостаточно свободного остатка (свободно ${free})` },
+        { status: 400 },
+      );
+    }
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
     }

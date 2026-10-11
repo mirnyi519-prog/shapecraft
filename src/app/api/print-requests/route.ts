@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { formatDateTime, formatRub } from "@/lib/calculations";
 import { prisma } from "@/lib/db";
 import { hasListPrice } from "@/lib/pricing";
+import { reservedQuantityByProduct } from "@/lib/free-stock";
 import { formatHoldPhone, heldQuantityByProduct } from "@/lib/product-holds";
 import {
   parsePrintCustomerName,
@@ -87,8 +88,14 @@ export async function POST(request: NextRequest) {
       if (!product) {
         return NextResponse.json({ error: "Товар не найден" }, { status: 404 });
       }
-      const held = await heldQuantityByProduct([product.id]);
-      const free = Math.max(0, product.stock - (held.get(product.id) ?? 0));
+      const [held, reserved] = await Promise.all([
+        heldQuantityByProduct([product.id]),
+        reservedQuantityByProduct([product.id]),
+      ]);
+      const free = Math.max(
+        0,
+        product.stock - (held.get(product.id) ?? 0) - (reserved.get(product.id) ?? 0),
+      );
       if (free > 0) {
         return NextResponse.json(
           { error: "Эта модель есть в наличии — её можно купить" },

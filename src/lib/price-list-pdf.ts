@@ -80,7 +80,8 @@ async function loadThumbDataUrl(src: string | null): Promise<string | null> {
 
     const bitmap = await createImageBitmap(blob);
     try {
-      const size = 48;
+      // 360 px на сторону: в PDF фото ~18 мм, это около 500 dpi. Раньше было 48 px.
+      const size = 360;
       const canvas = document.createElement("canvas");
       canvas.width = size;
       canvas.height = size;
@@ -90,17 +91,19 @@ async function loadThumbDataUrl(src: string | null): Promise<string | null> {
       }
       ctx.fillStyle = "#fff3eb";
       ctx.fillRect(0, 0, size, size);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
       const scale = Math.min(size / bitmap.width, size / bitmap.height);
       const w = bitmap.width * scale;
       const h = bitmap.height * scale;
       ctx.drawImage(bitmap, (size - w) / 2, (size - h) / 2, w, h);
-      return canvas.toDataURL("image/jpeg", 0.7);
+      return canvas.toDataURL("image/jpeg", 0.92);
     } finally {
       bitmap.close();
     }
   };
 
-  return withTimeout(work(), 1500, null);
+  return withTimeout(work(), 4000, null);
 }
 
 async function loadThumbsInBatches(
@@ -126,8 +129,7 @@ async function loadThumbsInBatches(
     () => worker(),
   );
 
-  // Общий лимит: не ждём картинки дольше 8 сек — PDF уйдёт с тем, что успело.
-  await withTimeout(Promise.all(workers).then(() => null), 8000, null);
+  await withTimeout(Promise.all(workers).then(() => null), 20000, null);
   return results;
 }
 
@@ -156,19 +158,19 @@ async function buildDocDefinition(
     const thumb = thumbs[index];
     tableBody.push([
       thumb
-        ? { image: thumb, width: 28, height: 28, alignment: "center" }
-        : { text: "—", alignment: "center", color: "#808081", fontSize: 9 },
-      { text: product.name, margin: [0, 8, 0, 0] },
+        ? { image: thumb, fit: [52, 52], alignment: "center" }
+        : { text: "—", alignment: "center", color: "#808081", fontSize: 9, margin: [0, 18, 0, 0] },
+      { text: product.name, margin: [0, 18, 0, 0] },
       {
         text: formatPrice(product.listPrice),
         alignment: "right",
         bold: true,
-        margin: [0, 8, 0, 0],
+        margin: [0, 18, 0, 0],
       },
       {
         text: `${product.stock} шт`,
         alignment: "right",
-        margin: [0, 8, 0, 0],
+        margin: [0, 18, 0, 0],
       },
     ]);
   });
@@ -195,7 +197,7 @@ async function buildDocDefinition(
       {
         table: {
           headerRows: 1,
-          widths: [36, "*", 72, 48],
+          widths: [60, "*", 72, 48],
           body: tableBody,
         },
         layout: {

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AnalyticsSwitch } from "@/components/analytics-switch";
 import { AppShell } from "@/components/app-shell";
 import { BuyClickOutcomeSelect } from "@/components/buy-click-outcome-select";
 import { BuyClicksResetButton } from "@/components/buy-clicks-reset-button";
@@ -53,7 +54,10 @@ export default async function ViewsPage({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold">Просмотры</h1>
-            <p className="text-[var(--muted)]">
+            <div className="mt-3">
+              <AnalyticsSwitch current="views" />
+            </div>
+            <p className="mt-3 text-[var(--muted)]">
               Открытия карточек и клики «Купить» на витрине
             </p>
           </div>

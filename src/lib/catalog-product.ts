@@ -5,6 +5,7 @@ import type { CatalogLine } from "@/lib/catalog-line";
 import type { ZeroStockMode } from "@/lib/buy-intent";
 import { parseZeroStockMode } from "@/lib/buy-intent";
 import { resolveProductImageList } from "@/lib/product-images";
+import { reservedQuantityByProduct } from "@/lib/free-stock";
 import { heldQuantityByProduct } from "@/lib/product-holds";
 
 export const catalogProductSelect = {
@@ -196,10 +197,17 @@ export function storefrontCtaLabel(product: {
 async function withAvailableStock(
   products: CatalogProduct[],
 ): Promise<CatalogProduct[]> {
-  const held = await heldQuantityByProduct(products.map((item) => item.id));
+  const ids = products.map((item) => item.id);
+  const [held, reserved] = await Promise.all([
+    heldQuantityByProduct(ids),
+    reservedQuantityByProduct(ids),
+  ]);
   return products.map((product) => ({
     ...product,
-    availableStock: Math.max(0, product.stock - (held.get(product.id) ?? 0)),
+    availableStock: Math.max(
+      0,
+      product.stock - (held.get(product.id) ?? 0) - (reserved.get(product.id) ?? 0),
+    ),
   }));
 }
 
