@@ -117,6 +117,69 @@ function scoreProduct(product: ProductCardData, tokens: string[]): number {
   return score;
 }
 
+type ProductsSort =
+  | "updated"
+  | "name"
+  | "sold"
+  | "revenue"
+  | "stock-desc"
+  | "stock-asc"
+  | "price-desc"
+  | "price-asc"
+  | "new";
+
+const SORT_OPTIONS: { value: ProductsSort; label: string }[] = [
+  { value: "updated", label: "Недавно изменённые" },
+  { value: "name", label: "Название (А–Я)" },
+  { value: "sold", label: "Продано: больше" },
+  { value: "revenue", label: "Выручка: больше" },
+  { value: "stock-desc", label: "Остаток: больше" },
+  { value: "stock-asc", label: "Остаток: меньше" },
+  { value: "price-desc", label: "Цена: дороже" },
+  { value: "price-asc", label: "Цена: дешевле" },
+  { value: "new", label: "Новые" },
+];
+
+function byName(a: ProductCardData, b: ProductCardData): number {
+  return a.name.localeCompare(b.name, "ru");
+}
+
+function priceOf(product: ProductCardData): number | null {
+  return hasListPrice(product.listPrice) ? (product.listPrice as number) : null;
+}
+
+function compareProducts(
+  a: ProductCardData,
+  b: ProductCardData,
+  sort: ProductsSort,
+): number {
+  switch (sort) {
+    case "name":
+      return byName(a, b);
+    case "sold":
+      return b.soldQuantity - a.soldQuantity || byName(a, b);
+    case "revenue":
+      return b.soldAmount - a.soldAmount || byName(a, b);
+    case "stock-desc":
+      return b.stock - a.stock || byName(a, b);
+    case "stock-asc":
+      return a.stock - b.stock || byName(a, b);
+    case "price-desc":
+    case "price-asc": {
+      const pa = priceOf(a);
+      const pb = priceOf(b);
+      if (pa === null || pb === null) {
+        return pa === pb ? byName(a, b) : pa === null ? 1 : -1;
+      }
+      return (sort === "price-desc" ? pb - pa : pa - pb) || byName(a, b);
+    }
+    case "new":
+      return b.createdAt.localeCompare(a.createdAt) || byName(a, b);
+    default:
+      return b.updatedAt.localeCompare(a.updatedAt) || byName(a, b);
+  }
+}
+
 function matchesView(product: ProductCardData, view: ProductsView): boolean {
   switch (view) {
     case "archive":
@@ -143,6 +206,7 @@ export function ProductsBrowser({
 }) {
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [sort, setSort] = useState<ProductsSort>("updated");
   const deferredQuery = useDeferredValue(query);
 
   const filtered = useMemo(() => {
@@ -166,7 +230,7 @@ export function ProductsBrowser({
 
     const tokens = compact.split(" ").filter(Boolean);
     if (tokens.length === 0) {
-      return byCategory;
+      return [...byCategory].sort((a, b) => compareProducts(a, b, sort));
     }
 
     return byCategory
@@ -175,9 +239,13 @@ export function ProductsBrowser({
         score: scoreProduct(product, tokens),
       }))
       .filter((row) => row.score > 0)
-      .sort((a, b) => b.score - a.score)
+      .sort((a, b) =>
+        sort === "updated"
+          ? b.score - a.score
+          : compareProducts(a.product, b.product, sort),
+      )
       .map((row) => row.product);
-  }, [products, view, categoryId, deferredQuery]);
+  }, [products, view, categoryId, deferredQuery, sort]);
 
   return (
     <div className="space-y-4">
@@ -228,9 +296,25 @@ export function ProductsBrowser({
             </div>
           </div>
         ) : null}
-        <p className="text-sm text-[var(--muted)]">
-          Найдено: {filtered.length}
-        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-[var(--muted)]">
+            Найдено: {filtered.length}
+          </p>
+          <label className="flex items-center gap-2 text-sm text-[var(--muted)]">
+            <span className="shrink-0">Сортировка</span>
+            <select
+              value={sort}
+              onChange={(event) => setSort(event.target.value as ProductsSort)}
+              className="min-h-10 w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm font-medium text-[var(--text)] outline-none transition focus:border-[var(--brand)] sm:w-auto"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
       {filtered.length === 0 ? (

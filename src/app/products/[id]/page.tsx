@@ -31,7 +31,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
   }
 
   const { id } = await params;
-  const [product, categoryOptions, packagingOptions] = await Promise.all([
+  const [product, categoryOptions, packagingOptions, soldTotal] = await Promise.all([
     prisma.product.findUnique({
       where: { id },
       include: {
@@ -62,7 +62,12 @@ export default async function ProductDetailPage({ params }: PageProps) {
       select: { id: true, name: true },
     }),
     listPackaging(true),
+    prisma.sale.aggregate({
+      where: { productId: id },
+      _sum: { quantity: true, amount: true, profit: true },
+    }),
   ]);
+  const soldQuantity = soldTotal._sum.quantity ?? 0;
 
   if (!product) {
     notFound();
@@ -316,6 +321,17 @@ export default async function ProductDetailPage({ params }: PageProps) {
           </Card>
 
           <Card title="Последние продажи">
+            <p className="mb-3 text-sm">
+              <span className="text-[var(--muted)]">Всего продано: </span>
+              <span className="font-semibold">{soldQuantity} шт</span>
+              {soldQuantity > 0 ? (
+                <span className="text-[var(--muted)]">
+                  {" "}
+                  · выручка {formatRub(soldTotal._sum.amount ?? 0)} · прибыль{" "}
+                  {formatRub(soldTotal._sum.profit ?? 0)}
+                </span>
+              ) : null}
+            </p>
             {product.sales.length === 0 ? (
               <p className="text-[var(--muted)]">Продаж пока нет.</p>
             ) : (

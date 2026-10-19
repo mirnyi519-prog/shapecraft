@@ -28,7 +28,7 @@ export default async function ProductsPage({
     view = "all";
   }
 
-  const [products, categories] = await Promise.all([
+  const [products, categories, soldRows] = await Promise.all([
     prisma.product.findMany({
       where: admin ? undefined : { active: true },
       orderBy: [{ active: "desc" }, { updatedAt: "desc" }],
@@ -43,7 +43,17 @@ export default async function ProductsPage({
       },
     }),
     listActiveCategories(),
+    prisma.sale.groupBy({
+      by: ["productId"],
+      _sum: { quantity: true, amount: true },
+    }),
   ]);
+  const soldByProduct = new Map(
+    soldRows.map((row) => [
+      row.productId,
+      { quantity: row._sum.quantity ?? 0, amount: row._sum.amount ?? 0 },
+    ]),
+  );
 
   return (
     <AppShell>
@@ -87,6 +97,10 @@ export default async function ProductsPage({
               stock: product.stock,
               active: product.active,
               catalogLine: product.catalogLine,
+              soldQuantity: soldByProduct.get(product.id)?.quantity ?? 0,
+              soldAmount: soldByProduct.get(product.id)?.amount ?? 0,
+              createdAt: product.createdAt.toISOString(),
+              updatedAt: product.updatedAt.toISOString(),
               categories: product.categories
                 .map((item) => item.category)
                 .filter((category) => category.active)

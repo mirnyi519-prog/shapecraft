@@ -20,6 +20,10 @@ export type ProductCardData = {
   stock: number;
   active: boolean;
   catalogLine?: string;
+  soldQuantity: number;
+  soldAmount: number;
+  createdAt: string;
+  updatedAt: string;
   categories: { id: string; name: string }[];
 };
 
@@ -84,6 +88,16 @@ export function ProductAdminCard({
               {isAdmin ? ` · себестоимость ${formatRub(product.costPrice)}` : ""}
             </p>
           )}
+          <p className="mt-2 text-sm">
+            <span className="text-[var(--muted)]">Всего продано: </span>
+            <span className="font-semibold">{product.soldQuantity} шт</span>
+            {product.soldQuantity > 0 ? (
+              <span className="text-[var(--muted)]">
+                {" "}
+                · {formatRub(product.soldAmount)}
+              </span>
+            ) : null}
+          </p>
           {product.description ? (
             <p className="mt-2 line-clamp-2 text-sm text-[var(--muted)]">
               {product.description}
