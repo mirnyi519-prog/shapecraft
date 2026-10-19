@@ -4,12 +4,14 @@ import { prisma } from "@/lib/db";
 import { formatDateTime } from "@/lib/calculations";
 import { freeUnits, heldUnitsInTx, reservedUnitsInTx } from "@/lib/free-stock";
 import {
-  HOLD_MS,
+  HOLD_MAX_QUANTITY,
   activeHoldWhere,
   formatHoldPhone,
   normalizeHoldPhone,
+  planHold,
 } from "@/lib/product-holds";
 import { rateLimit } from "@/lib/rate-limit";
+import { getStoreHoursConfig } from "@/lib/store-settings";
 import {
   clientIpFromRequest,
   logSecurityEvent,
@@ -23,6 +25,37 @@ import { isAutomatedCrawlerUserAgent } from "@/lib/visits";
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
+
+/** Сколько можно забронировать и до какого времени — для окна «Купить». */
+export async function GET(_request: Request, context: RouteContext) {
+  try {
+    const { id } = await context.params;
+    const now = new Date();
+    const result = await prisma.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({
+        where: { id },
+        select: { active: true, stock: true },
+      });
+      if (!product || !product.active) {
+        return null;
+      }
+      const held = await heldUnitsInTx(tx, id, now);
+      const reserved = await reservedUnitsInTx(tx, id);
+      return freeUnits(product.stock, held, reserved);
+    });
+    if (result === null) {
+      return NextResponse.json({ error: "Товар не найден" }, { status: 404 });
+    }
+    const plan = planHold(await getStoreHoursConfig(), now);
+    return NextResponse.json({
+      free: Math.min(result, HOLD_MAX_QUANTITY),
+      sameDay: plan.sameDay,
+      pickupText: plan.pickupText,
+    });
+  } catch {
+    return NextResponse.json({ error: "Не удалось проверить бронь" }, { status: 500 });
+  }
+}
 
 export async function POST(request: Request, context: RouteContext) {
   try {
@@ -48,8 +81,15 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Не удалось забронировать" }, { status: 400 });
     }
 
-    const body = (await request.json().catch(() => null)) as { phone?: string } | null;
+    const body = (await request.json().catch(() => null)) as {
+      phone?: string;
+      quantity?: number;
+    } | null;
     const phone = normalizeHoldPhone(body?.phone ?? "");
+    const quantity = Math.floor(Number(body?.quantity ?? 1));
+    if (!Number.isFinite(quantity) || quantity < 1 || quantity > HOLD_MAX_QUANTITY) {
+      return NextResponse.json({ error: "Неверное количество" }, { status: 400 });
+    }
     if (!phone) {
       return NextResponse.json(
         { error: "Укажите телефон, чтобы мы держали товар" },
@@ -61,6 +101,7 @@ export async function POST(request: Request, context: RouteContext) {
     const cookieStore = await cookies();
     const visitorId = cookieStore.get(VISITOR_COOKIE)?.value?.trim() || null;
     const now = new Date();
+    const plan = planHold(await getStoreHoursConfig(), now);
 
     const result = await prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({
@@ -84,15 +125,18 @@ export async function POST(request: Request, context: RouteContext) {
       if (free < 1) {
         return { error: "Свободных штук нет — всё в брони или разобрали", status: 409 as const };
       }
+      if (free < quantity) {
+        return { error: `Свободно только ${free} шт`, status: 409 as const };
+      }
 
       const hold = await tx.productHold.create({
         data: {
           productId: id,
           phone,
-          quantity: 1,
+          quantity,
           visitorId,
           ipAddress: ip,
-          expiresAt: new Date(now.getTime() + HOLD_MS),
+          expiresAt: plan.expiresAt,
         },
       });
       return { hold, product, already: false };
@@ -106,8 +150,9 @@ export async function POST(request: Request, context: RouteContext) {
     if (!result.already) {
       const telegram = await sendTelegramMessage(
         [
-          "📌 Бронь на 2 часа",
-          `Товар: ${result.product.name}`,
+          "📌 Бронь",
+          `Товар: ${result.product.name} × ${result.hold.quantity} шт`,
+          `Покупателю: ${plan.pickupText}`,
           `Телефон: ${formatHoldPhone(phone)}`,
           `Держим до: ${until}`,
           `Склад: ${result.product.stock} шт`,
@@ -123,6 +168,7 @@ export async function POST(request: Request, context: RouteContext) {
       already: result.already,
       expiresAt: result.hold.expiresAt.toISOString(),
       until,
+      quantity: result.hold.quantity,
     });
   } catch {
     return NextResponse.json({ error: "Не удалось забронировать" }, { status: 500 });

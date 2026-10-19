@@ -11,12 +11,12 @@ export function StorefrontBanner({ banner }: { banner: StoreBannerView }) {
   }
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-[var(--border)]/60 bg-white/70 shadow-none backdrop-blur-sm">
+    <section className="overflow-hidden rounded-2xl border sm:rounded-3xl border-[var(--border)]/60 bg-white/70 shadow-none backdrop-blur-sm">
       <div
         className={`grid gap-0 ${hasImage ? "md:grid-cols-[1.2fr_1fr]" : ""}`}
       >
         {hasImage ? (
-          <div className="min-h-40 bg-[var(--brand-soft)]/40 md:min-h-48">
+          <div className="hidden bg-[var(--brand-soft)]/40 md:block md:min-h-48">
             <ProductPhoto
               src={banner.imageUrl}
               alt={title || "Баннер ShapeCraft"}
@@ -25,9 +25,9 @@ export function StorefrontBanner({ banner }: { banner: StoreBannerView }) {
             />
           </div>
         ) : null}
-        <div className="flex flex-col justify-center space-y-2 p-5 sm:p-6">
+        <div className="flex flex-col justify-center space-y-1 px-4 py-3 sm:space-y-2 sm:p-6">
           {title ? (
-            <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+            <h2 className="text-lg font-bold tracking-tight sm:text-2xl">
               {title}
             </h2>
           ) : null}

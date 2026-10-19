@@ -1,25 +1,24 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { getSession } from "@/lib/auth";
-import { isIpBlocked } from "@/lib/access-control";
-import { getRequestIp } from "@/lib/request-ip";
 import { LogoutButton } from "@/components/logout-button";
-import { ShopMark } from "@/components/shop-mark";
 import { StorefrontBackLink } from "@/components/storefront-back-link";
 import { VisitBeacon } from "@/components/visit-beacon";
 import { Button } from "@/components/ui";
 
 export async function PublicShell({ children }: { children: React.ReactNode }) {
   const session = await getSession();
-  const ip = await getRequestIp();
-  const loginBlocked = !session ? await isIpBlocked(ip) : false;
 
   return (
     <div className="storefront-atmosphere text-[var(--text)]">
       <VisitBeacon enabled={!session} />
       <header className="sticky top-0 z-20 border-b border-[var(--border)]/70 bg-white/75 pt-[env(safe-area-inset-top,0px)] backdrop-blur-md">
-        <div className="page-gutter mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-2 py-3 sm:py-3.5">
-          <div aria-hidden className="min-w-0" />
+        <div className="page-gutter mx-auto grid max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-2 py-2 sm:py-3.5">
+          <div className="min-w-0">
+            <Suspense fallback={null}>
+              <StorefrontBackLink />
+            </Suspense>
+          </div>
           <Link
             href="/"
             className="justify-self-center truncate text-center text-base font-bold text-[var(--brand)] sm:text-lg"
@@ -39,17 +38,12 @@ export async function PublicShell({ children }: { children: React.ReactNode }) {
                 </Link>
                 <LogoutButton />
               </>
-            ) : loginBlocked ? null : (
-              <ShopMark href="/login" label="Вход" />
-            )}
+            ) : null}
           </div>
         </div>
       </header>
-      <main className="page-gutter page-bottom mx-auto max-w-6xl py-5 sm:py-8">
+      <main className="page-gutter page-bottom mx-auto max-w-6xl py-4 sm:py-8">
         {children}
-        <Suspense fallback={null}>
-          <StorefrontBackLink />
-        </Suspense>
       </main>
     </div>
   );

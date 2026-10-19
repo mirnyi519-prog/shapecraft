@@ -7,19 +7,53 @@ import { getSession } from "@/lib/auth";
 import { selfShareLabel } from "@/lib/labels";
 import { prisma } from "@/lib/db";
 
-export default async function SalesPage() {
+type SalesPeriod = "all" | "current" | "closed";
+
+const PERIOD_OPTIONS: { value: SalesPeriod; label: string }[] = [
+  { value: "all", label: "Все периоды" },
+  { value: "current", label: "Текущий" },
+  { value: "closed", label: "Закрытые" },
+];
+
+export default async function SalesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string; period?: string }>;
+}) {
   const session = await getSession();
   if (!session) {
     return null;
   }
 
-  const sales = await prisma.sale.findMany({
+  const params = await searchParams;
+  const query = (params.q ?? "").trim();
+  const period: SalesPeriod =
+    params.period === "current" || params.period === "closed" ? params.period : "all";
+
+  const allSales = await prisma.sale.findMany({
+    where:
+      period === "current"
+        ? { settlementId: null }
+        : period === "closed"
+          ? { settlementId: { not: null } }
+          : undefined,
     orderBy: { soldAt: "desc" },
     include: {
       product: { select: { name: true, imageUrl: true } },
       settlement: { select: { id: true, createdAt: true } },
     },
   });
+
+  // SQLite ищет кириллицу с учётом регистра — фильтруем здесь.
+  const needle = query.toLocaleLowerCase("ru-RU");
+  const sales = needle
+    ? allSales.filter((sale) =>
+        `${sale.product.name} ${sale.note ?? ""}`.toLocaleLowerCase("ru-RU").includes(needle),
+      )
+    : allSales;
+  const filtered = Boolean(needle) || period !== "all";
+  const totalQuantity = sales.reduce((sum, sale) => sum + sale.quantity, 0);
+  const totalAmount = sales.reduce((sum, sale) => sum + sale.amount, 0);
 
   const shareLabel = selfShareLabel(session.role);
   const isAdminRole = session.role === "admin";
@@ -34,9 +68,57 @@ export default async function SalesPage() {
           </p>
         </div>
 
+        <form method="get" className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <input
+            type="search"
+            name="q"
+            defaultValue={query}
+            placeholder="Товар или комментарий"
+            aria-label="Поиск по продажам"
+            className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-white px-3 text-base sm:max-w-xs sm:text-sm"
+          />
+          <select
+            name="period"
+            defaultValue={period}
+            aria-label="Период"
+            className="min-h-11 rounded-xl border border-[var(--border)] bg-white px-3 text-base sm:text-sm"
+          >
+            {PERIOD_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="min-h-11 flex-1 rounded-xl bg-[var(--brand)] px-4 text-sm font-semibold text-white hover:bg-[var(--brand-dark)] sm:flex-none"
+            >
+              Найти
+            </button>
+            {filtered ? (
+              <Link
+                href="/sales"
+                className="inline-flex min-h-11 items-center rounded-xl border border-[var(--border)] bg-white px-4 text-sm font-medium"
+              >
+                Сбросить
+              </Link>
+            ) : null}
+          </div>
+        </form>
+
+        {sales.length > 0 ? (
+          <p className="text-sm text-[var(--muted)]">
+            {filtered ? "Найдено" : "Всего"}: {sales.length} · {totalQuantity} шт ·{" "}
+            <span className="font-semibold text-[var(--text)]">{formatRub(totalAmount)}</span>
+          </p>
+        ) : null}
+
         {sales.length === 0 ? (
           <Card>
-            <p className="text-[var(--muted)]">Продаж пока нет.</p>
+            <p className="text-[var(--muted)]">
+              {filtered ? "Ничего не нашлось." : "Продаж пока нет."}
+            </p>
           </Card>
         ) : (
           <>

@@ -6,6 +6,10 @@ cd /opt/shapecraft
 git fetch origin
 git reset --hard origin/master
 
+echo "==> Backup before update"
+bash scripts/backup-nightly.sh || echo "!! Бэкап не получился — обновление продолжается"
+bash scripts/backup-nightly.sh --install || true
+
 # Берём уже скачанный node-образ по ID — без запросов к registry
 BASE_IMAGE="mirror.gcr.io/library/node:22-bookworm-slim"
 if docker image inspect node:22-bookworm-slim >/dev/null 2>&1; then

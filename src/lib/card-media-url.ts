@@ -1,5 +1,4 @@
-/** Адрес уменьшенной копии. Без Node-модулей — можно импортировать из витрины. */
-export function cardMediaUrl(src: string | null | undefined): string | null {
+function mediaVariantUrl(src: string | null | undefined, variant: string): string | null {
   if (!src?.trim()) {
     return null;
   }
@@ -12,6 +11,16 @@ export function cardMediaUrl(src: string | null | undefined): string | null {
   const hash = hashIndex >= 0 ? raw.slice(hashIndex) : "";
   const [pathPart, queryPart] = withoutHash.split("?");
   const params = new URLSearchParams(queryPart ?? "");
-  params.set("v", "card");
+  params.set("v", variant);
   return `${pathPart}?${params.toString()}${hash}`;
+}
+
+/** Адрес уменьшенной копии. Без Node-модулей — можно импортировать из витрины. */
+export function cardMediaUrl(src: string | null | undefined): string | null {
+  return mediaVariantUrl(src, "card");
+}
+
+/** Копия для окна товара (GIF сервер отдаёт как есть). */
+export function viewMediaUrl(src: string | null | undefined): string | null {
+  return mediaVariantUrl(src, "view");
 }

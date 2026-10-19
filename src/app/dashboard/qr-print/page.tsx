@@ -21,7 +21,7 @@ export default async function QrPrintPage() {
               <p className="text-sm text-[var(--muted)]">ShapeCraft</p>
               <h1 className="text-lg font-semibold">QR-код для печати</h1>
               <p className="mt-1 text-sm text-[var(--muted)]">
-                В коде ссылка на {siteUrl}. В центре — знак бренда.
+                В коде ссылка на {siteUrl} с меткой «qr» — сканы видно в посещениях. В центре — знак бренда.
               </p>
             </div>
             <Link

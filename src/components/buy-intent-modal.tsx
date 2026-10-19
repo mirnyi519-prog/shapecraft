@@ -24,20 +24,47 @@ export function BuyIntentModal({
   onReserved?: () => void;
 }) {
   const [phone, setPhone] = useState("");
+  const [quantity, setQuantity] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [until, setUntil] = useState("");
+  const [heldQuantity, setHeldQuantity] = useState(1);
+  const [plan, setPlan] = useState<{
+    free: number;
+    sameDay: boolean;
+    pickupText: string;
+  } | null>(null);
 
   useScrollLock(open);
 
   useEffect(() => {
     if (!open) {
       setPhone("");
+      setQuantity(1);
       setBusy(false);
       setError("");
       setUntil("");
+      setPlan(null);
     }
   }, [open, productId]);
+
+  useEffect(() => {
+    if (!open || !productId || !canReserve) {
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/products/${productId}/hold`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled && data && typeof data.free === "number") {
+          setPlan(data);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [open, productId, canReserve]);
 
   useEffect(() => {
     if (!open) {
@@ -68,16 +95,18 @@ export function BuyIntentModal({
       const response = await fetch(`/api/products/${productId}/hold`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone, quantity }),
       });
       const data = (await response.json().catch(() => null)) as {
         error?: string;
         until?: string;
+        quantity?: number;
       } | null;
       if (!response.ok) {
         setError(data?.error ?? "Не удалось забронировать");
         return;
       }
+      setHeldQuantity(data?.quantity ?? quantity);
       setUntil(data?.until ?? "");
       onReserved?.();
     } catch {
@@ -122,12 +151,44 @@ export function BuyIntentModal({
               }}
             >
               <p className="text-sm font-semibold text-[var(--brand-dark)]">
-                Забронировать на 2 часа
+                Забронировать
               </p>
               <p className="text-sm text-[var(--text)]">
-                Держим 1 шт, пока едете в пекарню. Телефон нужен, чтобы не отдать
-                другому.
+                {plan
+                  ? `${plan.pickupText} — до этого времени никому не отдадим.`
+                  : "Держим, пока едете в пекарню."}{" "}
+                Телефон нужен, чтобы не отдать другому.
               </p>
+              {plan && plan.free > 1 ? (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium">Количество</span>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="min-h-11 min-w-11 px-0"
+                      aria-label="Меньше"
+                      disabled={quantity <= 1}
+                      onClick={() => setQuantity((value) => Math.max(1, value - 1))}
+                    >
+                      −
+                    </Button>
+                    <span className="min-w-8 text-center text-base font-semibold" aria-live="polite">
+                      {quantity}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="min-h-11 min-w-11 px-0"
+                      aria-label="Больше"
+                      disabled={quantity >= plan.free}
+                      onClick={() => setQuantity((value) => Math.min(plan.free, value + 1))}
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
               <Input
                 label="Телефон"
                 name="phone"
@@ -146,7 +207,7 @@ export function BuyIntentModal({
           ) : null}
           {until ? (
             <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-sm text-green-900">
-              Держим 1 шт до {until}. Заберите в пекарне «У Светланы».
+              Держим {heldQuantity} шт до {until}. Заберите в пекарне «У Светланы».
             </div>
           ) : null}
           {!canReserve && productId && !until ? (

@@ -3,7 +3,7 @@ import { stat } from "fs/promises";
 import path from "path";
 import { Readable } from "stream";
 import { NextRequest, NextResponse } from "next/server";
-import { ensureCardVariant } from "@/lib/image-variants";
+import { ensureCardVariant, ensureViewVariant } from "@/lib/image-variants";
 import { getMimeType, getUploadsDir } from "@/lib/upload";
 
 type Params = { params: Promise<{ filename: string }> };
@@ -42,15 +42,22 @@ export async function GET(request: NextRequest, { params }: Params) {
     const filePath = path.join(getUploadsDir(), safeName);
     const fileStat = await stat(filePath);
     const ext = path.extname(safeName).toLowerCase();
-    const wantCard = request.nextUrl.searchParams.get("v") === "card";
+    const variant = request.nextUrl.searchParams.get("v");
+    const isVariantFile = safeName.endsWith(".card.webp") || safeName.endsWith(".view.webp");
+    const ensure =
+      variant === "card"
+        ? ensureCardVariant
+        : variant === "view" && ext !== ".gif"
+          ? ensureViewVariant
+          : null;
 
-    if (wantCard && CARD_SOURCE_EXT.has(ext) && !safeName.endsWith(".card.webp")) {
+    if (ensure && CARD_SOURCE_EXT.has(ext) && !isVariantFile) {
       try {
-        const cardPath = await ensureCardVariant(filePath);
-        const cardStat = await stat(cardPath);
-        return fileResponse(cardPath, cardStat.size, "image/webp");
+        const variantPath = await ensure(filePath);
+        const variantStat = await stat(variantPath);
+        return fileResponse(variantPath, variantStat.size, "image/webp");
       } catch (error) {
-        console.error("card variant", safeName, error);
+        console.error(`${variant} variant`, safeName, error);
       }
     }
 

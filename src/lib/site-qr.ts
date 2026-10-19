@@ -307,10 +307,15 @@ function drawBrandMark(
   ctx.restore();
 }
 
+/** Ссылка в печатном QR: метка utm, чтобы сканы были видны в посещениях отдельно. */
+export function siteQrLink(siteUrl: string): string {
+  return `${siteUrl.replace(/\/+$/, "")}/?utm_source=qr`;
+}
+
 /** QR со ссылкой на сайт и оранжевой S в центре. */
-export async function renderSiteQrPng(url: string): Promise<string> {
+export async function renderSiteQrPng(siteUrl: string): Promise<string> {
   await document.fonts.ready;
-  const { width, height, data, markDiameter } = rasterSiteQr(url);
+  const { width, height, data, markDiameter } = rasterSiteQr(siteQrLink(siteUrl));
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;

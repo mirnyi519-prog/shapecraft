@@ -12,8 +12,16 @@ export const GIF_MAX_EDGE = 480;
 export const POSTER_MAX_EDGE = 960;
 export const POSTER_WEBP_QUALITY = 80;
 
+/** Длинная сторона копии для окна товара. */
+export const VIEW_MAX_EDGE = 1080;
+export const VIEW_WEBP_QUALITY = 80;
+
 export function cardCachePath(sourcePath: string): string {
   return `${sourcePath}.card.webp`;
+}
+
+export function viewCachePath(sourcePath: string): string {
+  return `${sourcePath}.view.webp`;
 }
 
 function isGifBuffer(input: Buffer): boolean {
@@ -39,6 +47,19 @@ export async function renderCardWebp(input: Buffer): Promise<Buffer> {
       withoutEnlargement: true,
     })
     .webp({ quality: CARD_WEBP_QUALITY, effort: 4 })
+    .toBuffer();
+}
+
+export async function renderViewWebp(input: Buffer): Promise<Buffer> {
+  return sharp(input, { failOn: "none", animated: false, pages: 1 })
+    .rotate()
+    .resize({
+      width: VIEW_MAX_EDGE,
+      height: VIEW_MAX_EDGE,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: VIEW_WEBP_QUALITY, effort: 4 })
     .toBuffer();
 }
 
@@ -107,20 +128,32 @@ export async function shrinkAnimatedGif(input: Buffer): Promise<Buffer> {
   return best;
 }
 
-/** Пишет кэш карточки рядом с файлом, если его ещё нет или исходник новее. */
-export async function ensureCardVariant(sourcePath: string): Promise<string> {
-  const cardPath = cardCachePath(sourcePath);
+async function ensureVariant(
+  sourcePath: string,
+  variantPath: string,
+  render: (input: Buffer) => Promise<Buffer>,
+): Promise<string> {
   const sourceStat = await stat(sourcePath);
   try {
-    const cardStat = await stat(cardPath);
-    if (cardStat.size > 0 && cardStat.mtimeMs >= sourceStat.mtimeMs) {
-      return cardPath;
+    const variantStat = await stat(variantPath);
+    if (variantStat.size > 0 && variantStat.mtimeMs >= sourceStat.mtimeMs) {
+      return variantPath;
     }
   } catch {
     // файла ещё нет
   }
 
-  const out = await renderCardWebp(await readFile(sourcePath));
-  await writeFile(cardPath, out);
-  return cardPath;
+  const out = await render(await readFile(sourcePath));
+  await writeFile(variantPath, out);
+  return variantPath;
+}
+
+/** Пишет кэш карточки рядом с файлом, если его ещё нет или исходник новее. */
+export async function ensureCardVariant(sourcePath: string): Promise<string> {
+  return ensureVariant(sourcePath, cardCachePath(sourcePath), renderCardWebp);
+}
+
+/** Копия для окна товара: чётче карточки, легче оригинала. */
+export async function ensureViewVariant(sourcePath: string): Promise<string> {
+  return ensureVariant(sourcePath, viewCachePath(sourcePath), renderViewWebp);
 }

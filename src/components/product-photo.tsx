@@ -1,4 +1,4 @@
-import { cardMediaUrl } from "@/lib/card-media-url";
+import { cardMediaUrl, viewMediaUrl } from "@/lib/card-media-url";
 
 type ProductPhotoProps = {
   src: string | null | undefined;
@@ -8,8 +8,8 @@ type ProductPhotoProps = {
   frameClassName?: string;
   /** Для LCP-картинки (баннер / первый экран). */
   priority?: boolean;
-  /** card — уменьшенная копия для сетки; full — исходник для просмотра. */
-  variant?: "card" | "full";
+  /** card — копия для сетки; view — для окна товара; full — исходник. */
+  variant?: "card" | "view" | "full";
 };
 
 /**
@@ -24,7 +24,14 @@ export function ProductPhoto({
   priority = false,
   variant = "full",
 }: ProductPhotoProps) {
-  const displaySrc = variant === "card" ? (cardMediaUrl(src) ?? src) : src;
+  const displaySrc =
+    variant === "card"
+      ? (cardMediaUrl(src) ?? src)
+      : variant === "view"
+        ? (viewMediaUrl(src) ?? src)
+        : src;
+  // Карточная копия уже в кэше после сетки — фон появляется сразу, пока грузится крупная.
+  const backdropSrc = variant === "full" ? displaySrc : (cardMediaUrl(src) ?? displaySrc);
 
   return (
     <div
@@ -35,7 +42,7 @@ export function ProductPhoto({
           <div
             aria-hidden
             className="absolute inset-0 scale-110 bg-cover bg-center opacity-35 blur-xl"
-            style={{ backgroundImage: `url(${JSON.stringify(displaySrc)})` }}
+            style={{ backgroundImage: `url(${JSON.stringify(backdropSrc)})` }}
           />
           <div className="absolute inset-0 bg-white/25" />
           {/* eslint-disable-next-line @next/next/no-img-element */}

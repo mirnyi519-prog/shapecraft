@@ -19,21 +19,18 @@ export function StorefrontHero({
       : "border-[var(--border)] bg-white/80 text-[var(--muted)]";
 
   return (
-    <section className="space-y-5 pt-2 sm:pt-4">
-      <div className="space-y-3">
-        <p className="text-sm font-medium tracking-wide text-[var(--brand)]">
-          shapecraft.ru
-        </p>
-        <h1 className="text-4xl font-bold leading-none tracking-tight text-[var(--text)] sm:text-5xl">
-          ShapeCraft
+    <section className="space-y-3 sm:space-y-5 sm:pt-4">
+      <div className="space-y-1 sm:space-y-3">
+        <h1 className="text-3xl font-bold leading-tight tracking-tight text-[var(--text)] sm:text-5xl sm:leading-none">
+          {lineLabel}
         </h1>
-        <p className="max-w-xl text-base text-[var(--muted)] sm:text-lg">
-          3D-сувениры у Светланы — забрать в пекарне в часы работы точки.
+        <p className="max-w-xl text-sm text-[var(--muted)] sm:text-lg">
+          3D-печать у Светланы — забрать в пекарне в часы работы.
         </p>
       </div>
 
       <div
-        className={`inline-flex max-w-full flex-col gap-0.5 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:gap-3 ${openTone}`}
+        className={`inline-flex max-w-full flex-col gap-0.5 rounded-2xl border px-3 py-2 sm:flex-row sm:items-center sm:gap-3 sm:px-4 sm:py-3 ${openTone}`}
       >
         <span className="text-sm font-semibold">{openStatus.headline}</span>
         <span className="text-sm opacity-80">{openStatus.detail}</span>
@@ -61,10 +58,6 @@ export function StorefrontHero({
           Как забрать
         </Link>
       </div>
-
-      <p className="text-sm text-[var(--muted)]">
-        Сейчас смотрите: <span className="font-medium text-[var(--text)]">{lineLabel}</span>
-      </p>
     </section>
   );
 }

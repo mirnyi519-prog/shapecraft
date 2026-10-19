@@ -49,6 +49,7 @@ export function ProductGallery({
         <ProductPhoto
           src={current}
           alt={alt}
+          variant="view"
           frameClassName={`product-gallery-main ${frameClassName}`}
         />
         <span className="pointer-events-none absolute bottom-3 right-3 z-20 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium text-white opacity-90 backdrop-blur-sm transition group-hover:opacity-100">

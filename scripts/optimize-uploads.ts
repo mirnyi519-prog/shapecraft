@@ -96,7 +96,12 @@ async function main() {
 
   for (const name of entries) {
     const ext = path.extname(name).toLowerCase();
-    if (name.endsWith(".card.webp") || SKIP_EXT.has(ext) || !IMAGE_EXT.has(ext)) {
+    if (
+      name.endsWith(".card.webp") ||
+      name.endsWith(".view.webp") ||
+      SKIP_EXT.has(ext) ||
+      !IMAGE_EXT.has(ext)
+    ) {
       skipped += 1;
       continue;
     }
@@ -162,10 +167,12 @@ async function main() {
 
     if (!dryRun) {
       await writeFile(newPath, nextBuffer);
-      try {
-        await unlink(`${filePath}.card.webp`);
-      } catch {
-        // кэша карточки ещё нет
+      for (const suffix of [".card.webp", ".view.webp"]) {
+        try {
+          await unlink(`${filePath}${suffix}`);
+        } catch {
+          // кэша ещё нет
+        }
       }
       if (newName !== name) {
         try {

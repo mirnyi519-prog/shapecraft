@@ -14,26 +14,23 @@ export function StorefrontBackLink() {
   }
 
   return (
-    <>
-      <div className="h-16" aria-hidden />
-      <Link
-        href="/"
-        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(1rem,env(safe-area-inset-left))] z-40 inline-flex min-h-12 items-center gap-2 rounded-full bg-[var(--brand)] px-5 text-sm font-semibold text-white shadow-lg transition hover:bg-[var(--brand-dark)]"
+    <Link
+      href="/"
+      className="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-2 text-sm font-semibold text-[var(--brand-dark)] transition hover:bg-[var(--brand-soft)]"
+    >
+      <svg
+        viewBox="0 0 20 20"
+        aria-hidden
+        className="h-4 w-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       >
-        <svg
-          viewBox="0 0 20 20"
-          aria-hidden
-          className="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M12.5 4.5 7 10l5.5 5.5" />
-        </svg>
-        Назад
-      </Link>
-    </>
+        <path d="M12.5 4.5 7 10l5.5 5.5" />
+      </svg>
+      Назад
+    </Link>
   );
 }
