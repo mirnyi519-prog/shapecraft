@@ -4,7 +4,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts/backup-site.ps1             — свежий бэкап сейчас
 #   powershell -ExecutionPolicy Bypass -File scripts/backup-site.ps1 -SetupKey   — один раз: вход без пароля
 #   powershell -ExecutionPolicy Bypass -File scripts/backup-site.ps1 -Schedule   — каждый день в 12:00
-# Пока ключ не настроен, OpenSSH спросит пароль root.
+# Пока ключ ~/.ssh/shapecraft_backup не настроен, OpenSSH спросит пароль root.
 
 param(
     [string]$ServerHost = "201.24.50.235",
@@ -17,21 +17,30 @@ param(
 
 $ErrorActionPreference = "Stop"
 $target = "${User}@${ServerHost}"
+# Отдельный ключ без фразы-пароля: основной id_ed25519 может быть с фразой, а задача по расписанию её не введёт.
+$keyPath = Join-Path $env:USERPROFILE ".ssh\shapecraft_backup"
+$sshOpts = @("-o", "ConnectTimeout=20")
+if (Test-Path $keyPath) {
+    $sshOpts += @("-i", $keyPath, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes")
+}
 
 if ($SetupKey) {
-    $keyPath = Join-Path $env:USERPROFILE ".ssh\id_ed25519"
     if (-not (Test-Path $keyPath)) {
         New-Item -ItemType Directory -Force -Path (Split-Path $keyPath) | Out-Null
-        Write-Host "Создаю ключ. На вопрос о passphrase дважды нажмите Enter." -ForegroundColor Cyan
-        & ssh-keygen -t ed25519 -f $keyPath -C "shapecraft-backup"
+        # Start-Process, потому что PowerShell 5.1 теряет пустой аргумент -N "".
+        $keygen = Start-Process -FilePath "ssh-keygen" -NoNewWindow -Wait -PassThru `
+            -ArgumentList "-q -t ed25519 -N `"`" -C shapecraft-backup -f `"$keyPath`""
+        if ($keygen.ExitCode -ne 0 -or -not (Test-Path $keyPath)) {
+            throw "Не удалось создать ключ $keyPath"
+        }
     }
     $pub = (Get-Content -Raw "$keyPath.pub").Trim()
     Write-Host "Сейчас спросит пароль root один раз..." -ForegroundColor Cyan
-    $pub | & ssh $target 'umask 077; mkdir -p ~/.ssh; cat >> ~/.ssh/authorized_keys'
+    $pub | & ssh -o ConnectTimeout=20 $target 'umask 077; mkdir -p ~/.ssh; cat >> ~/.ssh/authorized_keys'
     if ($LASTEXITCODE -ne 0) {
         throw "Не удалось добавить ключ на сервер"
     }
-    & ssh -o BatchMode=yes $target "echo ok" | Out-Null
+    & ssh -i $keyPath -o IdentitiesOnly=yes -o BatchMode=yes $target "echo ok" | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw "Ключ добавлен, но вход без пароля не работает"
     }
@@ -65,9 +74,9 @@ if (-not (Test-Path $scriptPath)) {
 
 Write-Host "Подключение к ${target}..." -ForegroundColor Cyan
 $script = (Get-Content -Raw -Path $scriptPath) -replace "`r`n", "`n" -replace "`r", "`n"
-$remoteOut = $script | & ssh -o ConnectTimeout=20 $target "bash -s"
+$remoteOut = $script | & ssh @sshOpts $target "bash -s"
 if ($LASTEXITCODE -ne 0) {
-    throw "Сервер не собрал архив. Проверьте SSH-пароль Fair Amalthea."
+    throw "Сервер не собрал архив. Проверьте вход: scripts/backup-site.ps1 -SetupKey"
 }
 
 $remoteTar = ""
@@ -82,12 +91,12 @@ if (-not $remoteTar) {
 
 $archive = Join-Path $dest "shapecraft.tar.gz"
 Write-Host "Скачиваю $remoteTar" -ForegroundColor Cyan
-& scp "${target}:${remoteTar}" $archive
+& scp @sshOpts "${target}:${remoteTar}" $archive
 if ($LASTEXITCODE -ne 0) {
     throw "Не удалось скачать архив"
 }
 
-& ssh $target "rm -f '$remoteTar'" | Out-Null
+& ssh @sshOpts $target "rm -f '$remoteTar'" | Out-Null
 
 Write-Host "Распаковка..." -ForegroundColor Cyan
 & tar -xzf $archive -C $dest
