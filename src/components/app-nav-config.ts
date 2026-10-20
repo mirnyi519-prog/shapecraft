@@ -19,7 +19,9 @@ export type NavIconName =
   | "world"
   | "orders"
   | "settings"
-  | "hours";
+  | "hours"
+  | "other"
+  | "hunting";
 
 export type AppNavItem = {
   href: string;
@@ -127,6 +129,12 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
         { href: "/settings/security", label: "Безопасность", icon: "security" },
         { href: "/settings/orders", label: "Режим заказов", icon: "orders" },
       ],
+    });
+    items.push({
+      href: "/other",
+      label: "Иное",
+      icon: "other",
+      children: [{ href: "/other/hunting", label: "Охота · Шатура", icon: "hunting" }],
     });
   }
 

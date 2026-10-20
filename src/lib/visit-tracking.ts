@@ -66,6 +66,7 @@ export function isTrackableVisitPath(pathname: string): boolean {
     "/visits",
     "/views",
     "/filament",
+    "/other",
     "/feedback",
     "/world",
     "/security",

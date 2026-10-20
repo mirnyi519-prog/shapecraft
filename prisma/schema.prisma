@@ -446,3 +446,23 @@ model FilamentPrice {
 
   @@index([query, createdAt])
 }
+
+/// Документы МООиР для раздела «Иное → Охота»: распоряжения, прейскурант, контакты Шатурского ОРХ.
+/// Хранится текст как есть; сроки и цены разбираются при показе.
+model HuntingSource {
+  id          String    @id @default(cuid())
+  url         String    @unique
+  /// order | price | contacts
+  kind        String
+  title       String    @default("")
+  docDate     DateTime?
+  text        String    @default("")
+  /// price: строки таблицы; contacts: ссылки
+  dataJson    String    @default("")
+  hash        String    @default("")
+  firstSeenAt DateTime  @default(now())
+  changedAt   DateTime  @default(now())
+  fetchedAt   DateTime  @default(now())
+
+  @@index([kind, docDate])
+}
