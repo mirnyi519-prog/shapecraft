@@ -46,7 +46,7 @@ const LIST_LIMIT = 8;
 const NEW_BADGE_DAYS = 14;
 const ORDERS_SHOWN = 8;
 
-async function fetchHtml(url: string): Promise<string> {
+export async function fetchHtml(url: string): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 20_000);
   try {
@@ -270,7 +270,7 @@ async function runCollect(): Promise<HuntingCollectResult> {
   return { ok: collected.length > 0, checked: collected.length, added, changed, errors };
 }
 
-function huntingChannel(): TelegramChannel | null {
+export function huntingChannel(): TelegramChannel | null {
   if (getTelegramChannelConfig("hunting").configured) {
     return "hunting";
   }

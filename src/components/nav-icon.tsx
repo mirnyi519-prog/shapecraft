@@ -176,6 +176,15 @@ const iconPaths: Record<NavIconName, ReactNode> = {
       <circle cx="12" cy="11" r="2" />
     </>
   ),
+  law: (
+    <>
+      <path d="M12 3v18" />
+      <path d="M7 21h10" />
+      <path d="M4 7h16" />
+      <path d="m4 7-2.5 6a3 3 0 0 0 5 0Z" />
+      <path d="m20 7-2.5 6a3 3 0 0 0 5 0Z" />
+    </>
+  ),
 };
 
 export function NavIcon({

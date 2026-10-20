@@ -21,7 +21,8 @@ export type NavIconName =
   | "settings"
   | "hours"
   | "other"
-  | "hunting";
+  | "hunting"
+  | "law";
 
 export type AppNavItem = {
   href: string;
@@ -134,7 +135,10 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
       href: "/other",
       label: "Иное",
       icon: "other",
-      children: [{ href: "/other/hunting", label: "Охота · Шатура", icon: "hunting" }],
+      children: [
+        { href: "/other/hunting", label: "Охота · Шатура", icon: "hunting" },
+        { href: "/other/laws", label: "Закон", icon: "law" },
+      ],
     });
   }
 

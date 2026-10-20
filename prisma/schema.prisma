@@ -468,6 +468,19 @@ model HuntingSource {
 }
 
 /// Что охотничий бот уже отправил в группу (напоминания, недельные сводки) — чтобы не дублировать.
+/// Отслеживаемые законы об охоте и оружии (КонсультантПлюс).
+model HuntingLaw {
+  /// Ключ из списка в hunting-laws-shared.ts
+  key        String   @id
+  /// «29.12.2025» — дата последней редакции (у статей кодексов — последнего изменения)
+  edition    String   @default("")
+  /// Редакции из обзора изменений либо поправки к статье
+  dataJson   String   @default("")
+  hash       String   @default("")
+  changedAt  DateTime @default(now())
+  fetchedAt  DateTime @default(now())
+}
+
 model HuntingNotice {
   key    String   @id
   sentAt DateTime @default(now())

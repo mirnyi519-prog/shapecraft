@@ -2,6 +2,16 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { collectHunting, getHuntingLastFetch, getHuntingOverview } from "@/lib/hunting";
 import {
+  buildLawsInForceHtml,
+  buildLawsReply,
+  collectLaws,
+  getLawsLastFetch,
+  getLawStates,
+  isLawsStale,
+  LAW_COMMANDS,
+  lawsInForceOn,
+} from "@/lib/hunting-laws";
+import {
   buildHuntingSummaryHtml,
   renderHuntItems,
   shortDate,
@@ -115,7 +125,10 @@ function helpText(): string {
     "По видам:",
     SPECIES.map((species) => `/${species.command} — ${species.title.toLowerCase()}`).join("\n"),
     "",
-    "Данные — из распоряжений МООиР на mooir.ru, бот сверяется с ними сам.",
+    "Законы:",
+    LAW_COMMANDS.map((item) => `/${item.command} — ${item.description.toLowerCase()}`).join("\n"),
+    "",
+    "Сроки и цены — из распоряжений МООиР на mooir.ru, законы — с КонсультантПлюс; бот сверяется с ними сам.",
   ].join("\n");
 }
 
@@ -240,13 +253,21 @@ export async function buildHuntingReply(command: string, arg = ""): Promise<stri
       return contactsText(overview);
     default: {
       const species = SPECIES.find((item) => item.command === command);
-      return species ? speciesText(species, overview) : null;
+      return species ? speciesText(species, overview) : buildLawsReply(command);
     }
   }
 }
 
+const LAW_WORDS: [RegExp, string][] = [
+  [/штраф|наказан|ответственн/i, "shtrafy"],
+  [/хранен|сейф|перевоз/i, "hranenie"],
+  [/оруж/i, "zakon_oruzhie"],
+  [/правил/i, "pravila"],
+  [/закон/i, "zakony"],
+];
+
 /** Ответы с разметкой Telegram HTML; остальные — простой текст. */
-const HTML_REPLIES = new Set(["sezon"]);
+const HTML_REPLIES = new Set(["sezon", ...LAW_COMMANDS.map((item) => item.command)]);
 
 let botUsername: string | null = null;
 
@@ -291,8 +312,14 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
       reply = helpText();
     }
   } else if (isPrivate) {
-    const species = findSpeciesByText(text);
-    reply = species ? speciesText(species, await getHuntingOverview()) : helpText();
+    const lawCommand = LAW_WORDS.find(([re]) => re.test(text))?.[1];
+    const species = lawCommand ? undefined : findSpeciesByText(text);
+    if (lawCommand) {
+      reply = await buildLawsReply(lawCommand);
+      html = reply != null;
+    } else {
+      reply = species ? speciesText(species, await getHuntingOverview()) : helpText();
+    }
   }
 
   if (reply) {
@@ -317,6 +344,7 @@ export async function connectHuntingBot(): Promise<{ ok: boolean; username?: str
   }
   const commands = [
     ...BASE_COMMANDS,
+    ...LAW_COMMANDS,
     ...SPECIES.map((species) => ({ command: species.command, description: species.title })),
   ];
   const menu = await callTelegramApi("hunting", "setMyCommands", { commands });
@@ -399,11 +427,29 @@ async function sendReminders(overview: HuntingOverview) {
   }
 }
 
-/** Один проход расписания: сверка с МООиР, напоминания, сводка по понедельникам. */
+async function sendLawsInForce(today: string) {
+  const items = lawsInForceOn(await getLawStates(), today);
+  if (items.length === 0) {
+    return;
+  }
+  const key = `law-force:${today}`;
+  if ((await alreadySent([key])).size > 0) {
+    return;
+  }
+  const result = await sendTelegramMessage(buildLawsInForceHtml(items), "hunting", { html: true });
+  if (result.ok) {
+    await markSent([key]);
+  }
+}
+
+/** Один проход расписания: сверка с МООиР и законами, напоминания, сводка по понедельникам. */
 export async function runHuntingSchedule(now = new Date()): Promise<void> {
   const lastFetch = await getHuntingLastFetch();
   if (!lastFetch || now.getTime() - lastFetch.getTime() > SCHEDULE_COLLECT_HOURS * 3_600_000) {
     await collectHunting().catch((error) => console.error("hunting collect", error));
+  }
+  if (isLawsStale(await getLawsLastFetch())) {
+    await collectLaws().catch((error) => console.error("laws collect", error));
   }
 
   if (!getTelegramChannelConfig("hunting").configured) {
@@ -416,6 +462,7 @@ export async function runHuntingSchedule(now = new Date()): Promise<void> {
 
   const overview = await getHuntingOverview();
   await sendReminders(overview);
+  await sendLawsInForce(overview.today);
 
   if (moscowWeekday(now) === 1) {
     const key = `weekly:${overview.today}`;
