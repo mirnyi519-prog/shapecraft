@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
+import { collectHunting, getHuntingLastFetch, getHuntingOverview } from "@/lib/hunting";
 import {
-  buildHuntingSummaryText,
-  collectHunting,
-  getHuntingLastFetch,
-  getHuntingOverview,
+  buildHuntingSummaryHtml,
+  renderHuntItems,
   shortDate,
-} from "@/lib/hunting";
+  toHuntItems,
+} from "@/lib/hunting-format";
 import {
   HUNTING_TIERS,
   priceForTier,
@@ -233,7 +233,7 @@ export async function buildHuntingReply(command: string, arg = ""): Promise<stri
     case "help":
       return helpText();
     case "sezon":
-      return buildHuntingSummaryText(overview);
+      return buildHuntingSummaryHtml(overview);
     case "ceny":
       return pricesText(overview, TIER_ARGS[arg.trim().toLowerCase()] ?? "member");
     case "kontakty":
@@ -244,6 +244,9 @@ export async function buildHuntingReply(command: string, arg = ""): Promise<stri
     }
   }
 }
+
+/** Ответы с разметкой Telegram HTML; остальные — простой текст. */
+const HTML_REPLIES = new Set(["sezon"]);
 
 let botUsername: string | null = null;
 
@@ -275,6 +278,7 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
   const isPrivate = chat.type === "private";
 
   let reply: string | null = null;
+  let html = false;
   if (text.startsWith("/")) {
     const [head, ...rest] = text.slice(1).split(/\s+/);
     const [command, mention] = head.toLowerCase().split("@");
@@ -282,6 +286,7 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
       return;
     }
     reply = await buildHuntingReply(command, rest.join(" "));
+    html = HTML_REPLIES.has(command) && reply != null;
     if (!reply && isPrivate) {
       reply = helpText();
     }
@@ -291,7 +296,7 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
   }
 
   if (reply) {
-    await sendTelegramTo("hunting", chat.id, reply, message?.message_thread_id ?? null);
+    await sendTelegramTo("hunting", chat.id, reply, message?.message_thread_id ?? null, { html });
   }
 }
 
@@ -344,7 +349,7 @@ function dayBefore(key: string): string {
 async function sendReminders(overview: HuntingOverview) {
   const seen = new Set<string>();
   const entries = overview.orders
-    .flatMap((order) => order.entries)
+    .flatMap((order) => order.entries.map((entry) => ({ ...entry, orderTopic: order.topic })))
     .filter((entry) => {
       const key = `${entry.label}|${entry.start}|${entry.end}`;
       if (entry.scope === "excluded" || seen.has(key)) return false;
@@ -352,52 +357,43 @@ async function sendReminders(overview: HuntingOverview) {
       return true;
     });
 
+  type Kind = "soon" | "open" | "close";
   const yesterday = dayBefore(overview.today);
-  const groups: { title: string; key: string; entry: HuntingSeasonEntry; line: string }[] = [];
+  const due: { kind: Kind; key: string; entry: (typeof entries)[number] }[] = [];
   for (const entry of entries) {
     const id = `${entry.label}|${entry.start}|${entry.end}`;
     if (entry.status === "upcoming" && entry.days <= REMIND_DAYS_BEFORE) {
-      groups.push({
-        title: "Скоро открывается",
-        key: `soon:${id}`,
-        entry,
-        line: `• ${entry.label} — с ${shortDate(entry.start)} (${entry.days === 1 ? "завтра" : `через ${entry.days} дн.`})`,
-      });
+      due.push({ kind: "soon", key: `soon:${id}`, entry });
     }
     if (entry.status === "open" && entry.start >= yesterday) {
-      groups.push({
-        title: "Открылась",
-        key: `open:${id}`,
-        entry,
-        line: `• ${entry.label} — до ${shortDate(entry.end, true)}`,
-      });
+      due.push({ kind: "open", key: `open:${id}`, entry });
     }
     if (entry.status === "open" && entry.days <= REMIND_DAYS_BEFORE && entry.start < yesterday) {
-      groups.push({
-        title: "Скоро закрывается",
-        key: `close:${id}`,
-        entry,
-        line: `• ${entry.label} — до ${shortDate(entry.end, true)}${entry.days === 0 ? " (сегодня последний день)" : ""}`,
-      });
+      due.push({ kind: "close", key: `close:${id}`, entry });
     }
   }
 
-  const sent = await alreadySent(groups.map((group) => group.key));
-  const fresh = groups.filter((group) => !sent.has(group.key));
+  const sent = await alreadySent(due.map((item) => item.key));
+  const fresh = due.filter((item) => !sent.has(item.key));
   if (fresh.length === 0) {
     return;
   }
 
-  const lines = ["🔔 Охота в Шатуре — напоминание"];
-  for (const title of ["Скоро открывается", "Открылась", "Скоро закрывается"]) {
-    const items = fresh.filter((group) => group.title === title);
+  const sections: { kind: Kind; title: string; mode: "from" | "until" }[] = [
+    { kind: "soon", title: "⏳ <b>СКОРО ОТКРЫВАЕТСЯ</b>", mode: "from" },
+    { kind: "open", title: "🟢 <b>ОТКРЫЛАСЬ</b>", mode: "until" },
+    { kind: "close", title: "⌛ <b>СКОРО ЗАКРЫВАЕТСЯ</b>", mode: "until" },
+  ];
+  const lines = ["🔔 <b>Охота в Шатуре — напоминание</b>"];
+  for (const section of sections) {
+    const items = fresh.filter((item) => item.kind === section.kind).map((item) => item.entry);
     if (items.length > 0) {
-      lines.push("", `${title}:`, ...items.map((group) => group.line));
+      lines.push("", section.title, ...renderHuntItems(toHuntItems(items), section.mode, overview.today));
     }
   }
-  lines.push("", "Путёвки и цены: /ceny · контакты: /kontakty");
+  lines.push("", "ℹ️ Цены — /ceny · егеря — /kontakty");
 
-  const result = await sendTelegramMessage(lines.join("\n"), "hunting");
+  const result = await sendTelegramMessage(lines.join("\n"), "hunting", { html: true });
   if (result.ok) {
     await markSent(fresh.map((group) => group.key));
   }
@@ -424,7 +420,9 @@ export async function runHuntingSchedule(now = new Date()): Promise<void> {
   if (moscowWeekday(now) === 1) {
     const key = `weekly:${overview.today}`;
     if ((await alreadySent([key])).size === 0) {
-      const result = await sendTelegramMessage(buildHuntingSummaryText(overview), "hunting");
+      const result = await sendTelegramMessage(buildHuntingSummaryHtml(overview), "hunting", {
+        html: true,
+      });
       if (result.ok) {
         await markSent([key]);
       }

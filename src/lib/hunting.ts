@@ -32,7 +32,13 @@ import {
   type TelegramChannel,
   type TelegramSendResult,
 } from "@/lib/telegram";
-import { formatMoscow, moscowYmd } from "@/lib/timezone";
+import {
+  buildHuntingSummaryHtml,
+  escapeHtml,
+  renderHuntItems,
+  toHuntItems,
+} from "@/lib/hunting-format";
+import { moscowYmd } from "@/lib/timezone";
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
@@ -264,14 +270,6 @@ async function runCollect(): Promise<HuntingCollectResult> {
   return { ok: collected.length > 0, checked: collected.length, added, changed, errors };
 }
 
-export function shortDate(key: string, withYear = false): string {
-  return formatMoscow(new Date(`${key}T12:00:00+03:00`), {
-    day: "numeric",
-    month: "long",
-    ...(withYear ? { year: "numeric" } : {}),
-  });
-}
-
 function huntingChannel(): TelegramChannel | null {
   if (getTelegramChannelConfig("hunting").configured) {
     return "hunting";
@@ -284,66 +282,36 @@ async function notifyNew(item: Collected) {
   if (!channel) {
     return;
   }
-  const lines: (string | null)[] = [];
+  const ymd = moscowYmd();
+  const today = ymdKey(ymd.year, ymd.month, ymd.day);
+  const lines: string[] = [];
   if (item.kind === "order") {
-    const ymd = moscowYmd();
     const year = item.docDate ? moscowYmd(item.docDate).year : ymd.year;
-    const entries = parseSeasonEntries(item.text, year, ymdKey(ymd.year, ymd.month, ymd.day)).filter(
-      (entry) => entry.scope !== "excluded",
-    );
-    lines.push("🦆 Новое распоряжение МООиР", parseOrderTopic(item.text) || null, item.title);
+    const topic = parseOrderTopic(item.text);
+    const entries = parseSeasonEntries(item.text, year, today)
+      .filter((entry) => entry.scope !== "excluded")
+      .map((entry) => ({ ...entry, orderTopic: topic }));
+    lines.push("🆕 <b>Новое распоряжение МООиР</b>");
+    if (topic) lines.push(`<i>${escapeHtml(topic)}</i>`);
+    lines.push(escapeHtml(item.title));
     if (entries.length > 0) {
-      lines.push("", "Для Шатуры:");
-      for (const entry of entries) {
-        lines.push(`• ${entry.label} — ${shortDate(entry.start)} – ${shortDate(entry.end, true)}`);
-      }
+      lines.push("", "<b>Сроки для Шатуры:</b>", ...renderHuntItems(toHuntItems(entries), "period", today));
     }
   } else {
-    lines.push("💰 Новый прейскурант МООиР", item.title);
+    lines.push("💰 <b>Новый прейскурант МООиР</b>", escapeHtml(item.title));
   }
-  lines.push("", `Оригинал: ${item.url}`);
+  lines.push("", `<a href="${escapeHtml(item.url)}">Читать оригинал</a>`);
   if (channel === "ops") {
     lines.push(`Сводка: ${getPublicSiteUrl()}/other/hunting`);
   }
-  await sendTelegramMessage(lines.filter((line) => line !== null).join("\n"), channel);
+  await sendTelegramMessage(lines.join("\n"), channel, { html: true });
 }
 
 /** Сводка «что открыто / что скоро» для охотничьей группы. */
 export async function postHuntingSummary(): Promise<TelegramSendResult> {
-  return sendTelegramMessage(buildHuntingSummaryText(await getHuntingOverview()), "hunting");
-}
-
-export function buildHuntingSummaryText(overview: HuntingOverview): string {
-  const open = overview.now.filter((entry) => entry.status === "open");
-  const soon = overview.now.filter((entry) => entry.status === "upcoming");
-  const lines: string[] = [`🦌 Охота в Шатуре на ${shortDate(overview.today, true)}`];
-
-  if (open.length > 0) {
-    lines.push("", "Открыто:");
-    for (const entry of open) {
-      lines.push(`• ${entry.label} — до ${shortDate(entry.end, true)}`);
-    }
-  }
-  if (soon.length > 0) {
-    lines.push("", "Скоро:");
-    for (const entry of soon) {
-      lines.push(`• ${entry.label} — с ${shortDate(entry.start)}`);
-    }
-  }
-  if (open.length === 0 && soon.length === 0) {
-    lines.push("", "По распоряжениям МООиР сейчас ничего не открыто.");
-  }
-
-  const contactLines = overview.contacts?.lines ?? [];
-  const address = contactLines.find((line) => /ул\./i.test(line));
-  const hours = contactLines.find((line) => /время работы/i.test(line));
-  if (address || hours) {
-    lines.push("", "Путёвки — Шатурское ОРХ МООиР:");
-    if (address) lines.push(address);
-    if (hours) lines.push(hours);
-  }
-  lines.push("", `Источник: ${MOOIR_ORDERS_URL}`);
-  return lines.join("\n");
+  return sendTelegramMessage(buildHuntingSummaryHtml(await getHuntingOverview()), "hunting", {
+    html: true,
+  });
 }
 
 export async function getHuntingLastFetch(): Promise<Date | null> {

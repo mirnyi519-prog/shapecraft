@@ -181,6 +181,7 @@ function localUploadPath(imageUrl: string): string | null {
 export async function sendTelegramMessage(
   text: string,
   channel: TelegramChannel = "ops",
+  options: { html?: boolean } = {},
 ): Promise<TelegramSendResult> {
   const { token, chatId, configured, label, threadId } =
     getTelegramChannelConfig(channel);
@@ -201,6 +202,7 @@ export async function sendTelegramMessage(
           chat_id: toChatId(chatId),
           text: text.slice(0, 4000),
           disable_web_page_preview: true,
+          ...(options.html ? { parse_mode: "HTML" } : {}),
           ...(threadId != null ? { message_thread_id: threadId } : {}),
         }),
         signal: controller.signal,
@@ -276,11 +278,13 @@ export async function sendTelegramTo(
   chatId: string | number,
   text: string,
   threadId?: number | null,
+  options: { html?: boolean } = {},
 ): Promise<TelegramSendResult> {
   const result = await callTelegramApi(channel, "sendMessage", {
     chat_id: chatId,
     text: text.slice(0, 4000),
     disable_web_page_preview: true,
+    ...(options.html ? { parse_mode: "HTML" } : {}),
     ...(threadId != null ? { message_thread_id: threadId } : {}),
   });
   return { ok: result.ok, configured: true, error: result.error };
