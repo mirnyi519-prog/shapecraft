@@ -6,7 +6,7 @@ import { Button } from "@/components/ui";
 
 export function HuntingRefreshButton({ groupConfigured }: { groupConfigured: boolean }) {
   const router = useRouter();
-  const [busy, setBusy] = useState<"" | "refresh" | "post">("");
+  const [busy, setBusy] = useState<"" | "refresh" | "post" | "connect">("");
   const [message, setMessage] = useState("");
 
   async function refresh() {
@@ -51,6 +51,27 @@ export function HuntingRefreshButton({ groupConfigured }: { groupConfigured: boo
     }
   }
 
+  async function connect() {
+    setBusy("connect");
+    setMessage("");
+    try {
+      const response = await fetch("/api/hunting/connect", { method: "POST" });
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+        username?: string;
+      } | null;
+      setMessage(
+        response.ok
+          ? `Команды подключены${data?.username ? ` — проверьте /help у @${data.username}` : ""}`
+          : (data?.error ?? "Не удалось подключить"),
+      );
+    } catch {
+      setMessage("Нет связи с сервером");
+    } finally {
+      setBusy("");
+    }
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-3">
       <Button onClick={refresh} disabled={busy !== ""}>
@@ -63,6 +84,14 @@ export function HuntingRefreshButton({ groupConfigured }: { groupConfigured: boo
         title={groupConfigured ? undefined : "Задайте TELEGRAM_HUNTING_BOT_TOKEN и TELEGRAM_HUNTING_CHAT_ID"}
       >
         {busy === "post" ? "Отправляю…" : "Сводку в группу"}
+      </Button>
+      <Button
+        variant="secondary"
+        onClick={connect}
+        disabled={busy !== "" || !groupConfigured}
+        title={groupConfigured ? "Повторно нажимать безопасно" : "Сначала задайте токен и группу бота"}
+      >
+        {busy === "connect" ? "Подключаю…" : "Подключить команды бота"}
       </Button>
       {message ? <span className="text-sm text-[var(--muted)]">{message}</span> : null}
     </div>

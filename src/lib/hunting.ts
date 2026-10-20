@@ -264,7 +264,7 @@ async function runCollect(): Promise<HuntingCollectResult> {
   return { ok: collected.length > 0, checked: collected.length, added, changed, errors };
 }
 
-function shortDate(key: string, withYear = false): string {
+export function shortDate(key: string, withYear = false): string {
   return formatMoscow(new Date(`${key}T12:00:00+03:00`), {
     day: "numeric",
     month: "long",
@@ -310,7 +310,10 @@ async function notifyNew(item: Collected) {
 
 /** Сводка «что открыто / что скоро» для охотничьей группы. */
 export async function postHuntingSummary(): Promise<TelegramSendResult> {
-  const overview = await getHuntingOverview();
+  return sendTelegramMessage(buildHuntingSummaryText(await getHuntingOverview()), "hunting");
+}
+
+export function buildHuntingSummaryText(overview: HuntingOverview): string {
   const open = overview.now.filter((entry) => entry.status === "open");
   const soon = overview.now.filter((entry) => entry.status === "upcoming");
   const lines: string[] = [`🦌 Охота в Шатуре на ${shortDate(overview.today, true)}`];
@@ -340,8 +343,7 @@ export async function postHuntingSummary(): Promise<TelegramSendResult> {
     if (hours) lines.push(hours);
   }
   lines.push("", `Источник: ${MOOIR_ORDERS_URL}`);
-
-  return sendTelegramMessage(lines.join("\n"), "hunting");
+  return lines.join("\n");
 }
 
 export async function getHuntingLastFetch(): Promise<Date | null> {

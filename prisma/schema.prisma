@@ -466,3 +466,9 @@ model HuntingSource {
 
   @@index([kind, docDate])
 }
+
+/// Что охотничий бот уже отправил в группу (напоминания, недельные сводки) — чтобы не дублировать.
+model HuntingNotice {
+  key    String   @id
+  sentAt DateTime @default(now())
+}

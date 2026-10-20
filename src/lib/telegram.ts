@@ -237,6 +237,55 @@ export async function sendTelegramMessage(
   }
 }
 
+/** Любой метод Bot API от имени бота канала (setWebhook, setMyCommands, getMe…). */
+export async function callTelegramApi<T = unknown>(
+  channel: TelegramChannel,
+  method: string,
+  payload: Record<string, unknown> = {},
+): Promise<{ ok: boolean; result?: T; error?: string }> {
+  const { token } = getTelegramChannelConfig(channel);
+  if (!token) {
+    return { ok: false, error: notConfiguredError(channel) };
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timer));
+    const body = (await response.json().catch(() => null)) as {
+      ok?: boolean;
+      result?: T;
+      description?: string;
+    } | null;
+    if (!response.ok || !body?.ok) {
+      return { ok: false, error: body?.description || `Telegram HTTP ${response.status}` };
+    }
+    return { ok: true, result: body.result };
+  } catch (error) {
+    return { ok: false, error: formatFetchError(error) };
+  }
+}
+
+/** Ответ в конкретный чат (личка или группа, откуда пришла команда). */
+export async function sendTelegramTo(
+  channel: TelegramChannel,
+  chatId: string | number,
+  text: string,
+  threadId?: number | null,
+): Promise<TelegramSendResult> {
+  const result = await callTelegramApi(channel, "sendMessage", {
+    chat_id: chatId,
+    text: text.slice(0, 4000),
+    disable_web_page_preview: true,
+    ...(threadId != null ? { message_thread_id: threadId } : {}),
+  });
+  return { ok: result.ok, configured: true, error: result.error };
+}
+
 /**
  * Фото + подпись. Сначала публичный URL, иначе multipart с диска.
  * Если фото нет или не отправилось — уходит только текст.
