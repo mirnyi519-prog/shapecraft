@@ -187,7 +187,10 @@ export function isNavGroupActive(
   }
   if (
     item.href === "/visits" &&
-    (pathname === "/visits" || pathname === "/views" || pathname.startsWith("/views/"))
+    (pathname === "/visits" ||
+      pathname === "/views" ||
+      pathname.startsWith("/views/") ||
+      pathname === "/filament")
   ) {
     return true;
   }

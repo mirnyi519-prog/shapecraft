@@ -428,3 +428,21 @@ model WorldTrendArticle {
   @@index([batchId])
   @@index([priceTier])
 }
+
+/// Цены на филамент с маркетплейсов: Маркет — автоматически, WB и Ozon — вручную.
+model FilamentPrice {
+  id          String   @id @default(cuid())
+  /// Нормализованный запрос, по нему группируется история.
+  query       String
+  /// ym | wb | ozon
+  marketplace String
+  price       Int
+  title       String   @default("")
+  url         String   @default("")
+  imageUrl    String   @default("")
+  /// auto | manual
+  source      String   @default("auto")
+  createdAt   DateTime @default(now())
+
+  @@index([query, createdAt])
+}
