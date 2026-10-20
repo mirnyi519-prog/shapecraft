@@ -45,7 +45,7 @@ function formatFetchError(error: unknown): string {
   return error.message;
 }
 
-export type TelegramChannel = "ops" | "market";
+export type TelegramChannel = "ops" | "market" | "hunting";
 
 export type TelegramChannelConfig = {
   channel: TelegramChannel;
@@ -95,6 +95,20 @@ export function getTelegramChannelConfig(
     };
   }
 
+  if (channel === "hunting") {
+    const token = cleanEnv(process.env.TELEGRAM_HUNTING_BOT_TOKEN);
+    const chatId = cleanEnv(process.env.TELEGRAM_HUNTING_CHAT_ID);
+    return {
+      channel,
+      token,
+      chatId,
+      threadId: parseThreadId(cleanEnv(process.env.TELEGRAM_HUNTING_THREAD_ID)),
+      configured: Boolean(token && chatId),
+      siteUrl,
+      label: "Охота",
+    };
+  }
+
   const token = cleanEnv(process.env.TELEGRAM_BOT_TOKEN);
   const chatId = cleanEnv(process.env.TELEGRAM_CHAT_ID);
   return {
@@ -106,6 +120,16 @@ export function getTelegramChannelConfig(
     siteUrl,
     label: "Служебный (клики / склад)",
   };
+}
+
+function notConfiguredError(channel: TelegramChannel): string {
+  if (channel === "market") {
+    return "TELEGRAM_MARKET_BOT_TOKEN или TELEGRAM_MARKET_CHAT_ID не заданы";
+  }
+  if (channel === "hunting") {
+    return "TELEGRAM_HUNTING_BOT_TOKEN или TELEGRAM_HUNTING_CHAT_ID не заданы";
+  }
+  return "TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы в контейнере";
 }
 
 /** @deprecated используйте getTelegramChannelConfig("ops") */
@@ -162,14 +186,7 @@ export async function sendTelegramMessage(
     getTelegramChannelConfig(channel);
 
   if (!configured) {
-    return {
-      ok: false,
-      configured: false,
-      error:
-        channel === "market"
-          ? "TELEGRAM_MARKET_BOT_TOKEN или TELEGRAM_MARKET_CHAT_ID не заданы"
-          : "TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы в контейнере",
-    };
+    return { ok: false, configured: false, error: notConfiguredError(channel) };
   }
 
   try {
@@ -235,14 +252,7 @@ export async function sendTelegramPhoto(input: {
   const caption = input.caption.slice(0, 1024);
 
   if (!configured) {
-    return {
-      ok: false,
-      configured: false,
-      error:
-        channel === "market"
-          ? "TELEGRAM_MARKET_BOT_TOKEN или TELEGRAM_MARKET_CHAT_ID не заданы"
-          : "TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы в контейнере",
-    };
+    return { ok: false, configured: false, error: notConfiguredError(channel) };
   }
 
   const publicUrl = resolveProductImageUrl(input.imageUrl);

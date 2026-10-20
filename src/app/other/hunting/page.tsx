@@ -16,6 +16,7 @@ import {
   MOOIR_ORDERS_URL,
   type HuntingSeasonEntry,
 } from "@/lib/hunting-shared";
+import { getTelegramChannelConfig } from "@/lib/telegram";
 import { formatMoscow } from "@/lib/timezone";
 
 function keyDate(key: string): Date {
@@ -124,7 +125,7 @@ export default async function HuntingPage() {
             сколько стоит. Проверка — при открытии раз в {HUNTING_STALE_HOURS} ч и по кнопке; о новом распоряжении
             напишет в Telegram.
           </p>
-          <HuntingRefreshButton />
+          <HuntingRefreshButton groupConfigured={getTelegramChannelConfig("hunting").configured} />
           <p className="text-sm text-[var(--muted)]">
             {overview.fetchedAt
               ? `Сверено с mooir.ru: ${formatMoscow(overview.fetchedAt, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}`

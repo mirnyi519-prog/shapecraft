@@ -25,8 +25,14 @@ import {
   type HuntingPriceList,
   type HuntingPriceRow,
 } from "@/lib/hunting-shared";
-import { getPublicSiteUrl, sendTelegramMessage } from "@/lib/telegram";
-import { moscowYmd } from "@/lib/timezone";
+import {
+  getPublicSiteUrl,
+  getTelegramChannelConfig,
+  sendTelegramMessage,
+  type TelegramChannel,
+  type TelegramSendResult,
+} from "@/lib/telegram";
+import { formatMoscow, moscowYmd } from "@/lib/timezone";
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36";
@@ -258,14 +264,84 @@ async function runCollect(): Promise<HuntingCollectResult> {
   return { ok: collected.length > 0, checked: collected.length, added, changed, errors };
 }
 
+function shortDate(key: string, withYear = false): string {
+  return formatMoscow(new Date(`${key}T12:00:00+03:00`), {
+    day: "numeric",
+    month: "long",
+    ...(withYear ? { year: "numeric" } : {}),
+  });
+}
+
+function huntingChannel(): TelegramChannel | null {
+  if (getTelegramChannelConfig("hunting").configured) {
+    return "hunting";
+  }
+  return getTelegramChannelConfig("ops").configured ? "ops" : null;
+}
+
 async function notifyNew(item: Collected) {
-  const header = item.kind === "order" ? "🦆 МООиР: новое распоряжение" : "🦆 МООиР: новый прейскурант";
-  const topic = item.kind === "order" ? parseOrderTopic(item.text) : "";
-  await sendTelegramMessage(
-    [header, item.title, topic || null, item.url, `Сводка: ${getPublicSiteUrl()}/other/hunting`]
-      .filter(Boolean)
-      .join("\n"),
-  );
+  const channel = huntingChannel();
+  if (!channel) {
+    return;
+  }
+  const lines: (string | null)[] = [];
+  if (item.kind === "order") {
+    const ymd = moscowYmd();
+    const year = item.docDate ? moscowYmd(item.docDate).year : ymd.year;
+    const entries = parseSeasonEntries(item.text, year, ymdKey(ymd.year, ymd.month, ymd.day)).filter(
+      (entry) => entry.scope !== "excluded",
+    );
+    lines.push("🦆 Новое распоряжение МООиР", parseOrderTopic(item.text) || null, item.title);
+    if (entries.length > 0) {
+      lines.push("", "Для Шатуры:");
+      for (const entry of entries) {
+        lines.push(`• ${entry.label} — ${shortDate(entry.start)} – ${shortDate(entry.end, true)}`);
+      }
+    }
+  } else {
+    lines.push("💰 Новый прейскурант МООиР", item.title);
+  }
+  lines.push("", `Оригинал: ${item.url}`);
+  if (channel === "ops") {
+    lines.push(`Сводка: ${getPublicSiteUrl()}/other/hunting`);
+  }
+  await sendTelegramMessage(lines.filter((line) => line !== null).join("\n"), channel);
+}
+
+/** Сводка «что открыто / что скоро» для охотничьей группы. */
+export async function postHuntingSummary(): Promise<TelegramSendResult> {
+  const overview = await getHuntingOverview();
+  const open = overview.now.filter((entry) => entry.status === "open");
+  const soon = overview.now.filter((entry) => entry.status === "upcoming");
+  const lines: string[] = [`🦌 Охота в Шатуре на ${shortDate(overview.today, true)}`];
+
+  if (open.length > 0) {
+    lines.push("", "Открыто:");
+    for (const entry of open) {
+      lines.push(`• ${entry.label} — до ${shortDate(entry.end, true)}`);
+    }
+  }
+  if (soon.length > 0) {
+    lines.push("", "Скоро:");
+    for (const entry of soon) {
+      lines.push(`• ${entry.label} — с ${shortDate(entry.start)}`);
+    }
+  }
+  if (open.length === 0 && soon.length === 0) {
+    lines.push("", "По распоряжениям МООиР сейчас ничего не открыто.");
+  }
+
+  const contactLines = overview.contacts?.lines ?? [];
+  const address = contactLines.find((line) => /ул\./i.test(line));
+  const hours = contactLines.find((line) => /время работы/i.test(line));
+  if (address || hours) {
+    lines.push("", "Путёвки — Шатурское ОРХ МООиР:");
+    if (address) lines.push(address);
+    if (hours) lines.push(hours);
+  }
+  lines.push("", `Источник: ${MOOIR_ORDERS_URL}`);
+
+  return sendTelegramMessage(lines.join("\n"), "hunting");
 }
 
 export async function getHuntingLastFetch(): Promise<Date | null> {
