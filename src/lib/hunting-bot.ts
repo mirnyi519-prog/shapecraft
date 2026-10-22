@@ -2,6 +2,16 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { collectHunting, getHuntingLastFetch, getHuntingOverview } from "@/lib/hunting";
 import {
+  buildGatheringReminder,
+  createGathering,
+  GATHERING_REMIND_HOUR,
+  GATHERING_USAGE,
+  gatheringsForTomorrow,
+  handleGatheringCallback,
+  type TelegramUser,
+} from "@/lib/hunting-gathering";
+import { buildWeatherHtml, fetchHuntingWeather } from "@/lib/hunting-weather";
+import {
   AMMO_GENERAL,
   AMMO_GROUPS,
   AMMO_SEASONS,
@@ -51,6 +61,8 @@ export const HUNTING_WEBHOOK_PATH = "/api/telegram/hunting";
 /** Сверка с mooir.ru по расписанию — не чаще, чем раз в столько часов. */
 const SCHEDULE_COLLECT_HOURS = 6;
 const REMIND_DAYS_BEFORE = 3;
+/** С какого часа (МСК) в пятницу публиковать погоду на выходные. */
+const WEEKEND_WEATHER_HOUR = 17;
 const SEND_FROM_HOUR = 9;
 const SEND_TO_HOUR = 21;
 
@@ -92,6 +104,8 @@ const BASE_COMMANDS: { command: string; description: string }[] = [
   { command: "sezon", description: "Что открыто и что скоро в Шатуре" },
   { command: "ceny", description: "Цены путёвок МООиР" },
   { command: "kontakty", description: "Шатурское хозяйство: адрес, егеря" },
+  { command: "pogoda", description: "Погода для охоты в Шатуре на 3 дня" },
+  { command: "sbor", description: "Собрать людей на охоту: /sbor кабан 26.10" },
   { command: "patron", description: "Какой патрон брать на кого и в какой сезон" },
   { command: "help", description: "Все команды" },
 ];
@@ -136,6 +150,8 @@ function helpText(): string {
     "/ceny — цены путёвок (/ceny sobaka, /ceny vznos, /ceny gost)",
     "/kontakty — адрес и егеря Шатурского хозяйства",
     "/patron — какой патрон брать сейчас (/patron utka — по сезонам)",
+    "/pogoda — погода, ветер, восход и закат на 3 дня",
+    "/sbor кабан 26.10 — собрать людей на охоту (в группе)",
     "",
     "По видам:",
     SPECIES.map((species) => `/${species.command} — ${species.title.toLowerCase()}`).join("\n"),
@@ -332,6 +348,11 @@ export async function buildHuntingReply(command: string, arg = ""): Promise<stri
       return contactsText(overview);
     case "patron":
       return ammoText(arg, overview.today);
+    case "pogoda":
+      return fetchHuntingWeather(3).then(
+        (days) => buildWeatherHtml(days),
+        () => "Прогноз сейчас недоступен — попробуйте позже.",
+      );
     default: {
       const species = SPECIES.find((item) => item.command === command);
       return species ? speciesText(species, overview) : buildLawsReply(command);
@@ -348,7 +369,7 @@ const LAW_WORDS: [RegExp, string][] = [
 ];
 
 /** Ответы с разметкой Telegram HTML; остальные — простой текст. */
-const HTML_REPLIES = new Set(["sezon", ...LAW_COMMANDS.map((item) => item.command)]);
+const HTML_REPLIES = new Set(["sezon", "pogoda", ...LAW_COMMANDS.map((item) => item.command)]);
 
 let botUsername: string | null = null;
 
@@ -366,11 +387,17 @@ type TelegramUpdate = {
     text?: string;
     message_thread_id?: number;
     chat?: { id: number; type?: string };
+    from?: TelegramUser;
   };
+  callback_query?: { id: string; data?: string; from: TelegramUser };
 };
 
 /** Входящее сообщение: команды в группе и в личке, в личке — ещё и слово «утка», «кабан»… */
 export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void> {
+  if (update.callback_query) {
+    await handleGatheringCallback(update.callback_query);
+    return;
+  }
   const message = update.message;
   const text = message?.text?.trim();
   const chat = message?.chat;
@@ -385,6 +412,21 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
     const [head, ...rest] = text.slice(1).split(/\s+/);
     const [command, mention] = head.toLowerCase().split("@");
     if (mention && mention !== (await getBotUsername())) {
+      return;
+    }
+    if (command === "sbor") {
+      reply = isPrivate
+        ? `Сбор работает в охотничьей группе — отправьте команду там.\n\n${GATHERING_USAGE}`
+        : await createGathering({
+            chatId: chat.id,
+            threadId: message?.message_thread_id ?? null,
+            from: message?.from,
+            arg: rest.join(" "),
+            today: (await getHuntingOverview()).today,
+          });
+      if (reply) {
+        await sendTelegramTo("hunting", chat.id, reply, message?.message_thread_id ?? null);
+      }
       return;
     }
     reply = await buildHuntingReply(command, rest.join(" "));
@@ -419,7 +461,7 @@ export async function connectHuntingBot(): Promise<{ ok: boolean; username?: str
   const webhook = await callTelegramApi("hunting", "setWebhook", {
     url: `${getPublicSiteUrl()}${HUNTING_WEBHOOK_PATH}`,
     secret_token: secret,
-    allowed_updates: ["message"],
+    allowed_updates: ["message", "callback_query"],
     drop_pending_updates: true,
   });
   if (!webhook.ok) {
@@ -510,6 +552,50 @@ async function sendReminders(overview: HuntingOverview) {
   }
 }
 
+async function sendGatheringReminders(today: string, hour: number) {
+  if (hour < GATHERING_REMIND_HOUR) {
+    return;
+  }
+  for (const gathering of await gatheringsForTomorrow(today)) {
+    const key = `sbor:${gathering.id}`;
+    if ((await alreadySent([key])).size > 0) {
+      continue;
+    }
+    const result = await callTelegramApi("hunting", "sendMessage", {
+      chat_id: gathering.chatId,
+      text: await buildGatheringReminder(gathering),
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+      ...(gathering.messageId ? { reply_parameters: { message_id: gathering.messageId, allow_sending_without_reply: true } } : {}),
+      ...(gathering.threadId != null ? { message_thread_id: gathering.threadId } : {}),
+    });
+    if (result.ok) {
+      await markSent([key]);
+    }
+  }
+}
+
+/** Пятница вечером — погода на субботу и воскресенье. */
+async function sendWeekendWeather(now: Date, today: string, hour: number) {
+  if (moscowWeekday(now) !== 5 || hour < WEEKEND_WEATHER_HOUR) {
+    return;
+  }
+  const key = `weekend:${today}`;
+  if ((await alreadySent([key])).size > 0) {
+    return;
+  }
+  const days = (await fetchHuntingWeather(3).catch(() => [])).filter((day) => day.date > today);
+  if (days.length === 0) {
+    return;
+  }
+  const result = await sendTelegramMessage(buildWeatherHtml(days, "Погода на выходные — Шатура"), "hunting", {
+    html: true,
+  });
+  if (result.ok) {
+    await markSent([key]);
+  }
+}
+
 async function sendLawsInForce(today: string) {
   const items = lawsInForceOn(await getLawStates(), today);
   if (items.length === 0) {
@@ -546,6 +632,8 @@ export async function runHuntingSchedule(now = new Date()): Promise<void> {
   const overview = await getHuntingOverview();
   await sendReminders(overview);
   await sendLawsInForce(overview.today);
+  await sendGatheringReminders(overview.today, hour);
+  await sendWeekendWeather(now, overview.today, hour);
 
   if (moscowWeekday(now) === 1) {
     const key = `weekly:${overview.today}`;

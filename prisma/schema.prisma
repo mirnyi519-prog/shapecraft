@@ -481,6 +481,36 @@ model HuntingLaw {
   fetchedAt  DateTime @default(now())
 }
 
+/// Сбор на охоту из охотничьей группы (/sbor): кнопки «еду / думаю / не еду».
+model HuntingGathering {
+  id        String                 @id @default(cuid())
+  chatId    String
+  threadId  Int?
+  messageId Int?
+  /// Ключ вида из таблицы патронов (hunting-ammo.ts), если распознан
+  species   String                 @default("")
+  title     String
+  /// ГГГГ-ММ-ДД
+  date      String
+  createdBy String                 @default("")
+  createdAt DateTime               @default(now())
+  votes     HuntingGatheringVote[]
+
+  @@index([date])
+}
+
+model HuntingGatheringVote {
+  gatheringId String
+  userId      String
+  name        String
+  /// go | maybe | no
+  answer      String
+  updatedAt   DateTime         @updatedAt
+  gathering   HuntingGathering @relation(fields: [gatheringId], references: [id], onDelete: Cascade)
+
+  @@id([gatheringId, userId])
+}
+
 model HuntingNotice {
   key    String   @id
   sentAt DateTime @default(now())
