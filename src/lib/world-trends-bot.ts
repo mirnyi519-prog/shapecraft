@@ -1,9 +1,7 @@
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
 import { prisma } from "@/lib/db";
 import { stillWebpPoster } from "@/lib/image-variants";
 import { optimizeImageBuffer } from "@/lib/optimize-image";
-import { getUploadsDir } from "@/lib/upload";
+import { writeUploadOnce } from "@/lib/upload";
 import {
   getWeekLabel,
   isWorldPriceTier,
@@ -192,20 +190,14 @@ async function saveRemoteImage(
           extension: ".webp",
         }
       : await optimizeImageBuffer(buffer, contentType);
-    const uploadDir = getUploadsDir();
-    await mkdir(uploadDir, { recursive: true });
-    const filename = `world-${filenameStem}${optimized.extension}`;
-    await writeFile(path.join(uploadDir, filename), optimized.buffer);
+    const filename = await writeUploadOnce(optimized.buffer, optimized.extension, `world-${filenameStem}-`);
     return `/api/media/${filename}`;
   } catch {
     return null;
   }
 }
 
-async function resolveArticleImage(
-  article: WorldTrendImportArticle,
-  index: number,
-): Promise<string | null> {
+async function resolveArticleImage(article: WorldTrendImportArticle): Promise<string | null> {
   const makerWorldCover =
     article.sourceUrl.includes("makerworld.com")
       ? await fetchMakerWorldCoverUrl(article.sourceUrl)
@@ -218,10 +210,7 @@ async function resolveArticleImage(
   ].filter(Boolean) as string[];
 
   for (const candidate of candidates) {
-    const saved = await saveRemoteImage(
-      candidate,
-      `${Date.now()}-${index}-${slugify(article.name) || "souvenir"}`,
-    );
+    const saved = await saveRemoteImage(candidate, slugify(article.name) || "souvenir");
     if (saved) {
       return saved;
     }
@@ -344,7 +333,7 @@ export async function importWorldTrends(input: {
   }
 
   const images = await Promise.all(
-    normalized.map((article, index) => resolveArticleImage(article, index)),
+    normalized.map((article) => resolveArticleImage(article)),
   );
 
   const batch = await prisma.$transaction(async (tx) => {

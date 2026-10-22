@@ -66,6 +66,12 @@ if (-not $BackupRoot) {
 $stamp = Get-Date -Format "yyyy-MM-dd_HHmm"
 $dest = Join-Path $BackupRoot $stamp
 New-Item -ItemType Directory -Force -Path $dest | Out-Null
+trap {
+    if ((Test-Path $dest) -and -not (Get-ChildItem -Force $dest)) {
+        Remove-Item $dest
+    }
+    break
+}
 
 $scriptPath = Join-Path $PSScriptRoot "backup-on-server.sh"
 if (-not (Test-Path $scriptPath)) {
@@ -73,10 +79,12 @@ if (-not (Test-Path $scriptPath)) {
 }
 
 Write-Host "Подключение к ${target}..." -ForegroundColor Cyan
-$script = (Get-Content -Raw -Path $scriptPath) -replace "`r`n", "`n" -replace "`r", "`n"
-$remoteOut = $script | & ssh @sshOpts $target "bash -s"
+$script = (Get-Content -Raw -Encoding UTF8 -Path $scriptPath) -replace "^\uFEFF", "" -replace "`r`n", "`n" -replace "`r", "`n"
+# PowerShell 5.1 при передаче через stdin добавляет BOM и \r — bash на них падает, поэтому шлём base64.
+$encoded = [Convert]::ToBase64String((New-Object System.Text.UTF8Encoding $false).GetBytes($script))
+$remoteOut = & ssh @sshOpts $target "echo $encoded | base64 -d | bash"
 if ($LASTEXITCODE -ne 0) {
-    throw "Сервер не собрал архив. Проверьте вход: scripts/backup-site.ps1 -SetupKey"
+    throw "Сервер не собрал архив (код $LASTEXITCODE). Вывод: $remoteOut"
 }
 
 $remoteTar = ""
@@ -96,13 +104,14 @@ if ($LASTEXITCODE -ne 0) {
     throw "Не удалось скачать архив"
 }
 
-& ssh @sshOpts $target "rm -f '$remoteTar'" | Out-Null
+# В /tmp лежат только архивы для ПК (ночной бэкап сервера — в /opt/shapecraft-backups), включая брошенные неудачными запусками.
+& ssh @sshOpts $target "rm -f /tmp/shapecraft-*.tar.gz" | Out-Null
 
 Write-Host "Распаковка..." -ForegroundColor Cyan
 & tar -xzf $archive -C $dest
 Remove-Item $archive
 
-$dirs = Get-ChildItem $BackupRoot -Directory | Sort-Object Name -Descending
+$dirs = Get-ChildItem $BackupRoot -Directory | Where-Object { $_.Name -match '^\d{4}-\d{2}-\d{2}_\d{4}$' } | Sort-Object Name -Descending
 if ($dirs.Count -gt $Keep) {
     $dirs | Select-Object -Skip $Keep | Remove-Item -Recurse -Force
 }

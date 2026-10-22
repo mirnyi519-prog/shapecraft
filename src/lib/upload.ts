@@ -1,5 +1,6 @@
 import { put } from "@vercel/blob";
-import { mkdir, writeFile } from "fs/promises";
+import { createHash } from "node:crypto";
+import { access, mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { shrinkAnimatedGif } from "@/lib/image-variants";
 import { optimizeImageBuffer } from "@/lib/optimize-image";
@@ -17,6 +18,26 @@ export function getUploadsDir(): string {
     process.env.UPLOADS_DIR ||
     path.join(process.cwd(), "public", "uploads")
   );
+}
+
+/**
+ * Кладёт картинку в uploads под именем из хеша содержимого: одна и та же картинка — один файл.
+ * Файлы uploads нигде не удаляются, поэтому общий файл у нескольких товаров безопасен.
+ */
+export async function writeUploadOnce(buffer: Buffer, ext: string, prefix = ""): Promise<string> {
+  const hash = createHash("sha256").update(buffer).digest("hex").slice(0, 24);
+  const filename = `${prefix}${hash}${ext}`;
+  const uploadDir = getUploadsDir();
+  await mkdir(uploadDir, { recursive: true });
+  const target = path.join(uploadDir, filename);
+  const exists = await access(target).then(
+    () => true,
+    () => false,
+  );
+  if (!exists) {
+    await writeFile(target, buffer);
+  }
+  return filename;
 }
 
 export function extensionForImage(
@@ -62,9 +83,8 @@ export async function saveUploadedImage(
     }
   }
 
-  const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-
   if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
     const blob = await put(`products/${filename}`, outBuffer, {
       access: "public",
       contentType: outMime || getMimeType(ext),
@@ -72,10 +92,7 @@ export async function saveUploadedImage(
     return blob.url;
   }
 
-  const uploadDir = getUploadsDir();
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(path.join(uploadDir, filename), outBuffer);
-  return `/api/media/${filename}`;
+  return `/api/media/${await writeUploadOnce(outBuffer, ext)}`;
 }
 
 export function getMimeType(ext: string): string {
