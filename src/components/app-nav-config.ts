@@ -23,7 +23,9 @@ export type NavIconName =
   | "other"
   | "hunting"
   | "law"
-  | "ammo";
+  | "ammo"
+  | "documents"
+  | "bot-stats";
 
 export type AppNavItem = {
   href: string;
@@ -140,6 +142,8 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
         { href: "/other/hunting", label: "Охота · Шатура", icon: "hunting" },
         { href: "/other/ammo", label: "Патроны", icon: "ammo" },
         { href: "/other/laws", label: "Закон", icon: "law" },
+        { href: "/other/documents", label: "Документы", icon: "documents" },
+        { href: "/other/bot-stats", label: "Бот · аналитика", icon: "bot-stats" },
       ],
     });
   }

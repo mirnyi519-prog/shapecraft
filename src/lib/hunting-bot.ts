@@ -11,6 +11,7 @@ import {
   gatheringsOn,
   handleGatheringCallback,
   type TelegramUser,
+  userName,
 } from "@/lib/hunting-gathering";
 import { buildWeatherHtml, fetchHuntingWeather } from "@/lib/hunting-weather";
 import {
@@ -20,6 +21,7 @@ import {
   reactivateDocuments,
   sendDocumentReminders,
 } from "@/lib/hunting-documents";
+import { type BotTopic, logBotUsage, pruneBotUsage } from "@/lib/hunting-usage";
 import {
   AMMO_GENERAL,
   AMMO_GROUPS,
@@ -393,20 +395,72 @@ async function getBotUsername(): Promise<string | null> {
   return botUsername;
 }
 
+type TelegramChat = { id: number; type?: string; title?: string };
+
 type TelegramUpdate = {
   message?: {
     text?: string;
     message_thread_id?: number;
-    chat?: { id: number; type?: string };
+    chat?: TelegramChat;
     from?: TelegramUser;
   };
-  callback_query?: { id: string; data?: string; from: TelegramUser };
+  callback_query?: { id: string; data?: string; from: TelegramUser; message?: { chat?: TelegramChat } };
 };
+
+const COMMAND_TOPICS: Record<string, BotTopic> = {
+  start: { section: "Справка", topic: "start", title: "Старт" },
+  help: { section: "Справка", topic: "help", title: "Список команд" },
+  sezon: { section: "Сезоны", topic: "sezon", title: "Что открыто и что скоро" },
+  ceny: { section: "Цены", topic: "ceny", title: "Цены путёвок" },
+  kontakty: { section: "Контакты", topic: "kontakty", title: "Адрес и егеря" },
+  pogoda: { section: "Погода", topic: "pogoda", title: "Погода на 3 дня" },
+  patron: { section: "Патроны", topic: "patron", title: "Какой патрон брать" },
+  sbor: { section: "Сборы", topic: "sbor", title: "Создание сбора" },
+  dokument: { section: "Документы", topic: "dokument", title: "Запись срока документа" },
+  dokumenty: { section: "Документы", topic: "dokumenty", title: "Список документов" },
+};
+
+function commandTopic(command: string): BotTopic {
+  if (COMMAND_TOPICS[command]) {
+    return COMMAND_TOPICS[command];
+  }
+  const species = SPECIES.find((item) => item.command === command);
+  if (species) {
+    return { section: "Виды дичи", topic: command, title: species.title };
+  }
+  const law = LAW_COMMANDS.find((item) => item.command === command);
+  if (law) {
+    return { section: "Закон", topic: command, title: law.description };
+  }
+  return { section: "Прочее", topic: command, title: `/${command}` };
+}
+
+function textTopic(text: string): BotTopic {
+  if (/патрон|дроб|картеч/i.test(text)) {
+    return { section: "Патроны", topic: "patron_text", title: "Патроны — вопрос текстом" };
+  }
+  const lawCommand = LAW_WORDS.find(([re]) => re.test(text))?.[1];
+  if (lawCommand) {
+    return commandTopic(lawCommand);
+  }
+  const species = findSpeciesByText(text);
+  return species
+    ? { section: "Виды дичи", topic: species.command, title: species.title }
+    : { section: "Прочее", topic: "text", title: "Непонятый вопрос текстом" };
+}
 
 /** Входящее сообщение: команды в группе и в личке, в личке — ещё и слово «утка», «кабан»… */
 export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void> {
   if (update.callback_query) {
-    await handleGatheringCallback(update.callback_query);
+    const query = update.callback_query;
+    const answer = query.data?.split(":")[2];
+    await logBotUsage({
+      from: query.from,
+      chat: query.message?.chat ?? { id: query.from.id, type: "private" },
+      topic: { section: "Сборы", topic: "sbor_vote", title: "Голос в сборе" },
+      text: answer ? `кнопка: ${answer}` : "",
+    });
+    await handleGatheringCallback(query);
     return;
   }
   const message = update.message;
@@ -425,6 +479,12 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
     if (mention && mention !== (await getBotUsername())) {
       return;
     }
+    await logBotUsage({
+      from: message?.from,
+      chat,
+      topic: commandTopic(command),
+      text: command === "dokument" || command === "dokumenty" ? `/${command}` : text,
+    });
     if (command === "sbor") {
       reply = isPrivate
         ? `Сбор работает в охотничьей группе — отправьте команду там.\n\n${GATHERING_USAGE}`
@@ -453,7 +513,7 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
         reply =
           command === "dokumenty" && rest.length === 0
             ? await listDocumentsText(userId, today)
-            : await handleDocumentCommand(userId, rest.join(" "), today);
+            : await handleDocumentCommand({ id: userId, name: userName(message.from) }, rest.join(" "), today);
       } else {
         reply = DOCUMENTS_USAGE;
       }
@@ -469,6 +529,7 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
       reply = helpText();
     }
   } else if (isPrivate) {
+    await logBotUsage({ from: message?.from, chat, topic: textTopic(text), text });
     const lawCommand = LAW_WORDS.find(([re]) => re.test(text))?.[1];
     const species = lawCommand ? undefined : findSpeciesByText(text);
     if (/патрон|дроб|картеч/i.test(text)) {
@@ -686,6 +747,7 @@ export async function runHuntingSchedule(now = new Date()): Promise<void> {
   await sendLawsInForce(overview.today);
   await sendGatheringReminders(overview.today, hour);
   await sendDocumentReminders(overview.today, hour).catch((error) => console.error("hunting documents", error));
+  await pruneBotUsage(now).catch((error) => console.error("hunting usage prune", error));
   await sendWeekendWeather(now, overview.today, hour);
 
   if (moscowWeekday(now) === 1) {

@@ -516,6 +516,8 @@ model HuntingDocument {
   id        String   @id @default(cuid())
   /// Telegram id пользователя (он же id личного чата с ботом)
   userId    String
+  /// Имя из Telegram на момент последней записи
+  name      String   @default("")
   /// roha | medsprav | putevka | razreshenie
   kind      String
   /// Подпись пользователя: «МР-155», «утка»…
@@ -529,6 +531,30 @@ model HuntingDocument {
 
   @@unique([userId, kind, label])
   @@index([expires])
+}
+
+/// Обращение к охотничьему боту — для аналитики «кто и о чём спрашивает».
+model HuntingBotEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  userId    String
+  name      String   @default("")
+  username  String   @default("")
+  chatId    String
+  /// private | group | supergroup
+  chatType  String
+  chatTitle String   @default("")
+  /// Раздел: Виды дичи, Закон, Погода…
+  section   String
+  /// Ключ темы: utka, pravila, sbor_vote…
+  topic     String
+  /// Тема по-русски: «Утка», «Правила охоты…»
+  title     String
+  /// Текст запроса без личных данных (для /dokument — только команда), до 200 символов
+  text      String   @default("")
+
+  @@index([createdAt])
+  @@index([userId])
 }
 
 model HuntingNotice {

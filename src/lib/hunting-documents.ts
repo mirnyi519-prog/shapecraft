@@ -71,7 +71,8 @@ export const DOCUMENTS_USAGE = [
   "",
   "Когда напоминаю: РОХа — за 90, 60, 30, 7 дней и в последний день; медсправка — за 30 и 7 дней; " +
     "путёвка и разрешение на добычу — за 3 дня, накануне и в последний день, по разрешению — ещё и про сведения о добыче.",
-  "Храню только тип документа, подпись и дату — без серий и номеров. В общий чат ничего не пишу.",
+  "Храню только ваше имя в Telegram, тип документа, подпись и дату — без серий и номеров. " +
+    "В общий чат ничего не пишу; список сроков видит администратор сайта ShapeCraft.",
 ].join("\n");
 
 function findKind(word: string): DocumentKind | undefined {
@@ -79,7 +80,7 @@ function findKind(word: string): DocumentKind | undefined {
   return KINDS.find((kind) => kind.id === value || kind.words.test(value));
 }
 
-function daysBetween(from: string, to: string): number {
+export function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`)) / 86_400_000);
 }
 
@@ -125,7 +126,12 @@ export async function listDocumentsText(userId: string, today: string): Promise<
 }
 
 /** Команда /dokument в личке: добавить, обновить или удалить срок. */
-export async function handleDocumentCommand(userId: string, arg: string, today: string): Promise<string> {
+export async function handleDocumentCommand(
+  user: { id: string; name: string },
+  arg: string,
+  today: string,
+): Promise<string> {
+  const userId = user.id;
   const words = arg.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) {
     return DOCUMENTS_USAGE;
@@ -159,8 +165,8 @@ export async function handleDocumentCommand(userId: string, arg: string, today: 
   const label = what.slice(0, 40);
   const doc = await prisma.huntingDocument.upsert({
     where: { userId_kind_label: { userId, kind: kind.id, label } },
-    create: { userId, kind: kind.id, label, expires: date },
-    update: { expires: date, active: true },
+    create: { userId, name: user.name, kind: kind.id, label, expires: date },
+    update: { name: user.name, expires: date, active: true },
   });
   await markPassedThresholds(doc.id, kind, date, today);
   const left = daysBetween(today, date);
@@ -231,4 +237,58 @@ export async function sendDocumentReminders(today: string, hour: number): Promis
       await prisma.huntingDocument.updateMany({ where: { userId: doc.userId }, data: { active: false } });
     }
   }
+}
+
+function remindLabel(value: number): string {
+  if (value < 0) return "после окончания — про сведения о добыче";
+  if (value === 0) return "в последний день";
+  if (value === 1) return "накануне";
+  return `за ${value} дн.`;
+}
+
+/** График напоминаний по типам — для легенды на сайте. */
+export const DOCUMENT_SCHEDULE = KINDS.map((kind) => ({
+  id: kind.id,
+  title: kind.title,
+  remind: kind.remind.map(remindLabel).join(", "),
+}));
+
+export type DocumentRow = {
+  id: string;
+  userId: string;
+  name: string;
+  kindTitle: string;
+  label: string;
+  expires: string;
+  daysLeft: number;
+  active: boolean;
+  /** Ближайшее ещё не наступившее напоминание. */
+  nextReminder: { date: string; label: string } | null;
+  updatedAt: Date;
+};
+
+/** Все сроки для таблицы в админке: ближайшие сверху. */
+export async function getDocumentRows(today: string): Promise<DocumentRow[]> {
+  const docs = await prisma.huntingDocument.findMany({ orderBy: [{ expires: "asc" }, { name: "asc" }] });
+  return docs.flatMap((doc) => {
+    const kind = KINDS.find((item) => item.id === doc.kind);
+    if (!kind) return [];
+    const daysLeft = daysBetween(today, doc.expires);
+    const upcoming = kind.remind.filter((value) => value < daysLeft).sort((a, b) => b - a)[0];
+    return [
+      {
+        id: doc.id,
+        userId: doc.userId,
+        name: doc.name,
+        kindTitle: kind.title,
+        label: doc.label,
+        expires: doc.expires,
+        daysLeft,
+        active: doc.active,
+        nextReminder:
+          upcoming != null ? { date: addDays(doc.expires, -upcoming), label: remindLabel(upcoming) } : null,
+        updatedAt: doc.updatedAt,
+      },
+    ];
+  });
 }
