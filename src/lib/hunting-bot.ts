@@ -2,6 +2,16 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { collectHunting, getHuntingLastFetch, getHuntingOverview } from "@/lib/hunting";
 import {
+  AMMO_GENERAL,
+  AMMO_SEASONS,
+  AMMO_TABLE,
+  formatAmmoTip,
+  pickAmmo,
+  seasonForMonth,
+  seasonTitle,
+  type AmmoSeason,
+} from "@/lib/hunting-ammo";
+import {
   buildLawsInForceHtml,
   buildLawsReply,
   collectLaws,
@@ -79,6 +89,7 @@ const BASE_COMMANDS: { command: string; description: string }[] = [
   { command: "sezon", description: "Что открыто и что скоро в Шатуре" },
   { command: "ceny", description: "Цены путёвок МООиР" },
   { command: "kontakty", description: "Шатурское хозяйство: адрес, егеря" },
+  { command: "patron", description: "Какой патрон брать на кого и в какой сезон" },
   { command: "help", description: "Все команды" },
 ];
 
@@ -121,6 +132,7 @@ function helpText(): string {
     "/sezon — что открыто и что скоро",
     "/ceny — цены путёвок (/ceny sobaka, /ceny vznos, /ceny gost)",
     "/kontakty — адрес и егеря Шатурского хозяйства",
+    "/patron — какой патрон брать сейчас (/patron utka — по сезонам)",
     "",
     "По видам:",
     SPECIES.map((species) => `/${species.command} — ${species.title.toLowerCase()}`).join("\n"),
@@ -228,6 +240,65 @@ function speciesText(species: Species, overview: HuntingOverview): string {
     }
     lines.push("Не члены МООиР — от ×5, Росохотрыболовсоюз — ×2. Все цены: /ceny");
   }
+
+  const open = current.find((entry) => entry.status === "open");
+  const upcoming = current.filter((entry) => entry.status === "upcoming").sort((a, b) => a.start.localeCompare(b.start))[0];
+  const seasonDay = open ? overview.today : (upcoming?.start ?? overview.today);
+  lines.push("", ...ammoLines(species.command, seasonForMonth(Number(seasonDay.slice(5, 7)))));
+  return lines.join("\n");
+}
+
+function ammoLines(key: string, season: AmmoSeason): string[] {
+  const pick = pickAmmo(key, season);
+  if (!pick) {
+    return [];
+  }
+  const when = seasonTitle(pick.season).toLowerCase();
+  const lines = [
+    pick.exact ? `🎯 Какой патрон взять (${when}):` : `🎯 Какой патрон взять — ближайший сезон (${when}):`,
+    `• ${formatAmmoTip(pick.tip)}`,
+    `  ${pick.tip.note}`,
+  ];
+  if (pick.species.rule) {
+    lines.push(`⚠️ ${pick.species.rule}`);
+  }
+  lines.push(`Вся таблица по сезонам: /patron ${key}`);
+  return lines;
+}
+
+function ammoText(arg: string, today: string): string {
+  const species = arg.trim() ? findSpeciesByText(arg) : undefined;
+  if (species) {
+    const row = AMMO_TABLE.find((item) => item.key === species.command);
+    if (!row) {
+      return `По виду «${species.title}» рекомендаций пока нет.`;
+    }
+    const lines = [`🎯 ${row.title} — какой патрон брать`];
+    for (const season of AMMO_SEASONS) {
+      const tip = row.seasons[season.id];
+      if (tip) {
+        lines.push("", `${season.title} (${season.months}):`, `• ${formatAmmoTip(tip)}`, `  ${tip.note}`);
+      }
+    }
+    if (row.rule) lines.push("", `⚠️ ${row.rule}`);
+    lines.push("", AMMO_GENERAL[0]);
+    return lines.join("\n");
+  }
+
+  const season = seasonForMonth(Number(today.slice(5, 7)));
+  const lines = [`🎯 Патроны на сезон: ${seasonTitle(season).toLowerCase()}`];
+  for (const row of AMMO_TABLE) {
+    const tip = row.seasons[season];
+    if (tip) {
+      lines.push(`• ${row.title} — ${formatAmmoTip(tip)}`);
+    }
+  }
+  lines.push(
+    "",
+    "По виду подробно: /patron utka, /patron kaban …",
+    AMMO_GENERAL[0],
+    "Это рекомендации, а не закон: обязательные ограничения — /pravila.",
+  );
   return lines.join("\n");
 }
 
@@ -251,6 +322,8 @@ export async function buildHuntingReply(command: string, arg = ""): Promise<stri
       return pricesText(overview, TIER_ARGS[arg.trim().toLowerCase()] ?? "member");
     case "kontakty":
       return contactsText(overview);
+    case "patron":
+      return ammoText(arg, overview.today);
     default: {
       const species = SPECIES.find((item) => item.command === command);
       return species ? speciesText(species, overview) : buildLawsReply(command);
@@ -314,7 +387,9 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
   } else if (isPrivate) {
     const lawCommand = LAW_WORDS.find(([re]) => re.test(text))?.[1];
     const species = lawCommand ? undefined : findSpeciesByText(text);
-    if (lawCommand) {
+    if (/патрон|дроб|картеч/i.test(text)) {
+      reply = ammoText(species?.command ?? "", (await getHuntingOverview()).today);
+    } else if (lawCommand) {
       reply = await buildLawsReply(lawCommand);
       html = reply != null;
     } else {

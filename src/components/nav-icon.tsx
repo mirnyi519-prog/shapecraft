@@ -176,6 +176,16 @@ const iconPaths: Record<NavIconName, ReactNode> = {
       <circle cx="12" cy="11" r="2" />
     </>
   ),
+  ammo: (
+    <>
+      <path d="M7 9a2 2 0 0 1 4 0v12H7Z" />
+      <path d="M7 17h4" />
+      <path d="M13 9a2 2 0 0 1 4 0v12h-4Z" />
+      <path d="M13 17h4" />
+      <path d="M9 3v2" />
+      <path d="M15 3v2" />
+    </>
+  ),
   law: (
     <>
       <path d="M12 3v18" />
