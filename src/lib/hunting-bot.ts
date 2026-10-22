@@ -2,11 +2,13 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { collectHunting, getHuntingLastFetch, getHuntingOverview } from "@/lib/hunting";
 import {
+  addDays,
   buildGatheringReminder,
   createGathering,
   GATHERING_REMIND_HOUR,
   GATHERING_USAGE,
   gatheringsForTomorrow,
+  gatheringsOn,
   handleGatheringCallback,
   type TelegramUser,
 } from "@/lib/hunting-gathering";
@@ -61,8 +63,8 @@ export const HUNTING_WEBHOOK_PATH = "/api/telegram/hunting";
 /** Сверка с mooir.ru по расписанию — не чаще, чем раз в столько часов. */
 const SCHEDULE_COLLECT_HOURS = 6;
 const REMIND_DAYS_BEFORE = 3;
-/** С какого часа (МСК) в пятницу публиковать погоду на выходные. */
-const WEEKEND_WEATHER_HOUR = 17;
+/** С какого часа (МСК) в четверг публиковать погоду на выходные со сборами. */
+const WEEKEND_WEATHER_HOUR = 12;
 const SEND_FROM_HOUR = 9;
 const SEND_TO_HOUR = 21;
 
@@ -575,24 +577,42 @@ async function sendGatheringReminders(today: string, hour: number) {
   }
 }
 
-/** Пятница вечером — погода на субботу и воскресенье. */
+/** Четверг — погода на субботу и воскресенье в те чаты, где на выходные назначен сбор. */
 async function sendWeekendWeather(now: Date, today: string, hour: number) {
-  if (moscowWeekday(now) !== 5 || hour < WEEKEND_WEATHER_HOUR) {
+  if (moscowWeekday(now) !== 4 || hour < WEEKEND_WEATHER_HOUR) {
     return;
   }
-  const key = `weekend:${today}`;
-  if ((await alreadySent([key])).size > 0) {
+  const weekend = [addDays(today, 2), addDays(today, 3)];
+  const gatherings = await gatheringsOn(weekend);
+  const chats = new Map<string, (typeof gatherings)[number]>();
+  for (const gathering of gatherings) {
+    if (!chats.has(gathering.chatId)) {
+      chats.set(gathering.chatId, gathering);
+    }
+  }
+  if (chats.size === 0) {
     return;
   }
-  const days = (await fetchHuntingWeather(3).catch(() => [])).filter((day) => day.date > today);
-  if (days.length === 0) {
-    return;
-  }
-  const result = await sendTelegramMessage(buildWeatherHtml(days, "Погода на выходные — Шатура"), "hunting", {
-    html: true,
-  });
-  if (result.ok) {
-    await markSent([key]);
+  let days: Awaited<ReturnType<typeof fetchHuntingWeather>> | null = null;
+  for (const [chatId, gathering] of chats) {
+    const key = `weekend:${chatId}:${today}`;
+    if ((await alreadySent([key])).size > 0) {
+      continue;
+    }
+    days ??= (await fetchHuntingWeather(4).catch(() => [])).filter((day) => weekend.includes(day.date));
+    if (days.length === 0) {
+      return;
+    }
+    const result = await callTelegramApi("hunting", "sendMessage", {
+      chat_id: chatId,
+      text: buildWeatherHtml(days, "Погода на выходные — Шатура"),
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+      ...(gathering.threadId != null ? { message_thread_id: gathering.threadId } : {}),
+    });
+    if (result.ok) {
+      await markSent([key]);
+    }
   }
 }
 

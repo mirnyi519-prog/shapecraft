@@ -17,7 +17,7 @@ const ANSWERS: { id: Answer; button: string; title: string }[] = [
 ];
 
 /** С какого часа (МСК) накануне присылать напоминание. */
-export const GATHERING_REMIND_HOUR = 18;
+export const GATHERING_REMIND_HOUR = 12;
 
 /** Виды, где Правила охоты (п. 13) требуют сигнальную одежду в тёмное время. */
 const SIGNAL_CLOTHING = /kaban|los|kosulya|olen|lan|severnyj|kabarga|ovcebyk|medved|volk|shakal|lisa/;
@@ -103,7 +103,7 @@ export function renderGathering(gathering: NonNullable<GatheringWithVotes>): str
     const names = gathering.votes.filter((vote) => vote.answer === answer.id).map((vote) => escapeHtml(vote.name));
     lines.push(`${answer.title} (${names.length}): ${names.length ? names.join(", ") : "—"}`);
   }
-  lines.push("", "<i>Отметьтесь кнопкой ниже — накануне вечером бот напомнит, что взять, и пришлёт погоду.</i>");
+  lines.push("", "<i>Отметьтесь кнопкой ниже — накануне в 12:00 бот напомнит, что взять, и пришлёт погоду.</i>");
   return lines.join("\n");
 }
 
@@ -257,5 +257,13 @@ export function gatheringsForTomorrow(today: string) {
   return prisma.huntingGathering.findMany({
     where: { date: addDays(today, 1), messageId: { not: null } },
     include: { votes: { orderBy: { updatedAt: "asc" } } },
+  });
+}
+
+/** Опубликованные сборы на указанные даты. */
+export function gatheringsOn(dates: string[]) {
+  return prisma.huntingGathering.findMany({
+    where: { date: { in: dates }, messageId: { not: null } },
+    orderBy: { date: "asc" },
   });
 }
