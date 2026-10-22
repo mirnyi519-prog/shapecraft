@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { refreshDocumentNames } from "@/lib/hunting-documents";
 import type { TelegramUser } from "@/lib/hunting-gathering";
 import { userName } from "@/lib/hunting-gathering";
 import { formatMoscow } from "@/lib/timezone";
@@ -33,6 +34,9 @@ export async function logBotUsage(input: {
       },
     })
     .catch((error) => console.error("hunting usage log", error));
+  await refreshDocumentNames(String(input.from.id), userName(input.from)).catch((error) =>
+    console.error("hunting document names", error),
+  );
 }
 
 export async function pruneBotUsage(now = new Date()): Promise<void> {

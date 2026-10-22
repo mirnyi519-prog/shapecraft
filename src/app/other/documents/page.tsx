@@ -3,7 +3,12 @@ import { AppShell } from "@/components/app-shell";
 import { Badge, Card } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
 import { shortDate } from "@/lib/hunting-format";
-import { DOCUMENT_SCHEDULE, getDocumentRows, type DocumentRow } from "@/lib/hunting-documents";
+import {
+  DOCUMENT_SCHEDULE,
+  fillMissingDocumentNames,
+  getDocumentRows,
+  type DocumentRow,
+} from "@/lib/hunting-documents";
 import { ymdKey } from "@/lib/hunting-shared";
 import { moscowYmd } from "@/lib/timezone";
 
@@ -35,6 +40,7 @@ export default async function DocumentsPage() {
     redirect("/dashboard");
   }
 
+  await fillMissingDocumentNames().catch((error) => console.error("hunting document names", error));
   const { year, month, day } = moscowYmd();
   const rows: DocumentRow[] = await getDocumentRows(ymdKey(year, month, day));
   const hunters = new Set(rows.map((row) => row.userId)).size;
@@ -82,7 +88,8 @@ export default async function DocumentsPage() {
                   {rows.map((row) => (
                     <tr key={row.id} className="align-top">
                       <td className="border-b border-[var(--border)] py-3 pr-3 font-medium">
-                        {row.name || `id${row.userId}`}
+                        {row.name || <span className="text-[var(--muted)]">имя скрыто в Telegram</span>}
+                        <div className="text-xs font-normal text-[var(--muted)]">id {row.userId}</div>
                       </td>
                       <td className="border-b border-[var(--border)] px-3 py-3">
                         <div>{row.kindTitle}</div>

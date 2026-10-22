@@ -187,6 +187,38 @@ export async function reactivateDocuments(userId: string): Promise<void> {
   await prisma.huntingDocument.updateMany({ where: { userId, active: false }, data: { active: true } });
 }
 
+/** Любое обращение к боту — актуальное имя из Telegram в записях документов. */
+export async function refreshDocumentNames(userId: string, name: string): Promise<void> {
+  if (!name) {
+    return;
+  }
+  await prisma.huntingDocument.updateMany({ where: { userId, name: { not: name } }, data: { name } });
+}
+
+/** Записи без имени (сделаны до появления поля) — спрашиваем имя у Telegram по id личного чата. */
+export async function fillMissingDocumentNames(limit = 20): Promise<void> {
+  const missing = await prisma.huntingDocument.findMany({
+    where: { name: "" },
+    select: { userId: true },
+    distinct: ["userId"],
+    take: limit,
+  });
+  for (const { userId } of missing) {
+    const chat = await callTelegramApi<{ first_name?: string; last_name?: string; username?: string }>(
+      "hunting",
+      "getChat",
+      { chat_id: userId },
+    );
+    if (!chat.ok || !chat.result) continue;
+    const name =
+      [chat.result.first_name, chat.result.last_name].filter(Boolean).join(" ").trim() ||
+      (chat.result.username ? `@${chat.result.username}` : "");
+    if (name) {
+      await prisma.huntingDocument.updateMany({ where: { userId, name: "" }, data: { name } });
+    }
+  }
+}
+
 function reminderText(kind: DocumentKind, label: string, expires: string, left: number): string {
   if (left < 0 && kind.after) {
     return [`📄 ${documentTitle(kind, label)} — закончилось ${shortDate(expires, true)}.`, "", kind.after].join("\n");
