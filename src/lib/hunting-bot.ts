@@ -14,6 +14,13 @@ import {
 } from "@/lib/hunting-gathering";
 import { buildWeatherHtml, fetchHuntingWeather } from "@/lib/hunting-weather";
 import {
+  DOCUMENTS_USAGE,
+  handleDocumentCommand,
+  listDocumentsText,
+  reactivateDocuments,
+  sendDocumentReminders,
+} from "@/lib/hunting-documents";
+import {
   AMMO_GENERAL,
   AMMO_GROUPS,
   AMMO_SEASONS,
@@ -109,6 +116,7 @@ const BASE_COMMANDS: { command: string; description: string }[] = [
   { command: "pogoda", description: "Погода для охоты в Шатуре на 3 дня" },
   { command: "sbor", description: "Собрать людей на охоту: /sbor кабан 26.10" },
   { command: "patron", description: "Какой патрон брать на кого и в какой сезон" },
+  { command: "dokumenty", description: "Сроки моих документов — напоминания в личку" },
   { command: "help", description: "Все команды" },
 ];
 
@@ -154,6 +162,7 @@ function helpText(): string {
     "/patron — какой патрон брать сейчас (/patron utka — по сезонам)",
     "/pogoda — погода, ветер, восход и закат на 3 дня",
     "/sbor кабан 26.10 — собрать людей на охоту (в группе)",
+    "/dokument роха 15.03.2027 — напомню о сроке документа (в личке), список — /dokumenty",
     "",
     "По видам:",
     SPECIES.map((species) => `/${species.command} — ${species.title.toLowerCase()}`).join("\n"),
@@ -431,6 +440,29 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
       }
       return;
     }
+    if (command === "dokument" || command === "dokumenty") {
+      if (!isPrivate) {
+        const username = await getBotUsername();
+        reply = `Сроки документов — только в личке, чтобы даты не светились в чате: ${
+          username ? `https://t.me/${username}` : "напишите боту напрямую"
+        }`;
+      } else if (message?.from) {
+        const userId = String(message.from.id);
+        const today = (await getHuntingOverview()).today;
+        await reactivateDocuments(userId);
+        reply =
+          command === "dokumenty" && rest.length === 0
+            ? await listDocumentsText(userId, today)
+            : await handleDocumentCommand(userId, rest.join(" "), today);
+      } else {
+        reply = DOCUMENTS_USAGE;
+      }
+      await sendTelegramTo("hunting", chat.id, reply, message?.message_thread_id ?? null);
+      return;
+    }
+    if (command === "start" && isPrivate && message?.from) {
+      await reactivateDocuments(String(message.from.id));
+    }
     reply = await buildHuntingReply(command, rest.join(" "));
     html = HTML_REPLIES.has(command) && reply != null;
     if (!reply && isPrivate) {
@@ -653,6 +685,7 @@ export async function runHuntingSchedule(now = new Date()): Promise<void> {
   await sendReminders(overview);
   await sendLawsInForce(overview.today);
   await sendGatheringReminders(overview.today, hour);
+  await sendDocumentReminders(overview.today, hour).catch((error) => console.error("hunting documents", error));
   await sendWeekendWeather(now, overview.today, hour);
 
   if (moscowWeekday(now) === 1) {

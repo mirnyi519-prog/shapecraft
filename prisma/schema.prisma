@@ -511,6 +511,26 @@ model HuntingGatheringVote {
   @@id([gatheringId, userId])
 }
 
+/// Срок личного документа охотника — напоминания только в личку бота.
+model HuntingDocument {
+  id        String   @id @default(cuid())
+  /// Telegram id пользователя (он же id личного чата с ботом)
+  userId    String
+  /// roha | medsprav | putevka | razreshenie
+  kind      String
+  /// Подпись пользователя: «МР-155», «утка»…
+  label     String   @default("")
+  /// ГГГГ-ММ-ДД, последний день действия
+  expires   String
+  /// false — пользователь заблокировал бота
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, kind, label])
+  @@index([expires])
+}
+
 model HuntingNotice {
   key    String   @id
   sentAt DateTime @default(now())
