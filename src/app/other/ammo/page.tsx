@@ -4,6 +4,7 @@ import { Badge, Card } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
 import {
   AMMO_GENERAL,
+  AMMO_GROUPS,
   AMMO_SEASONS,
   AMMO_TABLE,
   SHOT_SIZES,
@@ -29,9 +30,9 @@ export default async function AmmoPage() {
           <p className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">Иное</p>
           <h1 className="text-2xl font-bold">Патроны · на кого и в какой сезон</h1>
           <p className="text-[var(--muted)]">
-            Какой номер дроби, картечь или пулю брать на каждый вид — по сезонам. Охотничий бот берёт рекомендации из
-            этой таблицы: в ответе на /utka, /kaban и другие виды в конце советует патрон на текущий сезон, а /patron
-            показывает всю подборку.
+            Какой номер дроби, картечь или пулю брать — по всем видам охотничьих ресурсов России (ст. 11 закона об
+            охоте) и по сезонам. Охотничий бот берёт рекомендации из этой таблицы: в ответе на /utka, /kaban и другие
+            виды в конце советует патрон на текущий сезон; /patron рябчик — по любому виду, /patron птица — по группе.
           </p>
         </div>
 
@@ -57,12 +58,17 @@ export default async function AmmoPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody>
-                {AMMO_TABLE.map((row) => (
+              {AMMO_GROUPS.map((group) => (
+              <tbody key={group.id}>
+                <tr>
+                  <td colSpan={AMMO_SEASONS.length + 1} className="border-b border-[var(--border)] pb-2 pt-6 text-base font-bold">
+                    {group.emoji} {group.title}
+                  </td>
+                </tr>
+                {AMMO_TABLE.filter((row) => row.group === group.id).map((row) => (
                   <tr key={row.key} className="align-top">
                     <td className="border-b border-[var(--border)] py-3 pr-3">
                       <div className="font-semibold">{row.title}</div>
-                      <div className="text-xs text-[var(--muted)]">/{row.key}</div>
                       {row.rule ? <div className="mt-1 text-xs text-[var(--muted)]">⚠️ {row.rule}</div> : null}
                     </td>
                     {AMMO_SEASONS.map((season) => {
@@ -93,6 +99,7 @@ export default async function AmmoPage() {
                   </tr>
                 ))}
               </tbody>
+              ))}
             </table>
           </div>
         </Card>

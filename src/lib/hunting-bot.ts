@@ -3,8 +3,11 @@ import { prisma } from "@/lib/db";
 import { collectHunting, getHuntingLastFetch, getHuntingOverview } from "@/lib/hunting";
 import {
   AMMO_GENERAL,
+  AMMO_GROUPS,
   AMMO_SEASONS,
   AMMO_TABLE,
+  findAmmoGroup,
+  findAmmoSpecies,
   formatAmmoTip,
   pickAmmo,
   seasonForMonth,
@@ -267,12 +270,8 @@ function ammoLines(key: string, season: AmmoSeason): string[] {
 }
 
 function ammoText(arg: string, today: string): string {
-  const species = arg.trim() ? findSpeciesByText(arg) : undefined;
-  if (species) {
-    const row = AMMO_TABLE.find((item) => item.key === species.command);
-    if (!row) {
-      return `По виду «${species.title}» рекомендаций пока нет.`;
-    }
+  const row = findAmmoSpecies(arg);
+  if (row) {
     const lines = [`🎯 ${row.title} — какой патрон брать`];
     for (const season of AMMO_SEASONS) {
       const tip = row.seasons[season.id];
@@ -280,23 +279,32 @@ function ammoText(arg: string, today: string): string {
         lines.push("", `${season.title} (${season.months}):`, `• ${formatAmmoTip(tip)}`, `  ${tip.note}`);
       }
     }
+    if (Object.keys(row.seasons).length === 0) {
+      lines.push("", "Рекомендаций нет — охота на вид, как правило, закрыта.");
+    }
     if (row.rule) lines.push("", `⚠️ ${row.rule}`);
     lines.push("", AMMO_GENERAL[0]);
     return lines.join("\n");
   }
 
   const season = seasonForMonth(Number(today.slice(5, 7)));
-  const lines = [`🎯 Патроны на сезон: ${seasonTitle(season).toLowerCase()}`];
-  for (const row of AMMO_TABLE) {
-    const tip = row.seasons[season];
+  const group = findAmmoGroup(arg);
+  const rows = AMMO_TABLE.filter((item) => (group ? item.group === group : item.popular));
+  const groupTitle = group ? AMMO_GROUPS.find((item) => item.id === group)!.title.toLowerCase() : "";
+  const lines = [`🎯 Патроны на сезон: ${seasonTitle(season).toLowerCase()}${groupTitle ? ` — ${groupTitle}` : ""}`];
+  for (const item of rows) {
+    const tip = item.seasons[season];
     if (tip) {
-      lines.push(`• ${row.title} — ${formatAmmoTip(tip)}`);
+      lines.push(`• ${item.title} — ${formatAmmoTip(tip)}`);
     }
+  }
+  if (lines.length === 1) {
+    lines.push("В этот сезон по этой группе рекомендаций нет.");
   }
   lines.push(
     "",
-    "По виду подробно: /patron utka, /patron kaban …",
-    AMMO_GENERAL[0],
+    "По виду: /patron рябчик, /patron кабан …",
+    "По группам: /patron птица · /patron копытные · /patron пушные · /patron медведь",
     "Это рекомендации, а не закон: обязательные ограничения — /pravila.",
   );
   return lines.join("\n");
@@ -388,7 +396,7 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
     const lawCommand = LAW_WORDS.find(([re]) => re.test(text))?.[1];
     const species = lawCommand ? undefined : findSpeciesByText(text);
     if (/патрон|дроб|картеч/i.test(text)) {
-      reply = ammoText(species?.command ?? "", (await getHuntingOverview()).today);
+      reply = ammoText(text.replace(/патрон\S*|дроб\S*|картеч\S*/gi, " "), (await getHuntingOverview()).today);
     } else if (lawCommand) {
       reply = await buildLawsReply(lawCommand);
       html = reply != null;
