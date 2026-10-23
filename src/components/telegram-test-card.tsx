@@ -169,7 +169,7 @@ export function TelegramTestCard() {
       <ChannelCard
         channel="market"
         title="Telegram — маркет / рабочая группа"
-        hint="Отдельный бот ShapeCraft Market → группа kupipro77 (топик). Не чаще 1 объявления в час."
+        hint="Отдельный бот ShapeCraft Market → группа kupipro77 (топик)."
         setup={
           <ol className="mb-4 list-decimal space-y-1 pl-5 text-sm text-[var(--muted)]">
             <li>
@@ -196,8 +196,8 @@ export function TelegramTestCard() {
               <code>-100…</code>, топик <code>26</code>).
             </li>
             <li>
-              Пересоздать контейнер → «Отправить тест» здесь. Объявления с
-              карточки товара — не чаще 1 раза в час.
+              Пересоздать контейнер → «Отправить тест» здесь. Объявления —
+              кнопкой «Опубликовать в чате» в карточке товара.
             </li>
           </ol>
         }

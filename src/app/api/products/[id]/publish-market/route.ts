@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdmin, requireSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import {
-  claimMarketPublishSlot,
-  releaseMarketPublishSlot,
-} from "@/lib/market-publish-limit";
 import { hasListPrice } from "@/lib/pricing";
 import { rateLimit } from "@/lib/rate-limit";
 import {
@@ -18,17 +14,6 @@ import { publishProductToMarketChat } from "@/lib/telegram";
 type RouteContext = {
   params: Promise<{ id: string }>;
 };
-
-function formatRetryAfter(sec: number): string {
-  const mins = Math.ceil(sec / 60);
-  if (mins >= 60) {
-    return "около часа";
-  }
-  if (mins <= 1) {
-    return "около минуты";
-  }
-  return `около ${mins} мин`;
-}
 
 export async function POST(request: Request, context: RouteContext) {
   try {
@@ -53,19 +38,6 @@ export async function POST(request: Request, context: RouteContext) {
       return tooManyRequests(burst.retryAfterSec);
     }
 
-    const gate = await claimMarketPublishSlot();
-    if (!gate.ok) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: `Не чаще 1 объявления в час. Следующее можно через ${formatRetryAfter(gate.retryAfterSec)}.`,
-          retryAfterSec: gate.retryAfterSec,
-          nextAt: gate.nextAt.toISOString(),
-        },
-        { status: 429 },
-      );
-    }
-
     const { id } = await context.params;
     const product = await prisma.product.findUnique({
       where: { id },
@@ -85,12 +57,10 @@ export async function POST(request: Request, context: RouteContext) {
     });
 
     if (!product) {
-      await releaseMarketPublishSlot();
       return NextResponse.json({ error: "Товар не найден" }, { status: 404 });
     }
 
     if (!hasListPrice(product.listPrice)) {
-      await releaseMarketPublishSlot();
       return NextResponse.json(
         {
           error:
@@ -113,7 +83,6 @@ export async function POST(request: Request, context: RouteContext) {
     });
 
     if (!result.ok) {
-      await releaseMarketPublishSlot();
       return NextResponse.json(
         {
           ok: false,

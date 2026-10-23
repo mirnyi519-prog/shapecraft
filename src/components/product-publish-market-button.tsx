@@ -25,7 +25,7 @@ export function ProductPublishMarketButton({
 
     if (
       !confirm(
-        "Опубликовать объявление в kupipro77 (маркет-бот)? Не чаще 1 раза в час.",
+        "Опубликовать объявление в kupipro77 (маркет-бот)?",
       )
     ) {
       return;
