@@ -158,6 +158,10 @@ export async function POST(request: NextRequest) {
       listPrice: product.listPrice,
       stock: product.stock,
       catalogLine: product.catalogLine,
+      weightGrams: product.weightGrams,
+      widthMm: product.widthMm,
+      heightMm: product.heightMm,
+      depthMm: product.depthMm,
     });
 
     const withCategories = await prisma.product.findUnique({

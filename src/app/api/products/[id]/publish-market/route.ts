@@ -77,6 +77,10 @@ export async function POST(request: Request, context: RouteContext) {
         listPrice: true,
         stock: true,
         active: true,
+        weightGrams: true,
+        widthMm: true,
+        heightMm: true,
+        depthMm: true,
       },
     });
 
@@ -102,6 +106,10 @@ export async function POST(request: Request, context: RouteContext) {
       imageUrl: product.imageUrl,
       listPrice: product.listPrice,
       stock: product.stock,
+      weightGrams: product.weightGrams,
+      widthMm: product.widthMm,
+      heightMm: product.heightMm,
+      depthMm: product.depthMm,
     });
 
     if (!result.ok) {

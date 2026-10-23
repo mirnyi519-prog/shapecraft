@@ -1,6 +1,7 @@
 import dns from "node:dns";
 import { readFile } from "fs/promises";
 import path from "path";
+import { type ProductSpecsInput, telegramSpecLines } from "@/lib/product-specs";
 import { getUploadsDir, getMimeType } from "@/lib/upload";
 
 dns.setDefaultResultOrder("ipv4first");
@@ -459,13 +460,15 @@ function fireAndForget(result: Promise<TelegramSendResult>, label: string) {
   });
 }
 
-export function notifyTelegramNewProduct(product: {
-  name: string;
-  imageUrl?: string | null;
-  listPrice?: number | null;
-  stock?: number;
-  catalogLine?: string;
-}) {
+export function notifyTelegramNewProduct(
+  product: {
+    name: string;
+    imageUrl?: string | null;
+    listPrice?: number | null;
+    stock?: number;
+    catalogLine?: string;
+  } & ProductSpecsInput,
+) {
   const line =
     product.catalogLine === "home" ? "Для дома" : "Сувениры";
   const price =
@@ -484,6 +487,7 @@ export function notifyTelegramNewProduct(product: {
         `Направление: ${line}`,
         `Прайс: ${price}`,
         `Остаток: ${stock}`,
+        ...telegramSpecLines(product),
       ].join("\n"),
     }),
     "new-product",
@@ -573,12 +577,14 @@ export function notifyTelegramFeedback(input: {
 }
 
 /** Ручная публикация объявления маркет-ботом (kupipro77 / рабочая группа). */
-export function buildMarketListingCaption(product: {
-  name: string;
-  description?: string | null;
-  listPrice: number;
-  stock?: number | null;
-}): string {
+export function buildMarketListingCaption(
+  product: {
+    name: string;
+    description?: string | null;
+    listPrice: number;
+    stock?: number | null;
+  } & ProductSpecsInput,
+): string {
   const siteUrl = getPublicSiteUrl();
   const price = `${Math.round(product.listPrice).toLocaleString("ru-RU")} ₽`;
   const desc = product.description?.trim();
@@ -589,6 +595,7 @@ export function buildMarketListingCaption(product: {
     product.name.trim(),
     `Цена: ${price}`,
     descLine || null,
+    ...telegramSpecLines(product),
     product.stock != null ? `В наличии: ${product.stock} шт` : null,
     "",
     "Информация о способах приобретения доступна на витрине:",
@@ -598,13 +605,15 @@ export function buildMarketListingCaption(product: {
     .join("\n");
 }
 
-export async function publishProductToMarketChat(product: {
-  name: string;
-  description?: string | null;
-  imageUrl?: string | null;
-  listPrice: number;
-  stock?: number | null;
-}): Promise<TelegramSendResult> {
+export async function publishProductToMarketChat(
+  product: {
+    name: string;
+    description?: string | null;
+    imageUrl?: string | null;
+    listPrice: number;
+    stock?: number | null;
+  } & ProductSpecsInput,
+): Promise<TelegramSendResult> {
   return sendTelegramPhoto({
     channel: "market",
     imageUrl: product.imageUrl,

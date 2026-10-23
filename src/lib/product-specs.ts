@@ -64,6 +64,28 @@ export function formatDimensions(product: ProductSpecsValues): string | null {
   return `${formatted.join("×")} мм`;
 }
 
+function formatCm(mm: number | null | undefined): string {
+  if (mm === null || mm === undefined || !Number.isFinite(mm)) {
+    return "—";
+  }
+  const cm = Math.round(mm) / 10;
+  return Number.isInteger(cm) ? String(cm) : cm.toFixed(1).replace(".", ",");
+}
+
+/** Строки «Размер» и «Вес» для подписи в Telegram: покупателям понятнее сантиметры. */
+export function telegramSpecLines(product: ProductSpecsInput): string[] {
+  const dims = [product.widthMm, product.heightMm, product.depthMm];
+  const lines: string[] = [];
+  if (dims.some((value) => value !== null && value !== undefined && Number.isFinite(value))) {
+    lines.push(`📏 Размер (Ш×В×Г): ${dims.map(formatCm).join(" × ")} см`);
+  }
+  const weight = formatWeightGrams(product.weightGrams);
+  if (weight) {
+    lines.push(`⚖️ Вес: ${weight}`);
+  }
+  return lines;
+}
+
 export function getProductSpecLines(product: ProductSpecsValues): { label: string; value: string }[] {
   const lines: { label: string; value: string }[] = [];
   const weight = formatWeightGrams(product.weightGrams);
