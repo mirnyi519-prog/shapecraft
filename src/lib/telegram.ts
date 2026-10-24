@@ -460,9 +460,16 @@ function fireAndForget(result: Promise<TelegramSendResult>, label: string) {
   });
 }
 
+/** Описание для подписи к фото: подпись Telegram ограничена 1024 символами. */
+function captionDescription(description?: string | null): string | null {
+  const desc = description?.trim();
+  return desc && desc.length > 280 ? `${desc.slice(0, 277).trimEnd()}…` : desc || null;
+}
+
 export function notifyTelegramNewProduct(
   product: {
     name: string;
+    description?: string | null;
     imageUrl?: string | null;
     listPrice?: number | null;
     stock?: number;
@@ -484,11 +491,14 @@ export function notifyTelegramNewProduct(
       caption: [
         "🆕 Новый товар",
         product.name,
+        captionDescription(product.description),
         `Направление: ${line}`,
         `Прайс: ${price}`,
         `Остаток: ${stock}`,
         ...telegramSpecLines(product),
-      ].join("\n"),
+      ]
+        .filter((line) => line !== null)
+        .join("\n"),
     }),
     "new-product",
   );
@@ -587,14 +597,10 @@ export function buildMarketListingCaption(
 ): string {
   const siteUrl = getPublicSiteUrl();
   const price = `${Math.round(product.listPrice).toLocaleString("ru-RU")} ₽`;
-  const desc = product.description?.trim();
-  const descLine =
-    desc && desc.length > 280 ? `${desc.slice(0, 277).trimEnd()}…` : desc;
-
   return [
     product.name.trim(),
     `Цена: ${price}`,
-    descLine || null,
+    captionDescription(product.description),
     ...telegramSpecLines(product),
     product.stock != null ? `В наличии: ${product.stock} шт` : null,
     "",

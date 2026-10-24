@@ -154,6 +154,7 @@ export async function POST(request: NextRequest) {
 
     notifyTelegramNewProduct({
       name: product.name,
+      description: product.description,
       imageUrl: imageUrls[0] ?? product.imageUrl,
       listPrice: product.listPrice,
       stock: product.stock,
