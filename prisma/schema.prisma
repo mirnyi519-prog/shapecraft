@@ -589,6 +589,10 @@ model HuntingIncident {
   status         String
   /// Слова текста для поиска дублей между источниками
   fingerprint    String   @default("")
+  /// Фото из оригинала — для админки
+  photoUrl       String?
+  /// То же фото в Telegram после показа модератору — для рассылки в чаты
+  photoFileId    String?
   adminMessageId Int?
   createdAt      DateTime @default(now())
 

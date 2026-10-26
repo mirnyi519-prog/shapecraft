@@ -211,6 +211,15 @@ const iconPaths: Record<NavIconName, ReactNode> = {
       <path d="M17 16v-7" />
     </>
   ),
+  news: (
+    <>
+      <path d="M5 5h11v14H6a1 1 0 0 1-1-1z" />
+      <path d="M16 9h3v9a1 1 0 0 1-2 0" />
+      <path d="M8 9h5" />
+      <path d="M8 12h5" />
+      <path d="M8 15h3" />
+    </>
+  ),
 };
 
 export function NavIcon({

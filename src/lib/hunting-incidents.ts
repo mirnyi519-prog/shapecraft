@@ -29,8 +29,13 @@ const EVENT_RE =
 const MAX_AGE_DAYS = 3;
 const DUPLICATE_DAYS = 7;
 const TEXT_IN_MESSAGE = 900;
+/** Подпись к фото в Telegram — до 1024 символов вместе с шапкой и ссылкой. */
+const TEXT_IN_CAPTION = 750;
 
-type Found = { source: Source; url: string; text: string; publishedAt: Date };
+/** Ручная проверка за период листает канал назад — не дальше этого числа страниц (~20 постов каждая). */
+const BACKFILL_MAX_PAGES = 40;
+
+type Found = { source: Source; url: string; text: string; publishedAt: Date; photoUrl?: string };
 
 export function isIncident(text: string): boolean {
   return PLACE_RE.test(text) && EVENT_RE.test(text);
@@ -57,28 +62,59 @@ function similar(a: string, b: string): boolean {
   return common / Math.min(left.size, right.size) >= 0.5;
 }
 
-async function readTelegram(source: Extract<Source, { kind: "tg" }>): Promise<Found[]> {
-  const html = await fetchHtml(`https://t.me/s/${source.channel}`);
-  const chunks = html.split('data-post="').slice(1);
-  if (chunks.length === 0) {
-    throw new Error(`t.me/${source.channel}: посты не найдены`);
-  }
-  const found: Found[] = [];
-  for (const chunk of chunks) {
+type TelegramPage = { found: Found[]; oldestId: number | null; oldestAt: Date | null };
+
+/** Одна страница веб-версии канала; before — листать к постам старше этого номера. */
+async function readTelegramPage(source: Extract<Source, { kind: "tg" }>, before?: number): Promise<TelegramPage> {
+  const html = await fetchHtml(`https://t.me/s/${source.channel}${before ? `?before=${before}` : ""}`);
+  const page: TelegramPage = { found: [], oldestId: null, oldestAt: null };
+  for (const chunk of html.split('data-post="').slice(1)) {
     const post = chunk.slice(0, chunk.indexOf('"'));
-    const body = /<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/.exec(chunk)?.[1];
+    const id = Number(post.split("/")[1]);
     const time = /<time[^>]*datetime="([^"]+)"/.exec(chunk)?.[1];
+    if (Number.isFinite(id) && (page.oldestId === null || id < page.oldestId)) {
+      page.oldestId = id;
+      page.oldestAt = time ? new Date(time) : page.oldestAt;
+    }
+    const body = /<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/.exec(chunk)?.[1];
     if (!body || !time) {
       continue;
     }
-    found.push({
+    page.found.push({
       source,
       url: `https://t.me/${post}`,
       text: htmlToText(body.replace(/<br\s*\/?>/gi, "\n")).trim(),
       publishedAt: new Date(time),
+      photoUrl: /tgme_widget_message_photo_wrap[^>]*background-image:url\('([^']+)'\)/.exec(chunk)?.[1],
     });
   }
-  return found;
+  return page;
+}
+
+async function readTelegram(source: Extract<Source, { kind: "tg" }>): Promise<Found[]> {
+  const page = await readTelegramPage(source);
+  if (page.oldestId === null) {
+    throw new Error(`t.me/${source.channel}: посты не найдены`);
+  }
+  return page.found;
+}
+
+async function readTelegramSince(source: Extract<Source, { kind: "tg" }>, since: Date): Promise<Found[]> {
+  const found: Found[] = [];
+  let before: number | undefined;
+  for (let index = 0; index < BACKFILL_MAX_PAGES; index++) {
+    const page = await readTelegramPage(source, before);
+    if (page.oldestId === null) {
+      if (index === 0) throw new Error(`t.me/${source.channel}: посты не найдены`);
+      break;
+    }
+    found.push(...page.found);
+    if (!page.oldestAt || page.oldestAt < since || page.oldestId <= 1) {
+      break;
+    }
+    before = page.oldestId;
+  }
+  return found.filter((item) => item.publishedAt >= since);
 }
 
 async function readRegions(source: Extract<Source, { kind: "regions" }>): Promise<Found[]> {
@@ -97,6 +133,16 @@ async function readRegions(source: Extract<Source, { kind: "regions" }>): Promis
     text: htmlToText(title).trim(),
     publishedAt: new Date(time.replace(/([+-]\d{2})(\d{2})$/, "$1:$2")),
   }));
+}
+
+/** В ленте regions.ru картинок нет — берём og:image со страницы статьи. */
+async function readArticlePhoto(url: string): Promise<string | undefined> {
+  try {
+    const html = await fetchHtml(url);
+    return /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/.exec(html)?.[1];
+  } catch {
+    return undefined;
+  }
 }
 
 export function huntingAdminId(): string {
@@ -131,11 +177,9 @@ export async function collectIncidents(now = new Date()): Promise<IncidentsColle
         continue;
       }
       const print = fingerprint(item.text);
-      const recent = await prisma.huntingIncident.findMany({
-        where: { publishedAt: { gte: new Date(now.getTime() - DUPLICATE_DAYS * 86_400_000) } },
-        select: { fingerprint: true },
-      });
-      const duplicate = recent.some((row) => similar(row.fingerprint, print));
+      const duplicate = await hasSimilar(print, item.publishedAt);
+      const status = isFirstRun ? "seen" : duplicate ? "skipped" : "pending";
+      const photoUrl = status === "pending" ? await photoOf(item) : item.photoUrl;
       const incident = await prisma.huntingIncident.create({
         data: {
           url: item.url,
@@ -143,8 +187,9 @@ export async function collectIncidents(now = new Date()): Promise<IncidentsColle
           sourceLabel: source.label,
           text: item.text.slice(0, 4000),
           publishedAt: item.publishedAt,
-          status: isFirstRun ? "seen" : duplicate ? "skipped" : "pending",
+          status,
           fingerprint: print,
+          photoUrl,
         },
       });
       if (incident.status === "pending" && (await askModerator(incident))) {
@@ -158,37 +203,171 @@ export async function collectIncidents(now = new Date()): Promise<IncidentsColle
   return { checked, queued, errors };
 }
 
+/** Уже есть похожая новость в пределах DUPLICATE_DAYS от этой; onlyShown — только показанные модератору. */
+async function hasSimilar(print: string, publishedAt: Date, onlyShown = false, exceptUrl?: string): Promise<boolean> {
+  const window = DUPLICATE_DAYS * 86_400_000;
+  const rows = await prisma.huntingIncident.findMany({
+    where: {
+      publishedAt: { gte: new Date(publishedAt.getTime() - window), lte: new Date(publishedAt.getTime() + window) },
+      ...(onlyShown ? { status: { in: ["pending", "published"] } } : {}),
+      ...(exceptUrl ? { url: { not: exceptUrl } } : {}),
+    },
+    select: { fingerprint: true },
+  });
+  return rows.some((row) => similar(row.fingerprint, print));
+}
+
+async function photoOf(item: Found): Promise<string | undefined> {
+  return item.photoUrl ?? (item.source.kind === "regions" ? await readArticlePhoto(item.url) : undefined);
+}
+
+export type IncidentsBackfillResult = {
+  checked: number;
+  matched: number;
+  sent: number;
+  duplicates: number;
+  alreadyDecided: number;
+  errors: string[];
+};
+
+/**
+ * Ручная проверка за days дней: листает каналы назад (regions.ru — сколько есть в ленте), всё подходящее и ещё
+ * не решённое — модератору. Новости, которые ждут решения, приходят заново, уже с фото.
+ */
+export async function backfillIncidents(days: number, now = new Date()): Promise<IncidentsBackfillResult> {
+  const since = new Date(now.getTime() - days * 86_400_000);
+  const result: IncidentsBackfillResult = { checked: 0, matched: 0, sent: 0, duplicates: 0, alreadyDecided: 0, errors: [] };
+  const matched: Found[] = [];
+  for (const source of SOURCES) {
+    try {
+      const found =
+        source.kind === "tg"
+          ? await readTelegramSince(source, since)
+          : (await readRegions(source)).filter((item) => item.publishedAt >= since);
+      result.checked += found.length;
+      matched.push(...found.filter((item) => isIncident(item.text)));
+    } catch (error) {
+      result.errors.push(`${source.label}: ${error instanceof Error ? error.message : "ошибка"}`);
+    }
+  }
+  matched.sort((a, b) => a.publishedAt.getTime() - b.publishedAt.getTime());
+  result.matched = matched.length;
+
+  for (const item of matched) {
+    const existing = await prisma.huntingIncident.findUnique({ where: { url: item.url } });
+    if (existing && existing.status !== "pending" && existing.status !== "seen") {
+      result.alreadyDecided += 1;
+      continue;
+    }
+    const print = fingerprint(item.text);
+    if (existing?.status !== "pending" && (await hasSimilar(print, item.publishedAt, true, item.url))) {
+      result.duplicates += 1;
+      if (!existing) {
+        await prisma.huntingIncident.create({
+          data: {
+            url: item.url,
+            source: item.source.id,
+            sourceLabel: item.source.label,
+            text: item.text.slice(0, 4000),
+            publishedAt: item.publishedAt,
+            status: "skipped",
+            fingerprint: print,
+            photoUrl: item.photoUrl,
+          },
+        });
+      } else {
+        await prisma.huntingIncident.update({ where: { id: existing.id }, data: { status: "skipped" } });
+      }
+      continue;
+    }
+    const photoUrl = (await photoOf(item)) ?? existing?.photoUrl ?? undefined;
+    const incident = existing
+      ? await prisma.huntingIncident.update({
+          where: { id: existing.id },
+          data: { status: "pending", photoUrl, text: item.text.slice(0, 4000), fingerprint: print },
+        })
+      : await prisma.huntingIncident.create({
+          data: {
+            url: item.url,
+            source: item.source.id,
+            sourceLabel: item.source.label,
+            text: item.text.slice(0, 4000),
+            publishedAt: item.publishedAt,
+            status: "pending",
+            fingerprint: print,
+            photoUrl,
+          },
+        });
+    if (await askModerator(incident)) {
+      result.sent += 1;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+  }
+  return result;
+}
+
 function clip(text: string, limit: number): string {
   return text.length > limit ? `${text.slice(0, limit - 1).trimEnd()}…` : text;
 }
 
-async function askModerator(incident: { id: string; text: string; url: string; sourceLabel: string }): Promise<boolean> {
+type SentMessage = { message_id: number; photo?: { file_id: string }[] };
+
+function shortDate(date: Date): string {
+  return formatMoscow(date, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+async function askModerator(incident: {
+  id: string;
+  text: string;
+  url: string;
+  sourceLabel: string;
+  publishedAt: Date;
+  photoUrl: string | null;
+}): Promise<boolean> {
   const adminId = huntingAdminId();
   if (!adminId) {
     return false;
   }
-  const sent = await callTelegramApi<{ message_id: number }>("hunting", "sendMessage", {
-    chat_id: adminId,
-    text: [
-      `🔎 <b>Возможное происшествие</b> · ${escapeHtml(incident.sourceLabel)}`,
+  const html = (limit: number) =>
+    [
+      `🔎 <b>Возможное происшествие</b> · ${escapeHtml(incident.sourceLabel)} · ${shortDate(incident.publishedAt)}`,
       "",
-      escapeHtml(clip(incident.text, TEXT_IN_MESSAGE)),
+      escapeHtml(clip(incident.text, limit)),
       "",
       `<a href="${escapeHtml(incident.url)}">Оригинал</a>`,
-    ].join("\n"),
-    parse_mode: "HTML",
-    disable_web_page_preview: true,
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: "📢 В чаты", callback_data: `inc:${incident.id}:pub` },
-          { text: "⏭ Пропустить", callback_data: `inc:${incident.id}:skip` },
-        ],
+    ].join("\n");
+  const reply_markup = {
+    inline_keyboard: [
+      [
+        { text: "📢 В чаты", callback_data: `inc:${incident.id}:pub` },
+        { text: "⏭ Пропустить", callback_data: `inc:${incident.id}:skip` },
       ],
-    },
-  });
+    ],
+  };
+  let sent = incident.photoUrl
+    ? await callTelegramApi<SentMessage>("hunting", "sendPhoto", {
+        chat_id: adminId,
+        photo: incident.photoUrl,
+        caption: html(TEXT_IN_CAPTION),
+        parse_mode: "HTML",
+        reply_markup,
+      })
+    : null;
+  if (!sent?.ok) {
+    sent = await callTelegramApi<SentMessage>("hunting", "sendMessage", {
+      chat_id: adminId,
+      text: html(TEXT_IN_MESSAGE),
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+      reply_markup,
+    });
+  }
   if (sent.ok && sent.result) {
-    await prisma.huntingIncident.update({ where: { id: incident.id }, data: { adminMessageId: sent.result.message_id } });
+    const fileId = sent.result.photo?.at(-1)?.file_id;
+    await prisma.huntingIncident.update({
+      where: { id: incident.id },
+      data: { adminMessageId: sent.result.message_id, photoFileId: fileId ?? null },
+    });
   }
   return sent.ok;
 }
@@ -205,26 +384,32 @@ function huntingTargets(): { chatId: string; threadId: number | null }[] {
   return targets;
 }
 
-/** Текст (или фото с подписью) во все охотничьи чаты. Возвращает, в сколько чатов дошло. */
-async function broadcast(html: string, photoFileId?: string): Promise<number> {
+/**
+ * Текст (или фото с подписью) во все охотничьи чаты. Возвращает, в сколько чатов дошло.
+ * captionHtml — короткий вариант текста под фото; если фото не ушло, шлётся полный html.
+ */
+async function broadcast(html: string, photo?: { fileId: string; captionHtml: string }): Promise<number> {
   let delivered = 0;
   for (const target of huntingTargets()) {
     const thread = target.threadId != null ? { message_thread_id: target.threadId } : {};
-    const result = photoFileId
+    let result = photo
       ? await callTelegramApi("hunting", "sendPhoto", {
           chat_id: target.chatId,
-          photo: photoFileId,
-          caption: html.slice(0, 1024),
+          photo: photo.fileId,
+          caption: photo.captionHtml,
           parse_mode: "HTML",
           ...thread,
         })
-      : await callTelegramApi("hunting", "sendMessage", {
-          chat_id: target.chatId,
-          text: html.slice(0, 4000),
-          parse_mode: "HTML",
-          disable_web_page_preview: true,
-          ...thread,
-        });
+      : null;
+    if (!result?.ok) {
+      result = await callTelegramApi("hunting", "sendMessage", {
+        chat_id: target.chatId,
+        text: html.slice(0, 4000),
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+        ...thread,
+      });
+    }
     if (result.ok) {
       delivered += 1;
     } else {
@@ -234,38 +419,37 @@ async function broadcast(html: string, photoFileId?: string): Promise<number> {
   return delivered;
 }
 
-/** Кнопки модератора «В чаты / Пропустить». */
-export async function handleIncidentCallback(query: { id: string; data?: string; from: TelegramUser }): Promise<void> {
-  const match = /^inc:([^:]+):(pub|skip)$/.exec(query.data ?? "");
-  const answer = (text: string) =>
-    callTelegramApi("hunting", "answerCallbackQuery", { callback_query_id: query.id, text });
-  if (!match || String(query.from.id) !== huntingAdminId()) {
-    await answer("Решает модератор");
-    return;
+export type ModerateResult = { ok: boolean; message: string };
+
+/**
+ * Решение по новости — из лички бота или из админки. «В чаты» можно и для пропущенной раньше (в т.ч. дубля),
+ * «Пропустить» — только для ждущей решения.
+ */
+export async function moderateIncident(id: string, publish: boolean): Promise<ModerateResult> {
+  const claimed = await prisma.huntingIncident.updateMany({
+    where: { id, source: { not: "hunter" }, status: { in: publish ? ["pending", "skipped", "seen"] : ["pending"] } },
+    data: { status: publish ? "published" : "skipped" },
+  });
+  const incident = await prisma.huntingIncident.findUnique({ where: { id } });
+  if (!incident || claimed.count === 0) {
+    return { ok: false, message: "Уже обработано" };
   }
-  const incident = await prisma.huntingIncident.findUnique({ where: { id: match[1] } });
-  if (!incident || incident.status !== "pending") {
-    await answer("Уже обработано");
-    return;
-  }
-  const publish = match[2] === "pub";
   let delivered = 0;
   if (publish) {
-    delivered = await broadcast(
+    const html = (limit: number) =>
       [
         "🚨 <b>Происшествие в Шатуре</b>",
         "",
-        escapeHtml(clip(incident.text, TEXT_IN_MESSAGE)),
+        escapeHtml(clip(incident.text, limit)),
         "",
         `Источник: <a href="${escapeHtml(incident.url)}">${escapeHtml(incident.sourceLabel)}</a>`,
-      ].join("\n"),
+      ].join("\n");
+    const photo = incident.photoFileId ?? incident.photoUrl;
+    delivered = await broadcast(
+      html(TEXT_IN_MESSAGE),
+      photo ? { fileId: photo, captionHtml: html(TEXT_IN_CAPTION) } : undefined,
     );
   }
-  await prisma.huntingIncident.update({
-    where: { id: incident.id },
-    data: { status: publish ? "published" : "skipped" },
-  });
-  await answer(publish ? `Отправлено в чаты: ${delivered}` : "Пропущено");
   if (incident.adminMessageId) {
     await callTelegramApi("hunting", "editMessageReplyMarkup", {
       chat_id: huntingAdminId(),
@@ -277,6 +461,64 @@ export async function handleIncidentCallback(query: { id: string; data?: string;
       },
     });
   }
+  return { ok: true, message: publish ? `Отправлено в чаты: ${delivered}` : "Пропущено" };
+}
+
+/** Кнопки модератора «В чаты / Пропустить» в личке бота. */
+export async function handleIncidentCallback(query: { id: string; data?: string; from: TelegramUser }): Promise<void> {
+  const match = /^inc:([^:]+):(pub|skip)$/.exec(query.data ?? "");
+  const answer = (text: string) =>
+    callTelegramApi("hunting", "answerCallbackQuery", { callback_query_id: query.id, text });
+  if (!match || String(query.from.id) !== huntingAdminId()) {
+    await answer("Решает модератор");
+    return;
+  }
+  const incident = await prisma.huntingIncident.findUnique({ where: { id: match[1] }, select: { status: true } });
+  if (incident?.status !== "pending") {
+    await answer("Уже обработано");
+    return;
+  }
+  const result = await moderateIncident(match[1], match[2] === "pub");
+  await answer(result.message);
+}
+
+export const INCIDENT_FILTERS = [
+  { id: "pending", label: "Ждут решения" },
+  { id: "published", label: "В чатах" },
+  { id: "skipped", label: "Пропущены" },
+  { id: "hunter", label: "От охотников" },
+  { id: "all", label: "Все" },
+] as const;
+
+export type IncidentFilter = (typeof INCIDENT_FILTERS)[number]["id"];
+
+export async function listIncidents(filter: IncidentFilter, take = 100) {
+  const where =
+    filter === "all"
+      ? {}
+      : filter === "hunter"
+        ? { source: "hunter" }
+        : { status: filter, source: { not: "hunter" } };
+  const [items, counts] = await Promise.all([
+    prisma.huntingIncident.findMany({ where, orderBy: { publishedAt: "desc" }, take }),
+    prisma.huntingIncident.groupBy({
+      by: ["status"],
+      where: { source: { not: "hunter" } },
+      _count: { _all: true },
+    }),
+  ]);
+  const hunter = await prisma.huntingIncident.count({ where: { source: "hunter" } });
+  const count = (status: string) => counts.find((row) => row.status === status)?._count._all ?? 0;
+  return {
+    items,
+    counts: {
+      pending: count("pending"),
+      published: count("published"),
+      skipped: count("skipped"),
+      hunter,
+      all: counts.reduce((sum, row) => sum + row._count._all, 0) + hunter,
+    } satisfies Record<IncidentFilter, number>,
+  };
 }
 
 export const WARNING_USAGE = [
@@ -328,14 +570,18 @@ export async function sendHunterWarning(input: {
 
   const now = new Date();
   const name = userName(input.from);
-  const html = [
-    "⚠️ <b>Внимание, охотники!</b>",
-    "",
-    escapeHtml(clip(text, 3000)),
-    "",
-    `— ${escapeHtml(name)}, ${formatMoscow(now, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`,
-  ].join("\n");
-  const delivered = await broadcast(html, input.photoFileId);
+  const html = (limit: number) =>
+    [
+      "⚠️ <b>Внимание, охотники!</b>",
+      "",
+      escapeHtml(clip(text, limit)),
+      "",
+      `— ${escapeHtml(name)}, ${formatMoscow(now, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`,
+    ].join("\n");
+  const delivered = await broadcast(
+    html(3000),
+    input.photoFileId ? { fileId: input.photoFileId, captionHtml: html(TEXT_IN_CAPTION) } : undefined,
+  );
   await prisma.huntingIncident.create({
     data: {
       url: `hunter:${input.from.id}:${input.chatId}:${input.messageId ?? now.getTime()}`,
@@ -345,6 +591,7 @@ export async function sendHunterWarning(input: {
       publishedAt: now,
       status: "published",
       fingerprint: fingerprint(text),
+      photoFileId: input.photoFileId,
     },
   });
   return delivered > 0 ? `Разослал в охотничьи чаты: ${delivered}.` : "Не удалось разослать — попробуйте позже.";
