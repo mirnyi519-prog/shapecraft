@@ -30,7 +30,7 @@ services:
       # Ещё группы для рассылок охотничьего бота (сезоны, законы, сводка): id через запятую
       TELEGRAM_HUNTING_EXTRA_CHAT_IDS: ${TELEGRAM_HUNTING_EXTRA_CHAT_IDS:--1004465864823}
       # Модератор происшествий: Telegram id (узнать — /myid в личке бота)
-      TELEGRAM_HUNTING_ADMIN_ID: ${TELEGRAM_HUNTING_ADMIN_ID:-}      # Прямая отправка: приложение уже в host network
+      TELEGRAM_HUNTING_ADMIN_ID: ${TELEGRAM_HUNTING_ADMIN_ID:-565588628}      # Прямая отправка: приложение уже в host network
       TELEGRAM_RELAY_URL: ""
       NODE_ENV: production
       TZ: Europe/Moscow
