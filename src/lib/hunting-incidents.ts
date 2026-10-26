@@ -312,6 +312,49 @@ function clip(text: string, limit: number): string {
 
 type SentMessage = { message_id: number; photo?: { file_id: string }[] };
 
+const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Фото по ссылке; если Telegram сам не скачал (CDN каналов он часто не берёт) — качаем сами и грузим файлом.
+ */
+async function sendPhoto(
+  payload: Record<string, unknown>,
+  photoUrl: string,
+): Promise<{ ok: boolean; result?: SentMessage; error?: string }> {
+  const byUrl = await callTelegramApi<SentMessage>("hunting", "sendPhoto", { ...payload, photo: photoUrl });
+  if (byUrl.ok) {
+    return byUrl;
+  }
+  console.error("hunting incident photo by url", byUrl.error);
+  const { token } = getTelegramChannelConfig("hunting");
+  try {
+    const image = await fetch(photoUrl, { signal: AbortSignal.timeout(15000) });
+    const bytes = await image.arrayBuffer();
+    if (!image.ok || bytes.byteLength === 0 || bytes.byteLength > PHOTO_MAX_BYTES) {
+      return { ok: false, error: `фото не скачалось: HTTP ${image.status}, ${bytes.byteLength} B` };
+    }
+    const form = new FormData();
+    for (const [key, value] of Object.entries(payload)) {
+      form.set(key, typeof value === "string" ? value : JSON.stringify(value));
+    }
+    form.set("photo", new Blob([bytes], { type: image.headers.get("content-type") ?? "image/jpeg" }), "photo.jpg");
+    const response = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+      method: "POST",
+      body: form,
+      signal: AbortSignal.timeout(30000),
+    });
+    const body = (await response.json().catch(() => null)) as { ok?: boolean; result?: SentMessage; description?: string } | null;
+    if (!body?.ok) {
+      console.error("hunting incident photo upload", body?.description ?? response.status);
+      return { ok: false, error: body?.description ?? `Telegram HTTP ${response.status}` };
+    }
+    return { ok: true, result: body.result };
+  } catch (error) {
+    console.error("hunting incident photo upload", error);
+    return { ok: false, error: "фото не отправилось" };
+  }
+}
+
 function shortDate(date: Date): string {
   return formatMoscow(date, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
@@ -323,6 +366,7 @@ async function askModerator(incident: {
   sourceLabel: string;
   publishedAt: Date;
   photoUrl: string | null;
+  adminMessageId?: number | null;
 }): Promise<boolean> {
   const adminId = huntingAdminId();
   if (!adminId) {
@@ -345,13 +389,7 @@ async function askModerator(incident: {
     ],
   };
   let sent = incident.photoUrl
-    ? await callTelegramApi<SentMessage>("hunting", "sendPhoto", {
-        chat_id: adminId,
-        photo: incident.photoUrl,
-        caption: html(TEXT_IN_CAPTION),
-        parse_mode: "HTML",
-        reply_markup,
-      })
+    ? await sendPhoto({ chat_id: adminId, caption: html(TEXT_IN_CAPTION), parse_mode: "HTML", reply_markup }, incident.photoUrl)
     : null;
   if (!sent?.ok) {
     sent = await callTelegramApi<SentMessage>("hunting", "sendMessage", {
@@ -368,6 +406,9 @@ async function askModerator(incident: {
       where: { id: incident.id },
       data: { adminMessageId: sent.result.message_id, photoFileId: fileId ?? null },
     });
+    if (incident.adminMessageId) {
+      await callTelegramApi("hunting", "deleteMessage", { chat_id: adminId, message_id: incident.adminMessageId });
+    }
   }
   return sent.ok;
 }
