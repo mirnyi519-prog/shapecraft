@@ -724,7 +724,7 @@ async function sendLawsInForce(today: string) {
   }
 }
 
-/** Один проход расписания: сверка с МООиР и законами, напоминания, сводка по понедельникам. */
+/** Один проход расписания: сверка с МООиР и законами, напоминания, прогноз на выходные. */
 export async function runHuntingSchedule(now = new Date()): Promise<void> {
   const lastFetch = await getHuntingLastFetch();
   if (!lastFetch || now.getTime() - lastFetch.getTime() > SCHEDULE_COLLECT_HOURS * 3_600_000) {
@@ -749,16 +749,4 @@ export async function runHuntingSchedule(now = new Date()): Promise<void> {
   await sendDocumentReminders(overview.today, hour).catch((error) => console.error("hunting documents", error));
   await pruneBotUsage(now).catch((error) => console.error("hunting usage prune", error));
   await sendWeekendWeather(now, overview.today, hour);
-
-  if (moscowWeekday(now) === 1) {
-    const key = `weekly:${overview.today}`;
-    if ((await alreadySent([key])).size === 0) {
-      const result = await sendTelegramMessage(buildHuntingSummaryHtml(overview), "hunting", {
-        html: true,
-      });
-      if (result.ok) {
-        await markSent([key]);
-      }
-    }
-  }
 }

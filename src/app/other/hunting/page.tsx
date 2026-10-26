@@ -123,7 +123,7 @@ export default async function HuntingPage() {
           <p className="text-[var(--muted)]">
             Бот сам читает официальные распоряжения и прейскурант МООиР: на кого, в какие сроки, какими способами и
             сколько стоит. На сервере сверяется с МООиР сам (не реже раза в {HUNTING_STALE_HOURS} ч), в охотничью
-            группу пишет о новых распоряжениях, напоминает об открытии и закрытии сезонов, по понедельникам — сводка.
+            группу пишет о новых распоряжениях, напоминает об открытии и закрытии сезонов.
             В Telegram отвечает на команды /sezon, /ceny, /kontakty, /utka, /kaban…
           </p>
           <HuntingRefreshButton groupConfigured={getTelegramChannelConfig("hunting").configured} />

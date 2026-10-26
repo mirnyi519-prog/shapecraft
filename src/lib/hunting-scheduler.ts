@@ -5,7 +5,7 @@ const FIRST_TICK_MS = 90_000;
 
 const state = globalThis as typeof globalThis & { __huntingScheduler?: NodeJS.Timeout };
 
-/** Каждые полчаса: сверка с МООиР, напоминания и недельная сводка в охотничью группу. */
+/** Каждые полчаса: сверка с МООиР, напоминания и прогноз на выходные в охотничью группу. */
 export function startHuntingScheduler() {
   if (state.__huntingScheduler) {
     return;

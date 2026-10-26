@@ -204,7 +204,7 @@ function daysBetween(fromKey: string, toKey: string): number {
 }
 
 const RANGE_SOURCE =
-  `(?<![А-Яа-яЁё])с\\s+(?:утренней\\s+зари\\s+)?(\\d{1,2})\\s*(?:(${MONTH_RE})\\s*)?` +
+  `(?<![А-Яа-яЁё])с\\s+(?:[-–—]\\s*)?(?:утренней\\s+зари\\s+)?(\\d{1,2})\\s*(?:(${MONTH_RE})\\s*)?` +
   `(?:(\\d{4})\\s*(?:года|гг\\.?|г\\.?)?\\s*)?(?:по|до)\\s+(\\d{1,2})(?:\\s*\\(\\d{1,2}\\))?\\s*(${MONTH_RE})` +
   `(?:\\s+(\\d{4}))?`;
 
@@ -366,9 +366,18 @@ export function parseOrderRules(text: string): string[] {
     }
     const isBullet = /^[-–—•]\s*/.test(line);
     const isNorm = /(в\s+сутки|за\s+сезон|особ(ь|ей|и)\b|без\s+ограничений|разрешенными\s+способами)/i.test(line);
-    if (isBullet || isNorm) {
-      rules.push(line.replace(/^[-–—•]\s*/, "").replace(/\s+/g, " "));
+    if (!isBullet && !isNorm) {
+      continue;
     }
+    // Строка-перечень хозяйств: оставляем только квоту Шатуры, чужие квоты боту не нужны.
+    if ((line.match(FARM_RE)?.length ?? 0) >= 2) {
+      const shatura = /Шатурское\s*[-–—]\s*(\d+)\s*особ/i.exec(line);
+      if (shatura) {
+        rules.push(`Шатурское хозяйство: квота ${shatura[1]} ос.`);
+      }
+      continue;
+    }
+    rules.push(line.replace(/^[-–—•]\s*/, "").replace(/\s+/g, " "));
     if (rules.length >= 16) {
       break;
     }
