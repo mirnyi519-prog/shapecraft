@@ -1,4 +1,5 @@
 import {
+  awaitedOrders,
   MOOIR_ORDERS_URL,
   type HuntingOverview,
   type HuntingSeasonEntry,
@@ -179,6 +180,16 @@ export function buildHuntingSummaryHtml(overview: HuntingOverview): string {
   }
   if (open.length === 0 && soon.length === 0) {
     lines.push("", "По распоряжениям МООиР сейчас ничего не открыто.");
+  }
+  const awaited = awaitedOrders(overview);
+  if (awaited.length > 0) {
+    lines.push("", "📭 <b>НОВОГО РАСПОРЯЖЕНИЯ ЕЩЁ НЕТ</b>");
+    for (const item of awaited) {
+      lines.push(
+        `• ${escapeHtml(item.order.topic || item.order.title)}`,
+        `   на сезон ${item.season} МООиР ещё не опубликовал; в прошлом сезоне открывали с ${shortDate(item.lastStart)} — сроки у егеря`,
+      );
+    }
   }
 
   const contactLines = overview.contacts?.lines ?? [];

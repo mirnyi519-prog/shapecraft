@@ -557,6 +557,44 @@ model HuntingBotEvent {
   @@index([userId])
 }
 
+/// Внешние ограничения для охоты в Шатуре: карантины (pravo.gov.ru) и запрет посещения лесов (Мособллес).
+model HuntingAlert {
+  id          String   @id @default(cuid())
+  url         String   @unique
+  /// quarantine | forest
+  kind        String
+  /// asf | rabies | other — для карантинов
+  disease     String   @default("")
+  /// set — введено, cancel — отменено
+  action      String
+  title       String
+  /// ГГГГ-ММ-ДД, дата публикации
+  date        String
+  firstSeenAt DateTime @default(now())
+
+  @@index([kind, date])
+}
+
+/// Происшествия в лесу и на воде: найденные в местных каналах (на модерацию) и присланные охотниками (/vnimanie).
+model HuntingIncident {
+  id             String   @id @default(cuid())
+  url            String   @unique
+  /// tg:канал | vk:группа | regions | hunter
+  source         String
+  sourceLabel    String   @default("")
+  text           String
+  /// ISO-время публикации в источнике
+  publishedAt    DateTime
+  /// pending — ждёт модератора; published — в чатах; skipped — отклонено или дубль; seen — было до запуска
+  status         String
+  /// Слова текста для поиска дублей между источниками
+  fingerprint    String   @default("")
+  adminMessageId Int?
+  createdAt      DateTime @default(now())
+
+  @@index([status, publishedAt])
+}
+
 model HuntingNotice {
   key    String   @id
   sentAt DateTime @default(now())

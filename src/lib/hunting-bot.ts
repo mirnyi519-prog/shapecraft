@@ -22,6 +22,9 @@ import {
   sendDocumentReminders,
 } from "@/lib/hunting-documents";
 import { type BotTopic, logBotUsage, pruneBotUsage } from "@/lib/hunting-usage";
+import { type ActiveAlert, collectAlerts, getActiveQuarantines } from "@/lib/hunting-alerts";
+import { trackSourceHealth } from "@/lib/hunting-health";
+import { collectIncidents, handleIncidentCallback, sendHunterWarning } from "@/lib/hunting-incidents";
 import {
   AMMO_GENERAL,
   AMMO_GROUPS,
@@ -52,6 +55,7 @@ import {
   toHuntItems,
 } from "@/lib/hunting-format";
 import {
+  awaitedOrders,
   HUNTING_TIERS,
   priceForTier,
   type HuntingOverview,
@@ -62,6 +66,7 @@ import {
   callTelegramApi,
   getPublicSiteUrl,
   getTelegramChannelConfig,
+  huntingExtraChatIds,
   sendTelegramMessage,
   sendTelegramTo,
 } from "@/lib/telegram";
@@ -76,6 +81,10 @@ const REMIND_DAYS_BEFORE = 3;
 const WEEKEND_WEATHER_HOUR = 12;
 const SEND_FROM_HOUR = 9;
 const SEND_TO_HOUR = 21;
+/** Карантины и леса — не чаще, чем раз в столько часов. */
+const ALERTS_EVERY_HOURS = 2;
+/** Местные каналы о происшествиях — раз в час. */
+const INCIDENTS_EVERY_HOURS = 1;
 
 /** Секрет webhook выводится из токена: ничего лишнего прописывать на сервере не нужно. */
 export function huntingWebhookSecret(): string | null {
@@ -119,6 +128,7 @@ const BASE_COMMANDS: { command: string; description: string }[] = [
   { command: "sbor", description: "Собрать людей на охоту: /sbor кабан 26.10" },
   { command: "patron", description: "Какой патрон брать на кого и в какой сезон" },
   { command: "dokumenty", description: "Сроки моих документов — напоминания в личку" },
+  { command: "vnimanie", description: "Предупредить все охотничьи чаты: шипы, браконьеры…" },
   { command: "help", description: "Все команды" },
 ];
 
@@ -165,6 +175,7 @@ function helpText(): string {
     "/pogoda — погода, ветер, восход и закат на 3 дня",
     "/sbor кабан 26.10 — собрать людей на охоту (в группе)",
     "/dokument роха 15.03.2027 — напомню о сроке документа (в личке), список — /dokumenty",
+    "/vnimanie шипы на площадке у … — предупредить все охотничьи чаты (можно фото с подписью)",
     "",
     "По видам:",
     SPECIES.map((species) => `/${species.command} — ${species.title.toLowerCase()}`).join("\n"),
@@ -220,7 +231,13 @@ function contactsText(overview: HuntingOverview): string {
   ].join("\n");
 }
 
-function speciesText(species: Species, overview: HuntingOverview): string {
+/** Какие карантины важны для вида: АЧС — кабан, бешенство — лиса, енотовидная собака, волк. */
+const QUARANTINE_SPECIES: Record<string, string[]> = {
+  asf: ["kaban"],
+  rabies: ["lisa", "volk"],
+};
+
+function speciesText(species: Species, overview: HuntingOverview, quarantines: ActiveAlert[] = []): string {
   const all = overview.orders.flatMap((order) =>
     order.entries
       .filter((entry) => species.match.test(entry.label))
@@ -239,9 +256,28 @@ function speciesText(species: Species, overview: HuntingOverview): string {
   if (current.length > 0) {
     lines.push("", ...current.map(entryLine));
   } else if (unique.length > 0) {
-    lines.push("", "Сейчас закрыта. Последние сроки по распоряжениям МООиР:", ...unique.slice(0, 3).map(entryLine));
+    const awaited = awaitedOrders(overview).find((item) => item.order.url === unique[0].orderUrl);
+    lines.push(
+      "",
+      awaited
+        ? `Распоряжение МООиР на сезон ${awaited.season} ещё не опубликовано — открыта ли охота сейчас, уточняйте у егеря (/kontakty). Сроки прошлого сезона:`
+        : "Сейчас закрыта. Последние сроки по распоряжениям МООиР:",
+      ...unique.slice(0, 3).map(entryLine),
+    );
   } else {
     lines.push("", "В свежих распоряжениях МООиР этого вида нет — сроки уточняйте у егеря (/kontakty).");
+  }
+
+  for (const quarantine of quarantines) {
+    if (QUARANTINE_SPECIES[quarantine.disease]?.includes(species.command)) {
+      lines.push(
+        "",
+        quarantine.disease === "asf"
+          ? "⚠️ В Шатуре действует карантин по АЧС: в зоне карантина загоном, нагоном и с собаками нельзя (п. 62.17)."
+          : "⚠️ В Шатуре действует карантин по бешенству — будьте осторожны с добычей и собаками.",
+        `${quarantine.title}: ${quarantine.url}`,
+      );
+    }
   }
 
   const sources = [...new Map((current.length ? current : unique.slice(0, 3)).map((e) => [e.orderUrl, e])).values()];
@@ -368,7 +404,7 @@ export async function buildHuntingReply(command: string, arg = ""): Promise<stri
       );
     default: {
       const species = SPECIES.find((item) => item.command === command);
-      return species ? speciesText(species, overview) : buildLawsReply(command);
+      return species ? speciesText(species, overview, await getActiveQuarantines()) : buildLawsReply(command);
     }
   }
 }
@@ -395,11 +431,14 @@ async function getBotUsername(): Promise<string | null> {
   return botUsername;
 }
 
-type TelegramChat = { id: number; type?: string; title?: string };
+type TelegramChat = { id: number; type?: string; title?: string; username?: string };
 
 type TelegramUpdate = {
   message?: {
+    message_id?: number;
     text?: string;
+    caption?: string;
+    photo?: { file_id: string; width: number }[];
     message_thread_id?: number;
     chat?: TelegramChat;
     from?: TelegramUser;
@@ -418,6 +457,8 @@ const COMMAND_TOPICS: Record<string, BotTopic> = {
   sbor: { section: "Сборы", topic: "sbor", title: "Создание сбора" },
   dokument: { section: "Документы", topic: "dokument", title: "Запись срока документа" },
   dokumenty: { section: "Документы", topic: "dokumenty", title: "Список документов" },
+  vnimanie: { section: "Происшествия", topic: "vnimanie", title: "Предупреждение во все чаты" },
+  myid: { section: "Справка", topic: "myid", title: "Мой Telegram id" },
 };
 
 function commandTopic(command: string): BotTopic {
@@ -449,10 +490,19 @@ function textTopic(text: string): BotTopic {
     : { section: "Прочее", topic: "text", title: "Непонятый вопрос текстом" };
 }
 
+function isHuntingChat(chat: TelegramChat): boolean {
+  const ids = [getTelegramChannelConfig("hunting").chatId, ...huntingExtraChatIds()];
+  return ids.includes(String(chat.id)) || (chat.username != null && ids.includes(`@${chat.username}`));
+}
+
 /** Входящее сообщение: команды в группе и в личке, в личке — ещё и слово «утка», «кабан»… */
 export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void> {
   if (update.callback_query) {
     const query = update.callback_query;
+    if (query.data?.startsWith("inc:")) {
+      await handleIncidentCallback(query);
+      return;
+    }
     const answer = query.data?.split(":")[2];
     await logBotUsage({
       from: query.from,
@@ -464,7 +514,7 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
     return;
   }
   const message = update.message;
-  const text = message?.text?.trim();
+  const text = (message?.text ?? message?.caption)?.trim();
   const chat = message?.chat;
   if (!text || !chat) {
     return;
@@ -485,6 +535,23 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
       topic: commandTopic(command),
       text: command === "dokument" || command === "dokumenty" ? `/${command}` : text,
     });
+    if (command === "vnimanie" && message?.from) {
+      const photo = message.photo?.reduce((best, size) => (size.width > best.width ? size : best));
+      reply = await sendHunterWarning({
+        from: message.from,
+        chatId: chat.id,
+        isHuntingChat: isHuntingChat(chat),
+        text: text.slice(1 + head.length),
+        photoFileId: photo?.file_id,
+        messageId: message.message_id,
+      });
+      await sendTelegramTo("hunting", chat.id, reply, message.message_thread_id ?? null);
+      return;
+    }
+    if (command === "myid" && message?.from) {
+      await sendTelegramTo("hunting", chat.id, `Ваш Telegram id: ${message.from.id}`, message.message_thread_id ?? null);
+      return;
+    }
     if (command === "sbor") {
       reply = isPrivate
         ? `Сбор работает в охотничьей группе — отправьте команду там.\n\n${GATHERING_USAGE}`
@@ -538,7 +605,9 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
       reply = await buildLawsReply(lawCommand);
       html = reply != null;
     } else {
-      reply = species ? speciesText(species, await getHuntingOverview()) : helpText();
+      reply = species
+        ? speciesText(species, await getHuntingOverview(), await getActiveQuarantines())
+        : helpText();
     }
   }
 
@@ -724,14 +793,42 @@ async function sendLawsInForce(today: string) {
   }
 }
 
-/** Один проход расписания: сверка с МООиР и законами, напоминания, прогноз на выходные. */
+async function recentlyDone(key: string, hours: number, now: Date): Promise<boolean> {
+  const row = await prisma.huntingNotice.findUnique({ where: { key } });
+  return Boolean(row && now.getTime() - row.sentAt.getTime() < hours * 3_600_000);
+}
+
+async function markDone(key: string, now: Date) {
+  await prisma.huntingNotice.upsert({ where: { key }, create: { key, sentAt: now }, update: { sentAt: now } });
+}
+
+/** Вёрстка mooir.ru поменялась, а ошибок нет: распоряжение без сроков, пропали цены или контакты. */
+async function parseProblems(): Promise<string[]> {
+  const overview = await getHuntingOverview();
+  const problems = overview.orders
+    .filter((order) => order.entries.length === 0)
+    .map((order) => `${order.title}: сроки не разобраны`);
+  if (!overview.prices?.rows.length) problems.push("прейскурант не разобран");
+  if (!overview.contacts?.lines.length) problems.push("контакты Шатурского хозяйства не найдены");
+  return problems;
+}
+
+/** Один проход расписания: сверка с МООиР, законами, карантинами и лесами; напоминания, прогноз на выходные. */
 export async function runHuntingSchedule(now = new Date()): Promise<void> {
   const lastFetch = await getHuntingLastFetch();
   if (!lastFetch || now.getTime() - lastFetch.getTime() > SCHEDULE_COLLECT_HOURS * 3_600_000) {
-    await collectHunting().catch((error) => console.error("hunting collect", error));
+    const errors = await collectHunting().then(
+      async (result) => [...result.errors, ...(result.ok ? [] : ["с mooir.ru ничего не получено"]), ...(await parseProblems())],
+      (error) => [error instanceof Error ? error.message : "ошибка"],
+    );
+    await trackSourceHealth("mooir", "распоряжения МООиР", errors).catch((error) => console.error("hunting health", error));
   }
   if (isLawsStale(await getLawsLastFetch())) {
-    await collectLaws().catch((error) => console.error("laws collect", error));
+    const errors = await collectLaws().then(
+      (result) => result.errors,
+      (error) => [error instanceof Error ? error.message : "ошибка"],
+    );
+    await trackSourceHealth("laws", "законы (КонсультантПлюс)", errors).catch((error) => console.error("laws health", error));
   }
 
   if (!getTelegramChannelConfig("hunting").configured) {
@@ -740,6 +837,27 @@ export async function runHuntingSchedule(now = new Date()): Promise<void> {
   const hour = Number(formatMoscow(now, { hour: "2-digit", hourCycle: "h23" }));
   if (hour < SEND_FROM_HOUR || hour >= SEND_TO_HOUR) {
     return;
+  }
+
+  if (!(await recentlyDone("fetch:alerts", ALERTS_EVERY_HOURS, now))) {
+    const errors = await collectAlerts().then(
+      (result) => result.errors,
+      (error) => [error instanceof Error ? error.message : "ошибка"],
+    );
+    await markDone("fetch:alerts", now);
+    await trackSourceHealth("alerts", "карантины и запреты на посещение лесов", errors).catch((error) =>
+      console.error("alerts health", error),
+    );
+  }
+  if (!(await recentlyDone("fetch:incidents", INCIDENTS_EVERY_HOURS, now))) {
+    const errors = await collectIncidents(now).then(
+      (result) => result.errors,
+      (error) => [error instanceof Error ? error.message : "ошибка"],
+    );
+    await markDone("fetch:incidents", now);
+    await trackSourceHealth("incidents", "местные каналы (происшествия)", errors).catch((error) =>
+      console.error("incidents health", error),
+    );
   }
 
   const overview = await getHuntingOverview();

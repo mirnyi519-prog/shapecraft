@@ -385,6 +385,55 @@ export function parseOrderRules(text: string): string[] {
   return rules;
 }
 
+function nextYear(key: string): string {
+  return `${Number(key.slice(0, 4)) + 1}${key.slice(4)}`;
+}
+
+function entryKey(label: string): string {
+  return label.toLowerCase().replace(/[^а-яё]/g, "").slice(0, 30);
+}
+
+export type AwaitedOrder = {
+  order: HuntingOrder;
+  /** Когда открывали в прошлом сезоне, ГГГГ-ММ-ДД */
+  lastStart: string;
+  /** «2026–2027» или «2026» */
+  season: string;
+};
+
+/**
+ * Распоряжения, по которым всё закрыто, хотя по прошлогодним срокам сезон уже должен идти,
+ * а нового распоряжения на те же виды МООиР ещё не выпустил.
+ */
+export function awaitedOrders(overview: Pick<HuntingOverview, "orders" | "today">): AwaitedOrder[] {
+  const result: AwaitedOrder[] = [];
+  for (const order of overview.orders) {
+    const entries = order.entries.filter((entry) => entry.scope !== "excluded");
+    if (entries.length === 0 || entries.some((entry) => entry.status !== "closed")) {
+      continue;
+    }
+    const lastStart = entries.map((entry) => entry.start).sort()[0];
+    const lastEnd = entries.map((entry) => entry.end).sort().at(-1)!;
+    if (nextYear(lastStart) > overview.today || nextYear(lastEnd) < overview.today) {
+      continue;
+    }
+    const keys = new Set(entries.map((entry) => entryKey(entry.label)));
+    const renewed = overview.orders.some(
+      (other) =>
+        other !== order &&
+        (other.docDate ?? "") > (order.docDate ?? "") &&
+        other.entries.some((entry) => keys.has(entryKey(entry.label))),
+    );
+    if (renewed) {
+      continue;
+    }
+    const from = Number(lastStart.slice(0, 4)) + 1;
+    const to = Number(lastEnd.slice(0, 4)) + 1;
+    result.push({ order, lastStart, season: from === to ? String(from) : `${from}–${to}` });
+  }
+  return result;
+}
+
 /** «Об организации охоты на …» либо первый пункт распоряжения. */
 export function parseOrderTopic(text: string): string {
   for (const quoted of text.matchAll(/«(Об?\s[^»]{5,220})»/gu)) {
