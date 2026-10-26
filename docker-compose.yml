@@ -27,6 +27,8 @@ services:
       TELEGRAM_HUNTING_BOT_TOKEN: ${TELEGRAM_HUNTING_BOT_TOKEN:-}
       TELEGRAM_HUNTING_CHAT_ID: ${TELEGRAM_HUNTING_CHAT_ID:-}
       TELEGRAM_HUNTING_THREAD_ID: ${TELEGRAM_HUNTING_THREAD_ID:-}
+      # Ещё группы для рассылок охотничьего бота (сезоны, законы, сводка): id через запятую
+      TELEGRAM_HUNTING_EXTRA_CHAT_IDS: ${TELEGRAM_HUNTING_EXTRA_CHAT_IDS:--1004465864823}
       # Прямая отправка: приложение уже в host network
       TELEGRAM_RELAY_URL: ""
       NODE_ENV: production

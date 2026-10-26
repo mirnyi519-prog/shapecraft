@@ -176,21 +176,42 @@ function localUploadPath(imageUrl: string): string | null {
   return path.join(getUploadsDir(), safe);
 }
 
+/** Дополнительные группы для рассылок охотничьего бота: id через запятую или пробел. */
+export function huntingExtraChatIds(): string[] {
+  return cleanEnv(process.env.TELEGRAM_HUNTING_EXTRA_CHAT_IDS)
+    .split(/[\s,;]+/)
+    .filter((id) => /^-?\d+$/.test(id) || /^@\w+$/.test(id));
+}
+
 /**
- * Текст в Telegram.
+ * Текст в Telegram. У канала «hunting» рассылка уходит в основной чат и во все TELEGRAM_HUNTING_EXTRA_CHAT_IDS.
  */
 export async function sendTelegramMessage(
   text: string,
   channel: TelegramChannel = "ops",
   options: { html?: boolean } = {},
 ): Promise<TelegramSendResult> {
-  const { token, chatId, configured, label, threadId } =
-    getTelegramChannelConfig(channel);
-
-  if (!configured) {
+  const config = getTelegramChannelConfig(channel);
+  if (!config.configured) {
     return { ok: false, configured: false, error: notConfiguredError(channel) };
   }
+  const main = await postTelegramText(config, config.chatId, config.threadId, text, options);
+  if (channel === "hunting") {
+    for (const chatId of huntingExtraChatIds().filter((id) => id !== config.chatId)) {
+      await postTelegramText(config, chatId, null, text, options);
+    }
+  }
+  return main;
+}
 
+async function postTelegramText(
+  config: TelegramChannelConfig,
+  chatId: string,
+  threadId: number | null,
+  text: string,
+  options: { html?: boolean },
+): Promise<TelegramSendResult> {
+  const { token, label, channel } = config;
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
