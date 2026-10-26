@@ -4,7 +4,13 @@ import { AppShell } from "@/components/app-shell";
 import { HuntingNewsActions, HuntingNewsBackfill } from "@/components/hunting-news-controls";
 import { Badge, Card } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
-import { huntingAdminId, INCIDENT_FILTERS, type IncidentFilter, listIncidents } from "@/lib/hunting-incidents";
+import {
+  huntingAdminId,
+  INCIDENT_FILTERS,
+  INCIDENT_SOURCE_LABELS,
+  type IncidentFilter,
+  listIncidents,
+} from "@/lib/hunting-incidents";
 import { formatMoscow } from "@/lib/timezone";
 
 const STATUS: Record<string, { label: string; tone: "neutral" | "success" | "warning" }> = {
@@ -30,6 +36,8 @@ export default async function HuntingNewsPage({ searchParams }: { searchParams: 
   const requested = (await searchParams).status;
   const filter: IncidentFilter = INCIDENT_FILTERS.find((item) => item.id === requested)?.id ?? "pending";
   const { items, counts } = await listIncidents(filter);
+  const local = INCIDENT_SOURCE_LABELS.filter((source) => !source.regional).map((source) => `«${source.label}»`);
+  const regional = INCIDENT_SOURCE_LABELS.filter((source) => source.regional).map((source) => `«${source.label}»`);
 
   return (
     <AppShell>
@@ -38,10 +46,10 @@ export default async function HuntingNewsPage({ searchParams }: { searchParams: 
           <p className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">Иное</p>
           <h1 className="text-2xl font-bold">Новости · происшествия в Шатуре</h1>
           <p className="text-[var(--muted)]">
-            Бот раз в час читает местные каналы («Шатура без цензуры», «Подслушано Шатура», «Подслушано у водителей»,
-            «Ленинская Шатура») и ленту REGIONS · Шатура. Новость про лес, воду или охоту, где что-то случилось
-            (пропал человек, пожар, медведь, шипы на дороге…), приходит модератору в личку бота — с фото, если оно есть в
-            оригинале. В чаты уходит только после «В чаты». Здесь же — предупреждения охотников через /vnimanie.
+            Бот раз в час читает местные каналы Шатурского округа ({local.join(", ")}), а также областные ({regional.join(", ")}) —
+            из них берёт только новости, где названо место в округе. Новость про лес, воду или охоту, где что-то
+            случилось (пропал человек, пожар, медведь, шипы на дороге…), приходит модератору в личку бота — с фото, если
+            оно есть в оригинале. В чаты уходит только после «В чаты». Здесь же — предупреждения охотников через /vnimanie.
           </p>
           <HuntingNewsBackfill adminConfigured={huntingAdminId() !== ""} />
           <div className="flex flex-wrap gap-2">

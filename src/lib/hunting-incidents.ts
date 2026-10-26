@@ -7,17 +7,30 @@ import { callTelegramApi, getTelegramChannelConfig, huntingExtraChatIds } from "
 import { formatMoscow } from "@/lib/timezone";
 
 type Source =
-  | { id: string; label: string; kind: "tg"; channel: string }
-  | { id: string; label: string; kind: "regions" };
+  | { id: string; label: string; kind: "tg"; channel: string; regional?: boolean }
+  | { id: string; label: string; kind: "regions"; regional?: boolean };
 
-/** Местные источники Шатуры. */
+/** Источники по Шатурскому округу; regional — областные, из них берём только новости с местом в округе. */
 const SOURCES: Source[] = [
   { id: "tg:shatoora_news", label: "Шатура без цензуры", kind: "tg", channel: "shatoora_news" },
+  { id: "tg:vshature", label: "Типичная Шатура", kind: "tg", channel: "vshature" },
+  { id: "tg:shatura18", label: "Подслушано Шатура 18+", kind: "tg", channel: "shatura18" },
   { id: "tg:oshatura", label: "Подслушано Шатура", kind: "tg", channel: "oshatura" },
   { id: "tg:ferralii", label: "Подслушано у водителей Шатура", kind: "tg", channel: "ferralii" },
   { id: "tg:inshatura", label: "Ленинская Шатура", kind: "tg", channel: "inshatura" },
+  { id: "tg:roshaldaily", label: "Рошаль. Город-призрак", kind: "tg", channel: "roshaldaily" },
+  { id: "tg:misheronsky", label: "Подслушано Мишеронский", kind: "tg", channel: "misheronsky" },
   { id: "regions", label: "REGIONS · Шатура", kind: "regions" },
+  { id: "tg:budet_poisk", label: "ЛизаАлерт · Будет поиск", kind: "tg", channel: "budet_poisk", regional: true },
+  { id: "tg:gku_mo_mosoblpojspas", label: "Мособлпожспас", kind: "tg", channel: "gku_mo_mosoblpojspas", regional: true },
+  { id: "tg:mosoblles", label: "Мособллес", kind: "tg", channel: "mosoblles", regional: true },
 ];
+
+export const INCIDENT_SOURCE_LABELS = SOURCES.map((source) => ({ label: source.label, regional: source.regional === true }));
+
+/** Населённые пункты и урочища Шатурского округа — для областных каналов. */
+const DISTRICT_RE =
+  /(?<![а-яё])(?:шатур|рошал|черуст|мишерон|кривандин|туголес|дмитровск[а-яё]*\s+погост|середников|пышлиц|бакшеев|керв|северн[а-яё]*\s+грив|ярмол|осанов|харлампеев|радовиц|лузгар|пиявочн|курилов)/i;
 
 /** Где: лес, вода, охота. Начало слова — чтобы «колесо» не считалось лесом. */
 const PLACE_RE =
@@ -39,6 +52,10 @@ type Found = { source: Source; url: string; text: string; publishedAt: Date; pho
 
 export function isIncident(text: string): boolean {
   return PLACE_RE.test(text) && EVENT_RE.test(text);
+}
+
+function matches(source: Source, text: string): boolean {
+  return isIncident(text) && (!source.regional || DISTRICT_RE.test(text));
 }
 
 function fingerprint(text: string): string {
@@ -170,7 +187,7 @@ export async function collectIncidents(now = new Date()): Promise<IncidentsColle
     const initKey = `incidents-init:${source.id}`;
     const isFirstRun = !(await prisma.huntingNotice.findUnique({ where: { key: initKey } }));
     for (const item of found) {
-      if (now.getTime() - item.publishedAt.getTime() > MAX_AGE_DAYS * 86_400_000 || !isIncident(item.text)) {
+      if (now.getTime() - item.publishedAt.getTime() > MAX_AGE_DAYS * 86_400_000 || !matches(source, item.text)) {
         continue;
       }
       if (await prisma.huntingIncident.findUnique({ where: { url: item.url }, select: { id: true } })) {
@@ -245,7 +262,7 @@ export async function backfillIncidents(days: number, now = new Date()): Promise
           ? await readTelegramSince(source, since)
           : (await readRegions(source)).filter((item) => item.publishedAt >= since);
       result.checked += found.length;
-      matched.push(...found.filter((item) => isIncident(item.text)));
+      matched.push(...found.filter((item) => matches(source, item.text)));
     } catch (error) {
       result.errors.push(`${source.label}: ${error instanceof Error ? error.message : "ошибка"}`);
     }
