@@ -593,7 +593,11 @@ model HuntingIncident {
   photoUrl       String?
   /// То же фото в Telegram после показа модератору — для рассылки в чаты
   photoFileId    String?
+  /// Все фото поста (альбом): JSON [{ url, fileId }]; photoUrl / photoFileId — первое из них
+  photosJson     String   @default("")
   adminMessageId Int?
+  /// Сообщения альбома у модератора — удалить при повторной отправке
+  adminAlbumIds  String   @default("")
   /// Рубрики через запятую: search, fire, road, wildlife, danger, water, mushroom, other
   rubrics        String   @default("")
   /// Где случилось: «д. Бордуки», «Северная Грива»

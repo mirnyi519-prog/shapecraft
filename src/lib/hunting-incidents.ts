@@ -180,7 +180,36 @@ const TEXT_IN_CAPTION = 750;
 /** Ручная проверка за период листает канал назад — не дальше этого числа страниц (~20 постов каждая). */
 const BACKFILL_MAX_PAGES = 40;
 
-type Found = { source: Source; url: string; text: string; publishedAt: Date; photoUrl?: string };
+type Found = { source: Source; url: string; text: string; publishedAt: Date; photoUrls: string[] };
+
+/** Telegram принимает в альбом до 10 фото. */
+const ALBUM_MAX = 10;
+const PHOTO_WRAP_RE = /tgme_widget_message_photo_wrap[^>]*background-image:url\('([^']+)'\)/g;
+
+function photoUrlsIn(html: string): string[] {
+  return [...new Set([...html.matchAll(PHOTO_WRAP_RE)].map((match) => match[1]))].slice(0, ALBUM_MAX);
+}
+
+/** Фото новости: в Telegram (fileId — после первой отправки) и/или ссылка на источник. */
+export type PhotoRef = { url?: string; fileId?: string };
+
+export function photosOf(row: { photosJson: string; photoUrl: string | null; photoFileId: string | null }): PhotoRef[] {
+  if (row.photosJson) {
+    try {
+      const photos = JSON.parse(row.photosJson) as PhotoRef[];
+      if (Array.isArray(photos) && photos.length > 0) {
+        return photos;
+      }
+    } catch {
+      // старый формат — ниже
+    }
+  }
+  return row.photoUrl || row.photoFileId ? [{ url: row.photoUrl ?? undefined, fileId: row.photoFileId ?? undefined }] : [];
+}
+
+function photoFields(urls: string[]) {
+  return { photoUrl: urls[0] ?? null, photosJson: urls.length > 0 ? JSON.stringify(urls.map((url) => ({ url }))) : "" };
+}
 
 /** Лёд на водоёмах: и происшествия, и предупреждения. */
 const ICE_RE =
@@ -450,7 +479,7 @@ async function readTelegramPage(source: Extract<Source, { kind: "tg" }>, before?
       url: `https://t.me/${post}`,
       text: htmlToText(body.replace(/<br\s*\/?>/gi, "\n")).trim(),
       publishedAt: new Date(time),
-      photoUrl: /tgme_widget_message_photo_wrap[^>]*background-image:url\('([^']+)'\)/.exec(chunk)?.[1],
+      photoUrls: photoUrlsIn(chunk),
     });
   }
   return page;
@@ -497,6 +526,7 @@ async function readRegions(source: Extract<Source, { kind: "regions" }>): Promis
     url: `https://regions.ru${href}`,
     text: htmlToText(title).trim(),
     publishedAt: new Date(time.replace(/([+-]\d{2})(\d{2})$/, "$1:$2")),
+    photoUrls: [],
   }));
 }
 
@@ -546,12 +576,12 @@ export async function collectIncidents(now = new Date()): Promise<IncidentsColle
       const print = fingerprint(item.text);
       const original = await findSimilar(print, item.publishedAt);
       const status = isFirstRun ? "seen" : original ? "skipped" : "pending";
-      const photoUrl = status === "pending" ? await photoOf(item) : item.photoUrl;
+      const photoUrls = status === "pending" ? await photoOf(item) : item.photoUrls;
       const incident = await prisma.huntingIncident.create({
         data: {
           ...incidentData(item, print),
           status,
-          photoUrl,
+          ...photoFields(photoUrls),
           duplicateOf: original?.id ?? null,
         },
       });
@@ -612,8 +642,12 @@ function incidentData(item: Found, print: string) {
   };
 }
 
-async function photoOf(item: Found): Promise<string | undefined> {
-  return item.photoUrl ?? (item.source.kind === "regions" ? await readArticlePhoto(item.url) : undefined);
+async function photoOf(item: Found): Promise<string[]> {
+  if (item.photoUrls.length > 0 || item.source.kind !== "regions") {
+    return item.photoUrls;
+  }
+  const photo = await readArticlePhoto(item.url);
+  return photo ? [photo] : [];
 }
 
 export type IncidentsBackfillResult = {
@@ -662,7 +696,7 @@ export async function backfillIncidents(days: number, now = new Date()): Promise
       result.duplicates += 1;
       if (!existing) {
         await prisma.huntingIncident.create({
-          data: { ...incidentData(item, print), status: "skipped", photoUrl: item.photoUrl, duplicateOf: original.id },
+          data: { ...incidentData(item, print), status: "skipped", ...photoFields(item.photoUrls), duplicateOf: original.id },
         });
       } else {
         await prisma.huntingIncident.update({
@@ -675,14 +709,15 @@ export async function backfillIncidents(days: number, now = new Date()): Promise
       }
       continue;
     }
-    const photoUrl = (await photoOf(item)) ?? existing?.photoUrl ?? undefined;
+    const photoUrls = await photoOf(item);
+    const photos = photoUrls.length > 0 ? { ...photoFields(photoUrls), photoFileId: null } : {};
     const incident = existing
       ? await prisma.huntingIncident.update({
           where: { id: existing.id },
-          data: { ...incidentData(item, print), status: "pending", photoUrl, duplicateOf: null },
+          data: { ...incidentData(item, print), status: "pending", ...photos, duplicateOf: null },
         })
       : await prisma.huntingIncident.create({
-          data: { ...incidentData(item, print), status: "pending", photoUrl },
+          data: { ...incidentData(item, print), status: "pending", ...photos },
         });
     if (await askModerator(incident)) {
       result.sent += 1;
@@ -712,33 +747,103 @@ async function sendPhoto(
     return byUrl;
   }
   console.error("hunting incident photo by url", byUrl.error);
+  const image = await download(photoUrl);
+  if (!image) {
+    return { ok: false, error: "фото не скачалось" };
+  }
+  return uploadToTelegram<SentMessage>("sendPhoto", payload, { photo: image });
+}
+
+async function uploadToTelegram<T>(
+  method: string,
+  payload: Record<string, unknown>,
+  files: Record<string, Photo>,
+): Promise<{ ok: boolean; result?: T; error?: string }> {
   const { token } = getTelegramChannelConfig("hunting");
+  const form = new FormData();
+  for (const [key, value] of Object.entries(payload)) {
+    form.set(key, typeof value === "string" ? value : JSON.stringify(value));
+  }
+  for (const [name, file] of Object.entries(files)) {
+    form.set(name, new Blob([file.bytes], { type: file.type }), `${name}.jpg`);
+  }
   try {
-    const image = await fetch(photoUrl, { signal: AbortSignal.timeout(15000) });
-    const bytes = await image.arrayBuffer();
-    if (!image.ok || bytes.byteLength === 0 || bytes.byteLength > PHOTO_MAX_BYTES) {
-      return { ok: false, error: `фото не скачалось: HTTP ${image.status}, ${bytes.byteLength} B` };
-    }
-    const form = new FormData();
-    for (const [key, value] of Object.entries(payload)) {
-      form.set(key, typeof value === "string" ? value : JSON.stringify(value));
-    }
-    form.set("photo", new Blob([bytes], { type: image.headers.get("content-type") ?? "image/jpeg" }), "photo.jpg");
-    const response = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+    const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
       method: "POST",
       body: form,
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(60_000),
     });
-    const body = (await response.json().catch(() => null)) as { ok?: boolean; result?: SentMessage; description?: string } | null;
+    const body = (await response.json().catch(() => null)) as { ok?: boolean; result?: T; description?: string } | null;
     if (!body?.ok) {
-      console.error("hunting incident photo upload", body?.description ?? response.status);
+      console.error(`hunting ${method} upload`, body?.description ?? response.status);
       return { ok: false, error: body?.description ?? `Telegram HTTP ${response.status}` };
     }
     return { ok: true, result: body.result };
   } catch (error) {
-    console.error("hunting incident photo upload", error);
+    console.error(`hunting ${method} upload`, error);
     return { ok: false, error: "фото не отправилось" };
   }
+}
+
+/**
+ * Альбом (2–10 фото, подпись под первым). Кнопок у альбома в Telegram не бывает.
+ * Если Telegram не взял ссылки — качаем сами и грузим файлами; не скачавшиеся фото выпадают.
+ */
+async function sendAlbum(
+  payload: Record<string, unknown>,
+  photos: PhotoRef[],
+  captionHtml?: string,
+): Promise<{ ok: boolean; result?: SentMessage[]; error?: string }> {
+  const caption = (index: number) => (index === 0 && captionHtml ? { caption: captionHtml, parse_mode: "HTML" } : {});
+  const media = photos.map((photo, index) => ({ type: "photo", media: photo.fileId ?? photo.url, ...caption(index) }));
+  const direct = await callTelegramApi<SentMessage[]>("hunting", "sendMediaGroup", { ...payload, media });
+  if (direct.ok) {
+    return direct;
+  }
+  console.error("hunting album by url", direct.error);
+  const files: Record<string, Photo> = {};
+  const uploaded: Record<string, unknown>[] = [];
+  for (const [index, photo] of photos.entries()) {
+    const image = photo.url ? await download(photo.url) : null;
+    if (image) {
+      files[`p${index}`] = image;
+      uploaded.push({ type: "photo", media: `attach://p${index}`, ...caption(uploaded.length) });
+    } else if (photo.fileId) {
+      uploaded.push({ type: "photo", media: photo.fileId, ...caption(uploaded.length) });
+    }
+  }
+  if (uploaded.length < 2) {
+    return { ok: false, error: "альбом не скачался" };
+  }
+  return uploadToTelegram<SentMessage[]>("sendMediaGroup", { ...payload, media: uploaded }, files);
+}
+
+/**
+ * Новость в один чат: альбом с подписью, одно фото с подписью или текст.
+ * captionHtml — короткий вариант текста под фото; если фото не ушли, шлётся полный html.
+ */
+async function deliver(
+  payload: Record<string, unknown>,
+  html: string,
+  photos: PhotoRef[],
+  captionHtml: string,
+): Promise<{ ok: boolean; error?: string }> {
+  let result: { ok: boolean; error?: string } | null = null;
+  if (photos.length > 1) {
+    result = await sendAlbum(payload, photos, captionHtml);
+  } else if (photos.length === 1) {
+    const photo = photos[0].fileId ?? photos[0].url;
+    result = photo ? await sendPhoto({ ...payload, caption: captionHtml, parse_mode: "HTML" }, photo) : null;
+  }
+  if (result?.ok || BLOCKED_RE.test(result?.error ?? "")) {
+    return result!;
+  }
+  return callTelegramApi("hunting", "sendMessage", {
+    ...payload,
+    text: html.slice(0, 4000),
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+  });
 }
 
 function shortDate(date: Date): string {
@@ -787,7 +892,8 @@ async function refreshModerator(id: string): Promise<void> {
   }
   const html = await moderatorHtml(incident);
   const common = { chat_id: adminId, message_id: incident.adminMessageId, parse_mode: "HTML", reply_markup: moderatorKeyboard(id) };
-  const result = incident.photoFileId
+  const photoMessage = incident.photoFileId && photosOf(incident).length === 1;
+  const result = photoMessage
     ? await callTelegramApi("hunting", "editMessageCaption", { ...common, caption: html(TEXT_IN_CAPTION) })
     : await callTelegramApi("hunting", "editMessageText", {
         ...common,
@@ -806,26 +912,42 @@ async function askModerator(incident: IncidentRow): Promise<boolean> {
   }
   const html = await moderatorHtml(incident);
   const reply_markup = moderatorKeyboard(incident.id);
-  let sent = incident.photoUrl
-    ? await sendPhoto({ chat_id: adminId, caption: html(TEXT_IN_CAPTION), parse_mode: "HTML", reply_markup }, incident.photoUrl)
-    : null;
+  const photos = photosOf(incident);
+  const album = photos.length > 1 ? await sendAlbum({ chat_id: adminId }, photos) : null;
+  const single = photos[0]?.fileId ?? photos[0]?.url;
+  let sent =
+    photos.length === 1 && single
+      ? await sendPhoto({ chat_id: adminId, caption: html(TEXT_IN_CAPTION), parse_mode: "HTML", reply_markup }, single)
+      : null;
   if (!sent?.ok) {
     sent = await callTelegramApi<SentMessage>("hunting", "sendMessage", {
       chat_id: adminId,
       text: html(TEXT_IN_MESSAGE),
       parse_mode: "HTML",
       disable_web_page_preview: true,
+      ...(album?.ok && album.result ? { reply_parameters: { message_id: album.result[0].message_id } } : {}),
       reply_markup,
     });
   }
   if (sent.ok && sent.result) {
-    const fileId = sent.result.photo?.at(-1)?.file_id;
+    const sentPhotos = album?.ok && album.result ? album.result : [sent.result];
+    const fileIds = sentPhotos.map((message) => message.photo?.at(-1)?.file_id);
+    const merged =
+      fileIds.length === photos.length || photos.length === 1
+        ? photos.map((photo, index) => ({ ...photo, fileId: fileIds[index] ?? photo.fileId }))
+        : fileIds.flatMap((fileId) => (fileId ? [{ fileId }] : []));
     await prisma.huntingIncident.update({
       where: { id: incident.id },
-      data: { adminMessageId: sent.result.message_id, photoFileId: fileId ?? null },
+      data: {
+        adminMessageId: sent.result.message_id,
+        photoFileId: fileIds[0] ?? null,
+        photosJson: merged.length > 0 ? JSON.stringify(merged) : "",
+        adminAlbumIds: album?.ok && album.result ? album.result.map((message) => message.message_id).join(",") : "",
+      },
     });
-    if (incident.adminMessageId) {
-      await callTelegramApi("hunting", "deleteMessage", { chat_id: adminId, message_id: incident.adminMessageId });
+    const stale = [incident.adminMessageId, ...incident.adminAlbumIds.split(",").map(Number)].filter(Boolean);
+    for (const messageId of stale) {
+      await callTelegramApi("hunting", "deleteMessage", { chat_id: adminId, message_id: messageId });
     }
   }
   return sent.ok;
@@ -843,32 +965,12 @@ function huntingTargets(): { chatId: string; threadId: number | null }[] {
   return targets;
 }
 
-/**
- * Текст (или фото с подписью) во все охотничьи чаты. Возвращает, в сколько чатов дошло.
- * captionHtml — короткий вариант текста под фото; если фото не ушло, шлётся полный html.
- */
-async function broadcast(html: string, photo?: { fileId: string; captionHtml: string }): Promise<number> {
+/** Новость (с альбомом / фото, если есть) во все охотничьи чаты. Возвращает, в сколько чатов дошло. */
+async function broadcast(html: string, photos: PhotoRef[], captionHtml: string): Promise<number> {
   let delivered = 0;
   for (const target of huntingTargets()) {
     const thread = target.threadId != null ? { message_thread_id: target.threadId } : {};
-    let result = photo
-      ? await callTelegramApi("hunting", "sendPhoto", {
-          chat_id: target.chatId,
-          photo: photo.fileId,
-          caption: photo.captionHtml,
-          parse_mode: "HTML",
-          ...thread,
-        })
-      : null;
-    if (!result?.ok) {
-      result = await callTelegramApi("hunting", "sendMessage", {
-        chat_id: target.chatId,
-        text: html.slice(0, 4000),
-        parse_mode: "HTML",
-        disable_web_page_preview: true,
-        ...thread,
-      });
-    }
+    const result = await deliver({ chat_id: target.chatId, ...thread }, html, photos, captionHtml);
     if (result.ok) {
       delivered += 1;
     } else {
@@ -909,10 +1011,9 @@ export async function moderateIncident(id: string, publish: boolean): Promise<Mo
         `Источник: <a href="${escapeHtml(incident.url)}">${escapeHtml(incident.sourceLabel)}</a>`,
         ...alsoLine(also),
       ].join("\n");
-    const photo = incident.photoFileId ?? incident.photoUrl;
-    const content = photo ? { fileId: photo, captionHtml: html(TEXT_IN_CAPTION) } : undefined;
-    delivered = await broadcast(html(TEXT_IN_MESSAGE), content);
-    subscribers = await sendToSubscribers(rubricList(incident.rubrics), html(TEXT_IN_MESSAGE), content);
+    const photos = photosOf(incident);
+    delivered = await broadcast(html(TEXT_IN_MESSAGE), photos, html(TEXT_IN_CAPTION));
+    subscribers = await sendToSubscribers(rubricList(incident.rubrics), html(TEXT_IN_MESSAGE), photos, html(TEXT_IN_CAPTION));
   }
   if (incident.adminMessageId) {
     await callTelegramApi("hunting", "editMessageReplyMarkup", {
@@ -937,7 +1038,8 @@ const BLOCKED_RE = /blocked|deactivated|chat not found|user is deactivated|bot c
 async function sendToSubscribers(
   rubrics: RubricId[],
   html: string,
-  photo?: { fileId: string; captionHtml: string },
+  photos: PhotoRef[],
+  captionHtml: string,
 ): Promise<number> {
   const rows = await prisma.huntingSubscription.findMany({
     where: { rubric: { in: rubrics }, active: true },
@@ -945,25 +1047,10 @@ async function sendToSubscribers(
   });
   let delivered = 0;
   for (const userId of new Set(rows.map((row) => row.userId))) {
-    let result = photo
-      ? await callTelegramApi("hunting", "sendPhoto", {
-          chat_id: userId,
-          photo: photo.fileId,
-          caption: photo.captionHtml,
-          parse_mode: "HTML",
-        })
-      : null;
-    if (!result?.ok && !BLOCKED_RE.test(result?.error ?? "")) {
-      result = await callTelegramApi("hunting", "sendMessage", {
-        chat_id: userId,
-        text: html.slice(0, 4000),
-        parse_mode: "HTML",
-        disable_web_page_preview: true,
-      });
-    }
-    if (result?.ok) {
+    const result = await deliver({ chat_id: userId }, html, photos, captionHtml);
+    if (result.ok) {
       delivered += 1;
-    } else if (BLOCKED_RE.test(result?.error ?? "")) {
+    } else if (BLOCKED_RE.test(result.error ?? "")) {
       await prisma.huntingSubscription.updateMany({ where: { userId }, data: { active: false } });
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -1086,6 +1173,7 @@ export async function listIncidents(filter: IncidentFilter, rubric: RubricId | n
   const items = rows.map((row) => ({
     ...row,
     rubricIds: rubricList(row.rubrics),
+    photoCount: photosOf(row).length,
     also: duplicates.filter((item) => item.duplicateOf === row.id),
   }));
   const rubricCounts = Object.fromEntries(
@@ -1102,6 +1190,80 @@ export async function listIncidents(filter: IncidentFilter, rubric: RubricId | n
       all: counts.reduce((sum, row) => sum + row._count._all, 0) + hunter,
     } satisfies Record<IncidentFilter, number>,
   };
+}
+
+type Photo = { bytes: ArrayBuffer; type: string };
+
+async function download(url: string): Promise<Photo | null> {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(15_000), cache: "no-store" });
+    const bytes = await response.arrayBuffer();
+    if (!response.ok || bytes.byteLength === 0 || bytes.byteLength > PHOTO_MAX_BYTES) {
+      return null;
+    }
+    return { bytes, type: response.headers.get("content-type") ?? "image/jpeg" };
+  } catch {
+    return null;
+  }
+}
+
+/** Свежие ссылки на фото поста: ссылки CDN каналов со временем перестают открываться. */
+async function freshPhotoUrls(postUrl: string): Promise<string[]> {
+  if (!postUrl.startsWith("https://t.me/")) {
+    const photo = postUrl.startsWith("https://regions.ru") ? await readArticlePhoto(postUrl) : undefined;
+    return photo ? [photo] : [];
+  }
+  try {
+    return photoUrlsIn(await fetchHtml(`${postUrl}?embed=1&mode=tme`));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Фото новости (index — номер в альбоме) для админки через наш сервер: сначала копия в Telegram
+ * (file_id не устаревает), потом ссылка из источника, а если и она умерла — перечитываем пост и запоминаем новые ссылки.
+ */
+export async function incidentPhoto(id: string, index = 0): Promise<Photo | null> {
+  const incident = await prisma.huntingIncident.findUnique({
+    where: { id },
+    select: { url: true, photoUrl: true, photoFileId: true, photosJson: true },
+  });
+  if (!incident) {
+    return null;
+  }
+  const photos = photosOf(incident);
+  const ref = photos[index];
+  if (!ref) {
+    return null;
+  }
+  if (ref.fileId) {
+    const file = await callTelegramApi<{ file_path?: string }>("hunting", "getFile", { file_id: ref.fileId });
+    const { token } = getTelegramChannelConfig("hunting");
+    const photo = file.ok && file.result?.file_path ? await download(`https://api.telegram.org/file/bot${token}/${file.result.file_path}`) : null;
+    if (photo) {
+      return photo;
+    }
+  }
+  if (ref.url) {
+    const photo = await download(ref.url);
+    if (photo) {
+      return photo;
+    }
+  }
+  const fresh = await freshPhotoUrls(incident.url);
+  if (!fresh[index] || fresh[index] === ref.url) {
+    return null;
+  }
+  const photo = await download(fresh[index]);
+  if (photo) {
+    const updated = fresh.map((url, i) => ({ url, fileId: photos[i]?.fileId }));
+    await prisma.huntingIncident.update({
+      where: { id },
+      data: { photoUrl: fresh[0], photosJson: JSON.stringify(updated) },
+    });
+  }
+  return photo;
 }
 
 export type SourceStat = {
@@ -1348,7 +1510,8 @@ export async function sendHunterWarning(input: {
     ].join("\n");
   const delivered = await broadcast(
     html(3000),
-    input.photoFileId ? { fileId: input.photoFileId, captionHtml: html(TEXT_IN_CAPTION) } : undefined,
+    input.photoFileId ? [{ fileId: input.photoFileId }] : [],
+    html(TEXT_IN_CAPTION),
   );
   await prisma.huntingIncident.create({
     data: {

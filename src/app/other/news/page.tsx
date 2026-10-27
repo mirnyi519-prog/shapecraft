@@ -72,8 +72,8 @@ export default async function HuntingNewsPage({
           <p className="text-[var(--muted)]">
             Бот раз в час читает местные каналы Шатурского и Егорьевского округов ({local.join(", ")}), а также областные (
             {regional.join(", ")}) — из них берёт только новости, где названо место в округе, и предупреждения про лёд по
-            всей области. Подходящая новость приходит модератору в личку бота — с рубрикой, местом и фото, если оно есть в
-            оригинале. В чаты и подписчикам (/podpiska) уходит только после «В чаты». Здесь же — предупреждения охотников
+            всей области. Подходящая новость приходит модератору в личку бота — с рубрикой, местом и всеми фото из
+            оригинала (альбом — до 10 фото). В чаты и подписчикам (/podpiska) уходит только после «В чаты». Здесь же — предупреждения охотников
             через /vnimanie.
           </p>
           <HuntingNewsBackfill adminConfigured={huntingAdminId() !== ""} />
@@ -111,17 +111,26 @@ export default async function HuntingNewsPage({
               return (
                 <Card key={item.id}>
                   <div className="flex flex-col gap-4 sm:flex-row">
-                    {item.photoUrl ? (
-                      <a href={external ? item.url : undefined} target="_blank" rel="noopener noreferrer" className="shrink-0">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={item.photoUrl}
-                          alt=""
-                          loading="lazy"
-                          referrerPolicy="no-referrer"
-                          className="h-40 w-full rounded-xl object-cover sm:h-32 sm:w-44"
-                        />
-                      </a>
+                    {item.photoCount > 0 ? (
+                      <div className="grid shrink-0 grid-cols-3 gap-1.5 sm:w-44">
+                        {Array.from({ length: item.photoCount }, (_, index) => (
+                          <a
+                            key={index}
+                            href={`/api/hunting/incidents/${item.id}/photo?i=${index}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={index === 0 ? "col-span-3" : undefined}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={`/api/hunting/incidents/${item.id}/photo?i=${index}`}
+                              alt=""
+                              loading="lazy"
+                              className={`w-full bg-[var(--brand-soft)] object-cover ${index === 0 ? "h-40 rounded-xl sm:h-32" : "h-12 rounded-lg"}`}
+                            />
+                          </a>
+                        ))}
+                      </div>
                     ) : null}
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -129,7 +138,6 @@ export default async function HuntingNewsPage({
                           <span className="font-semibold">{item.sourceLabel}</span>
                           <span className="text-[var(--muted)]"> · {when(item.publishedAt)}</span>
                           {item.place ? <span className="text-[var(--muted)]"> · 📍 {item.place}</span> : null}
-                          {item.photoFileId && !item.photoUrl ? <span className="text-[var(--muted)]"> · с фото</span> : null}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           {item.duplicateOf ? <Badge tone="neutral">повтор</Badge> : null}
