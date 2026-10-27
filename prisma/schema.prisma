@@ -594,9 +594,40 @@ model HuntingIncident {
   /// То же фото в Telegram после показа модератору — для рассылки в чаты
   photoFileId    String?
   adminMessageId Int?
+  /// Рубрики через запятую: search, fire, road, wildlife, danger, water, mushroom, other
+  rubrics        String   @default("")
+  /// Где случилось: «д. Бордуки», «Северная Грива»
+  place          String   @default("")
+  /// Повтор этой новости из другого канала — id первой
+  duplicateOf    String?
   createdAt      DateTime @default(now())
 
   @@index([status, publishedAt])
+  @@index([duplicateOf])
+}
+
+/// Слова, которые модератор добавил в шум (add) или просил больше не предлагать (ignore)
+model HuntingNoiseWord {
+  /// Первые 6 букв слова, как в отпечатке новости
+  stem      String   @id
+  /// add | ignore
+  action    String
+  /// Пример слова целиком — для показа
+  sample    String   @default("")
+  createdAt DateTime @default(now())
+}
+
+/// Подписка охотника на рубрики новостей в личку бота
+model HuntingSubscription {
+  userId    String
+  rubric    String
+  name      String   @default("")
+  /// false — пользователь заблокировал бота
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@id([userId, rubric])
+  @@index([rubric])
 }
 
 model HuntingNotice {

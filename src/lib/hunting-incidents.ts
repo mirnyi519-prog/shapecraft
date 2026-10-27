@@ -30,6 +30,7 @@ const SOURCES: Source[] = [
   { id: "tg:budet_poisk", label: "ЛизаАлерт · Будет поиск", kind: "tg", channel: "budet_poisk", regional: true },
   { id: "tg:gku_mo_mosoblpojspas", label: "Мособлпожспас", kind: "tg", channel: "gku_mo_mosoblpojspas", regional: true },
   { id: "tg:mosoblles", label: "Мособллес", kind: "tg", channel: "mosoblles", regional: true },
+  { id: "tg:mchs_mo", label: "МЧС Московской области", kind: "tg", channel: "mchs_mo", regional: true },
 ];
 
 export const INCIDENT_SOURCE_LABELS = SOURCES.map((source) => ({ label: source.label, regional: source.regional === true }));
@@ -181,17 +182,228 @@ const BACKFILL_MAX_PAGES = 40;
 
 type Found = { source: Source; url: string; text: string; publishedAt: Date; photoUrl?: string };
 
-/** regional — пост из областного канала: нужно ещё и место в Шатурском округе. */
-export function isIncident(text: string, regional = false): boolean {
+/** Лёд на водоёмах: и происшествия, и предупреждения. */
+const ICE_RE =
+  /(?<![а-яё])(?:выход[а-яё]*\s+на\s+л[её]д|на\s+льду|толщин[а-яё]*\s+льда|тонк[а-яё]*\s+л[её]д|л[её]д\s+(?:тонк|опас|непрочн|ещё|еще)|ледостав|ледоход|подл[её]дн|под\s+л[её]д)/i;
+/** Предупреждение про лёд по всей области — интересно и без места в округе. */
+const ICE_WARNING_RE =
+  /(?<![а-яё])(?:выход[а-яё]*\s+на\s+л[её]д|толщин[а-яё]*\s+льда|тонк[а-яё]*\s+л[её]д|л[её]д\s+(?:тонк|опас|непрочн|ещё|еще)|ледостав|ледоход)/i;
+const ICE_NOISE_RE = /(?<![а-яё])(?:хокке|каток|катк[аеиу]|фигурн|ледов[а-яё]*\s+(?:арен|дворц|шоу)|кёрлинг|керлинг)/i;
+
+function mentionsIce(text: string): boolean {
+  return ICE_RE.test(text) && !ICE_NOISE_RE.test(text);
+}
+
+/** Слова, которые модератор добавил в шум, — первые 6 букв. */
+function hasNoiseStem(text: string, noiseStems: readonly string[]): boolean {
+  if (noiseStems.length === 0) {
+    return false;
+  }
+  const stems = new Set((text.toLowerCase().replace(/ё/g, "е").match(/[а-я]{5,}/g) ?? []).map((word) => word.slice(0, 6)));
+  return noiseStems.some((stem) => stems.has(stem));
+}
+
+/** regional — пост из областного канала: нужно ещё и место в Шатурском округе (кроме предупреждений про лёд). */
+export function isIncident(text: string, regional = false, noiseStems: readonly string[] = []): boolean {
   const relevant =
     (PLACE_RE.test(text) && EVENT_RE.test(text)) ||
     mentions(text, WILDLIFE_RE, WILDLIFE_NOISE_RE) ||
-    mentions(text, MUSHROOM_RE, MUSHROOM_NOISE_RE);
-  return relevant && !NOISE_RE.test(text) && (!regional || DISTRICT_RE.test(text));
+    mentions(text, MUSHROOM_RE, MUSHROOM_NOISE_RE) ||
+    mentionsIce(text);
+  if (!relevant || NOISE_RE.test(text) || hasNoiseStem(text, noiseStems)) {
+    return false;
+  }
+  return !regional || DISTRICT_RE.test(text) || (ICE_WARNING_RE.test(text) && !ICE_NOISE_RE.test(text));
 }
 
-function matches(source: Source, text: string): boolean {
-  return isIncident(text, source.regional);
+function matches(source: Source, text: string, noiseStems: readonly string[]): boolean {
+  return isIncident(text, source.regional, noiseStems);
+}
+
+async function loadNoiseStems(): Promise<string[]> {
+  const rows = await prisma.huntingNoiseWord.findMany({ where: { action: "add" }, select: { stem: true } });
+  return rows.map((row) => row.stem);
+}
+
+export const RUBRICS = [
+  { id: "search", emoji: "🆘", label: "Поиск и спасение" },
+  { id: "fire", emoji: "🔥", label: "Пожары" },
+  { id: "road", emoji: "🚗", label: "ДТП с животными" },
+  { id: "danger", emoji: "⚠️", label: "Браконьеры, шипы, кражи" },
+  { id: "water", emoji: "🧊", label: "Вода и лёд" },
+  { id: "wildlife", emoji: "🐾", label: "Звери и птицы" },
+  { id: "mushroom", emoji: "🍄", label: "Грибы" },
+  { id: "other", emoji: "📰", label: "Прочее" },
+] as const;
+
+export type RubricId = (typeof RUBRICS)[number]["id"];
+
+const SEARCH_RE = /(?<![а-яё])(?:заблуд|пропал|ищут|поиск|спасател|спасли|вывели\s+из\s+лес|лизаалерт|потерял[а-яё]*\s+в\s+лесу)/i;
+const FIRE_RE = /(?<![а-яё])(?:пожар(?!н|оопасн)|возгоран|горит|загорел|задымлен|пал\s+травы|палы)/i;
+const ROAD_RE = /(?<![а-яё])(?:дтп|сбил|сбит|столкнул|наезд|под\s+колёс|под\s+колес|на\s+дорогу\s+выбежал|выскочил[а-яё]*\s+на\s+дорог)/i;
+const DANGER_RE = /(?<![а-яё])(?:браконьер|шип(?!овн)|прокол|пробил|украл|краж|обокрал|вскрыл|разбил|выстрел|застрел|ранен|ранил|напал|нападени|укус)/i;
+const WATER_RE = /(?<![а-яё])(?:утонул|утоп|тонул|тонет|провалил)/i;
+
+/** Рубрики новости по тексту — в порядке важности; без рубрики — «Прочее». */
+export function rubricsOf(text: string): RubricId[] {
+  const wildlife = mentions(text, WILDLIFE_RE, WILDLIFE_NOISE_RE);
+  const found: RubricId[] = [];
+  if (SEARCH_RE.test(text)) found.push("search");
+  if (FIRE_RE.test(text)) found.push("fire");
+  if (wildlife && ROAD_RE.test(text)) found.push("road");
+  if (DANGER_RE.test(text)) found.push("danger");
+  if (WATER_RE.test(text) || mentionsIce(text)) found.push("water");
+  if (wildlife) found.push("wildlife");
+  if (mentions(text, MUSHROOM_RE, MUSHROOM_NOISE_RE)) found.push("mushroom");
+  return found.length > 0 ? found : ["other"];
+}
+
+function rubricList(value: string): RubricId[] {
+  return value.split(",").filter((id): id is RubricId => RUBRICS.some((rubric) => rubric.id === id));
+}
+
+function rubricTitle(value: string): string {
+  const ids = rubricList(value);
+  const first = RUBRICS.find((rubric) => rubric.id === ids[0]) ?? RUBRICS[RUBRICS.length - 1];
+  const emojis = ids.map((id) => RUBRICS.find((rubric) => rubric.id === id)!.emoji).join("");
+  return `${emojis || first.emoji} ${first.label}`;
+}
+
+const PLACE_KINDS: [RegExp, string][] = [
+  [/^(?:д\.|дер\.|деревн)/, "д."],
+  [/^(?:с\.|сел)/, "с."],
+  [/^(?:п\.|пос\.|пос[её]л|рп)/, "п."],
+  [/^урочищ/, "ур."],
+  [/^озер/, "оз."],
+  [/^снт/i, "СНТ"],
+];
+const PLACE_RE_NAMED =
+  /(?<![а-яё])(д\.|дер\.|деревн[а-яё]*|с\.|сел[аоеу]м?|п\.|пос\.|пос[её]л(?:ок|ка|ке|ком)|рп\.?|урочищ[а-яё]*|озер[оаеу]м?|СНТ|снт)\s*«?([А-ЯЁ][а-яё]+(?:(?:\s|-)(?![А-ЯЁ][а-яё]*(?:ского|скому|ском|ский|ской)(?![а-яё]))[А-ЯЁ][а-яё]+)?)/g;
+/** Место рядом с названием нашего округа — в областных сводках, где перечислены деревни по всей области. */
+const NEAR_DISTRICT_CHARS = 120;
+/** Известные места округа — если в тексте нет «д. …», «п. …». */
+const KNOWN_PLACES: [RegExp, string][] = [
+  [/северн[а-яё]*\s+грив/i, "Северная Грива"],
+  [/дмитровск[а-яё]*\s+погост/i, "Дмитровский Погост"],
+  [/туголес/i, "Туголесский Бор"],
+  [/шатурторф/i, "Шатурторф"],
+  [/кривандин/i, "Кривандино"],
+  [/мишерон/i, "Мишеронский"],
+  [/черуст/i, "Черусти"],
+  [/пышлиц/i, "Пышлицы"],
+  [/середников/i, "Середниково"],
+  [/бакшеев/i, "Бакшеево"],
+  [/(?<![а-яё])керв/i, "Керва"],
+  [/ярмол/i, "Ярмолы"],
+  [/осанов/i, "Осаново"],
+  [/курилов/i, "Курилово"],
+  [/пиявочн/i, "Пиявочное"],
+  [/радовиц/i, "Радовицкий"],
+  [/лузгар/i, "Лузгарино"],
+  [/харлампеев/i, "Харлампеево"],
+  [/рязановск/i, "Рязановский"],
+  [/архиповск/i, "Архиповское"],
+  [/рошал/i, "Рошаль"],
+  [/егорьевск/i, "Егорьевск"],
+];
+
+/**
+ * Где случилось: «д. Бордуки», «оз. Святое» — если в тексте есть наш округ, то деревня рядом с ним;
+ * иначе — известное место округа, названное первым.
+ */
+export function placeOf(text: string): string {
+  const named = [...text.matchAll(PLACE_RE_NAMED)];
+  const ours = DISTRICT_RE.test(text);
+  const pick = ours
+    ? named.find((match) =>
+        DISTRICT_RE.test(text.slice(Math.max(0, match.index - NEAR_DISTRICT_CHARS), match.index + NEAR_DISTRICT_CHARS)),
+      )
+    : named[0];
+  if (pick) {
+    const kind = PLACE_KINDS.find(([re]) => re.test(pick[1].toLowerCase()))?.[1] ?? "";
+    return `${kind} ${pick[2]}`.trim();
+  }
+  let best: { index: number; name: string } | null = null;
+  for (const [re, name] of KNOWN_PLACES) {
+    const index = text.search(re);
+    if (index >= 0 && (!best || index < best.index)) {
+      best = { index, name };
+    }
+  }
+  const first = named[0];
+  const firstName = first ? `${PLACE_KINDS.find(([re]) => re.test(first[1].toLowerCase()))?.[1] ?? ""} ${first[2]}`.trim() : "";
+  return best?.name ?? firstName;
+}
+
+const ROAD_STOP_STEMS = new Set(["шатур", "рошал", "егорь", "подмо", "моско", "росси", "мособ", "будьт", "сотру"]);
+
+/** Названия у места ДТП: «Слобода», «Петровской» — первые 5 букв, без слов в начале фразы. */
+function roadStems(text: string): Set<string> {
+  const stems = new Set<string>();
+  for (const match of text.matchAll(/[А-ЯЁ][а-яё]{3,}/g)) {
+    const before = text.slice(0, match.index);
+    const abbreviation = /(?:^|[\s(])[а-яё]{1,4}\.\s*$/.test(before);
+    const sentenceStart =
+      before.trim() === "" || /[.!?…]\s+$/.test(before) || /\n\s*$/.test(before) || /\p{Extended_Pictographic}\s*$/u.test(before);
+    if (sentenceStart && !abbreviation) {
+      continue;
+    }
+    const stem = match[0].toLowerCase().slice(0, 5);
+    if (!ROAD_STOP_STEMS.has(stem)) {
+      stems.add(stem);
+    }
+  }
+  return stems;
+}
+
+/** Даты прошлых ДТП с животными на том же участке за год. */
+async function roadHistory(incident: { id: string; text: string; rubrics: string; publishedAt: Date }): Promise<string[]> {
+  if (!rubricList(incident.rubrics).includes("road")) {
+    return [];
+  }
+  const stems = roadStems(incident.text);
+  if (stems.size === 0) {
+    return [];
+  }
+  const rows = await prisma.huntingIncident.findMany({
+    where: {
+      id: { not: incident.id },
+      duplicateOf: null,
+      rubrics: { contains: "road" },
+      publishedAt: { gte: new Date(incident.publishedAt.getTime() - 365 * 86_400_000), lt: incident.publishedAt },
+    },
+    orderBy: { publishedAt: "asc" },
+    select: { text: true, publishedAt: true },
+  });
+  return rows
+    .filter((row) => [...roadStems(row.text)].some((stem) => stems.has(stem)))
+    .map((row) => formatMoscow(row.publishedAt, { day: "2-digit", month: "2-digit" }));
+}
+
+/** Повторы новости из других каналов — «Также писали». */
+async function alsoWrote(id: string): Promise<{ sourceLabel: string; url: string }[]> {
+  return prisma.huntingIncident.findMany({
+    where: { duplicateOf: id },
+    orderBy: { publishedAt: "asc" },
+    select: { sourceLabel: true, url: true },
+  });
+}
+
+function alsoLine(rows: { sourceLabel: string; url: string }[]): string[] {
+  return rows.length > 0
+    ? [`Также писали: ${rows.map((row) => `<a href="${escapeHtml(row.url)}">${escapeHtml(row.sourceLabel)}</a>`).join(", ")}`]
+    : [];
+}
+
+/** Рубрики и место для новостей, сохранённых до появления рубрик. */
+async function fillRubrics(): Promise<void> {
+  const rows = await prisma.huntingIncident.findMany({ where: { rubrics: "" }, select: { id: true, text: true }, take: 500 });
+  for (const row of rows) {
+    await prisma.huntingIncident.update({
+      where: { id: row.id },
+      data: { rubrics: rubricsOf(row.text).join(","), place: placeOf(row.text) },
+    });
+  }
 }
 
 function fingerprint(text: string): string {
@@ -309,6 +521,8 @@ export async function collectIncidents(now = new Date()): Promise<IncidentsColle
   const errors: string[] = [];
   let checked = 0;
   let queued = 0;
+  await fillRubrics();
+  const noiseStems = await loadNoiseStems();
 
   for (const source of SOURCES) {
     let found: Found[];
@@ -323,30 +537,29 @@ export async function collectIncidents(now = new Date()): Promise<IncidentsColle
     const initKey = `incidents-init:${source.id}`;
     const isFirstRun = !(await prisma.huntingNotice.findUnique({ where: { key: initKey } }));
     for (const item of found) {
-      if (now.getTime() - item.publishedAt.getTime() > MAX_AGE_DAYS * 86_400_000 || !matches(source, item.text)) {
+      if (now.getTime() - item.publishedAt.getTime() > MAX_AGE_DAYS * 86_400_000 || !matches(source, item.text, noiseStems)) {
         continue;
       }
       if (await prisma.huntingIncident.findUnique({ where: { url: item.url }, select: { id: true } })) {
         continue;
       }
       const print = fingerprint(item.text);
-      const duplicate = await hasSimilar(print, item.publishedAt);
-      const status = isFirstRun ? "seen" : duplicate ? "skipped" : "pending";
+      const original = await findSimilar(print, item.publishedAt);
+      const status = isFirstRun ? "seen" : original ? "skipped" : "pending";
       const photoUrl = status === "pending" ? await photoOf(item) : item.photoUrl;
       const incident = await prisma.huntingIncident.create({
         data: {
-          url: item.url,
-          source: source.id,
-          sourceLabel: source.label,
-          text: item.text.slice(0, 4000),
-          publishedAt: item.publishedAt,
+          ...incidentData(item, print),
           status,
-          fingerprint: print,
           photoUrl,
+          duplicateOf: original?.id ?? null,
         },
       });
       if (incident.status === "pending" && (await askModerator(incident))) {
         queued += 1;
+      }
+      if (original?.status === "pending") {
+        await refreshModerator(original.id);
       }
     }
     if (isFirstRun) {
@@ -356,18 +569,47 @@ export async function collectIncidents(now = new Date()): Promise<IncidentsColle
   return { checked, queued, errors };
 }
 
-/** Уже есть похожая новость в пределах DUPLICATE_DAYS от этой; onlyShown — только показанные модератору. */
-async function hasSimilar(print: string, publishedAt: Date, onlyShown = false, exceptUrl?: string): Promise<boolean> {
+/**
+ * Первая похожая новость в пределах DUPLICATE_DAYS от этой (если сама повтор — её оригинал);
+ * onlyShown — только показанные модератору.
+ */
+async function findSimilar(
+  print: string,
+  publishedAt: Date,
+  onlyShown = false,
+  exceptUrl?: string,
+): Promise<{ id: string; status: string } | null> {
   const window = DUPLICATE_DAYS * 86_400_000;
   const rows = await prisma.huntingIncident.findMany({
     where: {
+      source: { not: "hunter" },
       publishedAt: { gte: new Date(publishedAt.getTime() - window), lte: new Date(publishedAt.getTime() + window) },
       ...(onlyShown ? { status: { in: ["pending", "published"] } } : {}),
       ...(exceptUrl ? { url: { not: exceptUrl } } : {}),
     },
-    select: { fingerprint: true },
+    orderBy: { publishedAt: "asc" },
+    select: { id: true, fingerprint: true, duplicateOf: true },
   });
-  return rows.some((row) => similar(row.fingerprint, print));
+  const match = rows.find((row) => similar(row.fingerprint, print));
+  if (!match) {
+    return null;
+  }
+  const rootId = match.duplicateOf ?? match.id;
+  const root = await prisma.huntingIncident.findUnique({ where: { id: rootId }, select: { id: true, status: true } });
+  return root ?? { id: match.id, status: "skipped" };
+}
+
+function incidentData(item: Found, print: string) {
+  return {
+    url: item.url,
+    source: item.source.id,
+    sourceLabel: item.source.label,
+    text: item.text.slice(0, 4000),
+    publishedAt: item.publishedAt,
+    fingerprint: print,
+    rubrics: rubricsOf(item.text).join(","),
+    place: placeOf(item.text),
+  };
 }
 
 async function photoOf(item: Found): Promise<string | undefined> {
@@ -391,6 +633,8 @@ export async function backfillIncidents(days: number, now = new Date()): Promise
   const since = new Date(now.getTime() - days * 86_400_000);
   const result: IncidentsBackfillResult = { checked: 0, matched: 0, sent: 0, duplicates: 0, alreadyDecided: 0, errors: [] };
   const matched: Found[] = [];
+  await fillRubrics();
+  const noiseStems = await loadNoiseStems();
   for (const source of SOURCES) {
     try {
       const found =
@@ -398,7 +642,7 @@ export async function backfillIncidents(days: number, now = new Date()): Promise
           ? await readTelegramSince(source, since)
           : (await readRegions(source)).filter((item) => item.publishedAt >= since);
       result.checked += found.length;
-      matched.push(...found.filter((item) => matches(source, item.text)));
+      matched.push(...found.filter((item) => matches(source, item.text, noiseStems)));
     } catch (error) {
       result.errors.push(`${source.label}: ${error instanceof Error ? error.message : "ошибка"}`);
     }
@@ -413,23 +657,21 @@ export async function backfillIncidents(days: number, now = new Date()): Promise
       continue;
     }
     const print = fingerprint(item.text);
-    if (existing?.status !== "pending" && (await hasSimilar(print, item.publishedAt, true, item.url))) {
+    const original = existing?.status === "pending" ? null : await findSimilar(print, item.publishedAt, true, item.url);
+    if (original) {
       result.duplicates += 1;
       if (!existing) {
         await prisma.huntingIncident.create({
-          data: {
-            url: item.url,
-            source: item.source.id,
-            sourceLabel: item.source.label,
-            text: item.text.slice(0, 4000),
-            publishedAt: item.publishedAt,
-            status: "skipped",
-            fingerprint: print,
-            photoUrl: item.photoUrl,
-          },
+          data: { ...incidentData(item, print), status: "skipped", photoUrl: item.photoUrl, duplicateOf: original.id },
         });
       } else {
-        await prisma.huntingIncident.update({ where: { id: existing.id }, data: { status: "skipped" } });
+        await prisma.huntingIncident.update({
+          where: { id: existing.id },
+          data: { status: "skipped", duplicateOf: original.id },
+        });
+      }
+      if (original.status === "pending") {
+        await refreshModerator(original.id);
       }
       continue;
     }
@@ -437,19 +679,10 @@ export async function backfillIncidents(days: number, now = new Date()): Promise
     const incident = existing
       ? await prisma.huntingIncident.update({
           where: { id: existing.id },
-          data: { status: "pending", photoUrl, text: item.text.slice(0, 4000), fingerprint: print },
+          data: { ...incidentData(item, print), status: "pending", photoUrl, duplicateOf: null },
         })
       : await prisma.huntingIncident.create({
-          data: {
-            url: item.url,
-            source: item.source.id,
-            sourceLabel: item.source.label,
-            text: item.text.slice(0, 4000),
-            publishedAt: item.publishedAt,
-            status: "pending",
-            fingerprint: print,
-            photoUrl,
-          },
+          data: { ...incidentData(item, print), status: "pending", photoUrl },
         });
     if (await askModerator(incident)) {
       result.sent += 1;
@@ -512,35 +745,67 @@ function shortDate(date: Date): string {
   return formatMoscow(date, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
-async function askModerator(incident: {
-  id: string;
-  text: string;
-  url: string;
-  sourceLabel: string;
-  publishedAt: Date;
-  photoUrl: string | null;
-  adminMessageId?: number | null;
-}): Promise<boolean> {
+type IncidentRow = NonNullable<Awaited<ReturnType<typeof prisma.huntingIncident.findUnique>>>;
+
+function placeSuffix(place: string): string {
+  return place ? ` · 📍 ${escapeHtml(place)}` : "";
+}
+
+/** Сообщение модератору: рубрика, место, источник, текст, повторы из других каналов, история участка дороги. */
+async function moderatorHtml(incident: IncidentRow): Promise<(limit: number) => string> {
+  const [also, road] = await Promise.all([alsoWrote(incident.id), roadHistory(incident)]);
+  return (limit: number) =>
+    [
+      `🔎 <b>${escapeHtml(rubricTitle(incident.rubrics))}</b>${placeSuffix(incident.place)}`,
+      `${escapeHtml(incident.sourceLabel)} · ${shortDate(incident.publishedAt)}`,
+      "",
+      escapeHtml(clip(incident.text, limit)),
+      "",
+      ...(road.length > 0 ? [`⚠️ Здесь животных сбивали и раньше: ${road.join(", ")}`] : []),
+      ...alsoLine(also),
+      `<a href="${escapeHtml(incident.url)}">Оригинал</a>`,
+    ].join("\n");
+}
+
+function moderatorKeyboard(id: string) {
+  return {
+    inline_keyboard: [
+      [
+        { text: "📢 В чаты", callback_data: `inc:${id}:pub` },
+        { text: "⏭ Пропустить", callback_data: `inc:${id}:skip` },
+      ],
+    ],
+  };
+}
+
+/** Пришёл повтор новости, которая ждёт решения, — дописываем «Также писали» в сообщение модератору. */
+async function refreshModerator(id: string): Promise<void> {
+  const incident = await prisma.huntingIncident.findUnique({ where: { id } });
+  const adminId = huntingAdminId();
+  if (!incident?.adminMessageId || incident.status !== "pending" || !adminId) {
+    return;
+  }
+  const html = await moderatorHtml(incident);
+  const common = { chat_id: adminId, message_id: incident.adminMessageId, parse_mode: "HTML", reply_markup: moderatorKeyboard(id) };
+  const result = incident.photoFileId
+    ? await callTelegramApi("hunting", "editMessageCaption", { ...common, caption: html(TEXT_IN_CAPTION) })
+    : await callTelegramApi("hunting", "editMessageText", {
+        ...common,
+        text: html(TEXT_IN_MESSAGE),
+        disable_web_page_preview: true,
+      });
+  if (!result.ok) {
+    console.error("hunting incident refresh", result.error);
+  }
+}
+
+async function askModerator(incident: IncidentRow): Promise<boolean> {
   const adminId = huntingAdminId();
   if (!adminId) {
     return false;
   }
-  const html = (limit: number) =>
-    [
-      `🔎 <b>Возможное происшествие</b> · ${escapeHtml(incident.sourceLabel)} · ${shortDate(incident.publishedAt)}`,
-      "",
-      escapeHtml(clip(incident.text, limit)),
-      "",
-      `<a href="${escapeHtml(incident.url)}">Оригинал</a>`,
-    ].join("\n");
-  const reply_markup = {
-    inline_keyboard: [
-      [
-        { text: "📢 В чаты", callback_data: `inc:${incident.id}:pub` },
-        { text: "⏭ Пропустить", callback_data: `inc:${incident.id}:skip` },
-      ],
-    ],
-  };
+  const html = await moderatorHtml(incident);
+  const reply_markup = moderatorKeyboard(incident.id);
   let sent = incident.photoUrl
     ? await sendPhoto({ chat_id: adminId, caption: html(TEXT_IN_CAPTION), parse_mode: "HTML", reply_markup }, incident.photoUrl)
     : null;
@@ -629,20 +894,25 @@ export async function moderateIncident(id: string, publish: boolean): Promise<Mo
     return { ok: false, message: "Уже обработано" };
   }
   let delivered = 0;
+  let subscribers = 0;
   if (publish) {
+    const [also, road] = await Promise.all([alsoWrote(incident.id), roadHistory(incident)]);
     const html = (limit: number) =>
       [
-        "🚨 <b>Происшествие в Шатуре</b>",
+        `<b>${escapeHtml(rubricTitle(incident.rubrics))}</b>${placeSuffix(incident.place)}`,
         "",
         escapeHtml(clip(incident.text, limit)),
         "",
+        ...(road.length > 0
+          ? [`⚠️ Опасный участок: здесь уже сбивали животных (${road.join(", ")}) — сбавьте скорость.`]
+          : []),
         `Источник: <a href="${escapeHtml(incident.url)}">${escapeHtml(incident.sourceLabel)}</a>`,
+        ...alsoLine(also),
       ].join("\n");
     const photo = incident.photoFileId ?? incident.photoUrl;
-    delivered = await broadcast(
-      html(TEXT_IN_MESSAGE),
-      photo ? { fileId: photo, captionHtml: html(TEXT_IN_CAPTION) } : undefined,
-    );
+    const content = photo ? { fileId: photo, captionHtml: html(TEXT_IN_CAPTION) } : undefined;
+    delivered = await broadcast(html(TEXT_IN_MESSAGE), content);
+    subscribers = await sendToSubscribers(rubricList(incident.rubrics), html(TEXT_IN_MESSAGE), content);
   }
   if (incident.adminMessageId) {
     await callTelegramApi("hunting", "editMessageReplyMarkup", {
@@ -655,7 +925,107 @@ export async function moderateIncident(id: string, publish: boolean): Promise<Mo
       },
     });
   }
-  return { ok: true, message: publish ? `Отправлено в чаты: ${delivered}` : "Пропущено" };
+  return {
+    ok: true,
+    message: publish ? `Отправлено в чаты: ${delivered}${subscribers ? `, подписчикам: ${subscribers}` : ""}` : "Пропущено",
+  };
+}
+
+const BLOCKED_RE = /blocked|deactivated|chat not found|user is deactivated|bot can't initiate/i;
+
+/** Опубликованная новость — в личку тем, кто подписан на её рубрики (/podpiska). */
+async function sendToSubscribers(
+  rubrics: RubricId[],
+  html: string,
+  photo?: { fileId: string; captionHtml: string },
+): Promise<number> {
+  const rows = await prisma.huntingSubscription.findMany({
+    where: { rubric: { in: rubrics }, active: true },
+    select: { userId: true },
+  });
+  let delivered = 0;
+  for (const userId of new Set(rows.map((row) => row.userId))) {
+    let result = photo
+      ? await callTelegramApi("hunting", "sendPhoto", {
+          chat_id: userId,
+          photo: photo.fileId,
+          caption: photo.captionHtml,
+          parse_mode: "HTML",
+        })
+      : null;
+    if (!result?.ok && !BLOCKED_RE.test(result?.error ?? "")) {
+      result = await callTelegramApi("hunting", "sendMessage", {
+        chat_id: userId,
+        text: html.slice(0, 4000),
+        parse_mode: "HTML",
+        disable_web_page_preview: true,
+      });
+    }
+    if (result?.ok) {
+      delivered += 1;
+    } else if (BLOCKED_RE.test(result?.error ?? "")) {
+      await prisma.huntingSubscription.updateMany({ where: { userId }, data: { active: false } });
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return delivered;
+}
+
+/** Подписки пользователя на рубрики и клавиатура для /podpiska. */
+export async function subscriptionKeyboard(userId: string) {
+  const rows = await prisma.huntingSubscription.findMany({ where: { userId, active: true }, select: { rubric: true } });
+  const on = new Set(rows.map((row) => row.rubric));
+  return {
+    inline_keyboard: RUBRICS.filter((rubric) => rubric.id !== "other").map((rubric) => [
+      { text: `${on.has(rubric.id) ? "✅" : "▫️"} ${rubric.emoji} ${rubric.label}`, callback_data: `sub:${rubric.id}` },
+    ]),
+  };
+}
+
+export const SUBSCRIPTION_TEXT = [
+  "🔔 Новости в личку",
+  "",
+  "Отметьте, что присылать: как только модератор отправит такую новость в охотничьи чаты, она придёт и сюда.",
+  "Нажмите ещё раз, чтобы отписаться.",
+].join("\n");
+
+/** Кнопка рубрики в /podpiska: подписать или отписать. */
+export async function handleSubscriptionCallback(query: {
+  id: string;
+  data?: string;
+  from: TelegramUser;
+  message?: { message_id?: number; chat?: { id: number } };
+}): Promise<void> {
+  const rubric = RUBRICS.find((item) => `sub:${item.id}` === query.data);
+  const userId = String(query.from.id);
+  if (!rubric) {
+    await callTelegramApi("hunting", "answerCallbackQuery", { callback_query_id: query.id });
+    return;
+  }
+  const key = { userId_rubric: { userId, rubric: rubric.id } };
+  const existing = await prisma.huntingSubscription.findUnique({ where: key });
+  const subscribe = !existing?.active;
+  if (subscribe) {
+    await prisma.huntingSubscription.upsert({
+      where: key,
+      create: { userId, rubric: rubric.id, name: userName(query.from) },
+      update: { active: true, name: userName(query.from) },
+    });
+    await prisma.huntingSubscription.updateMany({ where: { userId }, data: { active: true } });
+  } else {
+    await prisma.huntingSubscription.delete({ where: key });
+  }
+  await callTelegramApi("hunting", "answerCallbackQuery", {
+    callback_query_id: query.id,
+    text: subscribe ? `Подписка: ${rubric.label}` : `Отписка: ${rubric.label}`,
+  });
+  if (query.message?.chat && query.message.message_id) {
+    await callTelegramApi("hunting", "editMessageReplyMarkup", {
+      chat_id: query.message.chat.id,
+      message_id: query.message.message_id,
+      reply_markup: await subscriptionKeyboard(userId),
+    });
+  }
 }
 
 /** Кнопки модератора «В чаты / Пропустить» в личке бота. */
@@ -686,14 +1056,16 @@ export const INCIDENT_FILTERS = [
 
 export type IncidentFilter = (typeof INCIDENT_FILTERS)[number]["id"];
 
-export async function listIncidents(filter: IncidentFilter, take = 100) {
-  const where =
+export async function listIncidents(filter: IncidentFilter, rubric: RubricId | null = null, take = 100) {
+  await fillRubrics();
+  const base =
     filter === "all"
       ? {}
       : filter === "hunter"
         ? { source: "hunter" }
         : { status: filter, source: { not: "hunter" } };
-  const [items, counts] = await Promise.all([
+  const where = rubric ? { ...base, rubrics: { contains: rubric } } : base;
+  const [rows, counts] = await Promise.all([
     prisma.huntingIncident.findMany({ where, orderBy: { publishedAt: "desc" }, take }),
     prisma.huntingIncident.groupBy({
       by: ["status"],
@@ -703,8 +1075,25 @@ export async function listIncidents(filter: IncidentFilter, take = 100) {
   ]);
   const hunter = await prisma.huntingIncident.count({ where: { source: "hunter" } });
   const count = (status: string) => counts.find((row) => row.status === status)?._count._all ?? 0;
+  const [duplicates, inFilter] = await Promise.all([
+    prisma.huntingIncident.findMany({
+      where: { duplicateOf: { in: rows.map((row) => row.id) } },
+      orderBy: { publishedAt: "asc" },
+      select: { duplicateOf: true, sourceLabel: true, url: true },
+    }),
+    prisma.huntingIncident.findMany({ where: base, select: { rubrics: true } }),
+  ]);
+  const items = rows.map((row) => ({
+    ...row,
+    rubricIds: rubricList(row.rubrics),
+    also: duplicates.filter((item) => item.duplicateOf === row.id),
+  }));
+  const rubricCounts = Object.fromEntries(
+    RUBRICS.map((item) => [item.id, inFilter.filter((row) => rubricList(row.rubrics).includes(item.id)).length]),
+  ) as Record<RubricId, number>;
   return {
     items,
+    rubricCounts,
     counts: {
       pending: count("pending"),
       published: count("published"),
@@ -713,6 +1102,191 @@ export async function listIncidents(filter: IncidentFilter, take = 100) {
       all: counts.reduce((sum, row) => sum + row._count._all, 0) + hunter,
     } satisfies Record<IncidentFilter, number>,
   };
+}
+
+export type SourceStat = {
+  label: string;
+  regional: boolean;
+  shown: number;
+  published: number;
+  skipped: number;
+  duplicates: number;
+  lastAt: Date | null;
+};
+
+/** Сколько каждый канал дал новостей модератору и сколько из них ушло в чаты — чтобы видеть, кто только шумит. */
+export async function sourceStats(days = 90): Promise<SourceStat[]> {
+  const since = new Date(Date.now() - days * 86_400_000);
+  const rows = await prisma.huntingIncident.findMany({
+    where: { source: { not: "hunter" }, status: { not: "seen" }, publishedAt: { gte: since } },
+    select: { source: true, status: true, duplicateOf: true, publishedAt: true },
+  });
+  return SOURCES.map((source) => {
+    const own = rows.filter((row) => row.source === source.id);
+    const duplicates = own.filter((row) => row.duplicateOf).length;
+    const originals = own.filter((row) => !row.duplicateOf);
+    return {
+      label: source.label,
+      regional: source.regional === true,
+      shown: originals.length,
+      published: originals.filter((row) => row.status === "published").length,
+      skipped: originals.filter((row) => row.status === "skipped").length,
+      duplicates,
+      lastAt: own.reduce<Date | null>((last, row) => (!last || row.publishedAt > last ? row.publishedAt : last), null),
+    };
+  }).sort((a, b) => b.shown + b.duplicates - (a.shown + a.duplicates));
+}
+
+export async function listNoiseWords() {
+  return prisma.huntingNoiseWord.findMany({ orderBy: { createdAt: "desc" } });
+}
+
+const NOISE_LOOKBACK_DAYS = 90;
+const NOISE_MIN_SKIPPED = 3;
+const NOISE_SUGGESTIONS = 8;
+
+/**
+ * Слова, которые часто встречаются в пропущенных модератором новостях и ни разу — в отправленных в чаты.
+ * Слова самого фильтра (лес, пожар, лось…) не предлагаются.
+ */
+export async function noiseCandidates(now = new Date()) {
+  const rows = await prisma.huntingIncident.findMany({
+    where: {
+      source: { not: "hunter" },
+      duplicateOf: null,
+      status: { in: ["published", "skipped"] },
+      publishedAt: { gte: new Date(now.getTime() - NOISE_LOOKBACK_DAYS * 86_400_000) },
+    },
+    select: { text: true, status: true },
+  });
+  const known = new Set((await prisma.huntingNoiseWord.findMany({ select: { stem: true } })).map((row) => row.stem));
+  const stats = new Map<string, { skipped: number; published: number; sample: string }>();
+  for (const row of rows) {
+    const words = new Map<string, string>();
+    for (const word of row.text.toLowerCase().replace(/ё/g, "е").match(/[а-я]{5,}/g) ?? []) {
+      if (!words.has(word.slice(0, 6))) words.set(word.slice(0, 6), word);
+    }
+    for (const [stem, word] of words) {
+      const stat = stats.get(stem) ?? { skipped: 0, published: 0, sample: word };
+      if (row.status === "published") stat.published += 1;
+      else stat.skipped += 1;
+      stats.set(stem, stat);
+    }
+  }
+  return [...stats.entries()]
+    .filter(([stem, stat]) => stat.published === 0 && stat.skipped >= NOISE_MIN_SKIPPED && !known.has(stem))
+    .filter(([, stat]) => !isRelevantWord(stat.sample))
+    .sort((a, b) => b[1].skipped - a[1].skipped)
+    .slice(0, NOISE_SUGGESTIONS)
+    .map(([stem, stat]) => ({ stem, sample: stat.sample, skipped: stat.skipped }));
+}
+
+function isRelevantWord(word: string): boolean {
+  return (
+    PLACE_RE.test(word) ||
+    EVENT_RE.test(word) ||
+    DISTRICT_RE.test(word) ||
+    mentions(word, WILDLIFE_RE, /$^/) ||
+    mentions(word, MUSHROOM_RE, /$^/) ||
+    ICE_RE.test(word) ||
+    rubricsOf(word)[0] !== "other"
+  );
+}
+
+/** Раз в месяц — модератору в личку: какие слова добавить в шум. Кнопки: «в шум» / «не предлагать». */
+export async function sendNoiseSuggestions(now = new Date()): Promise<boolean> {
+  const adminId = huntingAdminId();
+  const candidates = adminId ? await noiseCandidates(now) : [];
+  if (candidates.length === 0) {
+    return false;
+  }
+  const result = await callTelegramApi("hunting", "sendMessage", {
+    chat_id: adminId,
+    text: [
+      "🧹 <b>Чему научиться у пропусков</b>",
+      "",
+      `Эти слова за ${NOISE_LOOKBACK_DAYS} дней были только в новостях, которые вы пропустили, и ни разу — в отправленных в чаты.`,
+      "«В шум» — посты с таким словом бот больше не пришлёт. «Не предлагать» — оставить как есть.",
+      "",
+      ...candidates.map((item) => `• ${escapeHtml(item.sample)} — пропущено ${item.skipped}`),
+    ].join("\n"),
+    parse_mode: "HTML",
+    reply_markup: {
+      inline_keyboard: candidates.map((item) => [
+        { text: `➕ «${item.sample}» в шум`, callback_data: `noise:add:${item.stem}` },
+        { text: "🚫 Не предлагать", callback_data: `noise:ignore:${item.stem}` },
+      ]),
+    },
+  });
+  return result.ok;
+}
+
+/** Кнопки «в шум / не предлагать» из ежемесячной подборки. */
+export async function handleNoiseCallback(query: { id: string; data?: string; from: TelegramUser }): Promise<void> {
+  const match = /^noise:(add|ignore):([а-я]{5,6})$/.exec(query.data ?? "");
+  const answer = (text: string) =>
+    callTelegramApi("hunting", "answerCallbackQuery", { callback_query_id: query.id, text });
+  if (!match || String(query.from.id) !== huntingAdminId()) {
+    await answer("Решает модератор");
+    return;
+  }
+  const [, action, stem] = match;
+  const sample = (await noiseCandidates()).find((item) => item.stem === stem)?.sample ?? stem;
+  await prisma.huntingNoiseWord.upsert({
+    where: { stem },
+    create: { stem, action, sample },
+    update: { action },
+  });
+  await answer(action === "add" ? `«${sample}» — теперь шум` : `«${sample}» больше не предлагаю`);
+}
+
+/** Удалить слово из шума (из админки). */
+export async function removeNoiseWord(stem: string): Promise<void> {
+  await prisma.huntingNoiseWord.deleteMany({ where: { stem } });
+}
+
+/** Новости за неделю для воскресных итогов: отправленные в чаты и предупреждения охотников, по рубрикам. */
+export async function weeklyNewsLines(now = new Date()): Promise<string[]> {
+  const rows = await prisma.huntingIncident.findMany({
+    where: { status: "published", publishedAt: { gte: new Date(now.getTime() - 7 * 86_400_000) } },
+    orderBy: { publishedAt: "asc" },
+  });
+  if (rows.length === 0) {
+    return ["За неделю в лесу спокойно — новостей в чаты не было."];
+  }
+  const lines: string[] = [];
+  const hunters = rows.filter((row) => row.source === "hunter");
+  const news = rows.filter((row) => row.source !== "hunter");
+  for (const rubric of RUBRICS) {
+    const items = news.filter((row) => rubricList(row.rubrics || rubricsOf(row.text).join(","))[0] === rubric.id);
+    if (items.length === 0) continue;
+    lines.push("", `${rubric.emoji} <b>${rubric.label}</b> (${items.length})`);
+    for (const item of items) {
+      const firstLine = item.text.split(/(?<=[.!?])\s|\n/)[0] ?? item.text;
+      lines.push(
+        `• ${formatMoscow(item.publishedAt, { day: "2-digit", month: "2-digit" })}${item.place ? ` · ${escapeHtml(item.place)}` : ""} — <a href="${escapeHtml(item.url)}">${escapeHtml(clip(firstLine, 90))}</a>`,
+      );
+    }
+  }
+  if (hunters.length > 0) {
+    lines.push("", `⚠️ <b>Предупреждения охотников</b> (${hunters.length})`);
+    for (const item of hunters) {
+      lines.push(`• ${formatMoscow(item.publishedAt, { day: "2-digit", month: "2-digit" })} — ${escapeHtml(clip(item.text, 90))}`);
+    }
+  }
+  return lines.slice(lines[0] === "" ? 1 : 0);
+}
+
+/** Сколько за неделю было новостей про грибы (любых, не только отправленных) — для прогноза грибов. */
+export async function weeklyMushroomPosts(now = new Date()): Promise<number> {
+  await fillRubrics();
+  return prisma.huntingIncident.count({
+    where: {
+      duplicateOf: null,
+      rubrics: { contains: "mushroom" },
+      publishedAt: { gte: new Date(now.getTime() - 7 * 86_400_000) },
+    },
+  });
 }
 
 export const WARNING_USAGE = [
@@ -785,6 +1359,8 @@ export async function sendHunterWarning(input: {
       publishedAt: now,
       status: "published",
       fingerprint: fingerprint(text),
+      rubrics: rubricsOf(text).join(","),
+      place: placeOf(text),
       photoFileId: input.photoFileId,
     },
   });

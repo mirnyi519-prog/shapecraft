@@ -71,6 +71,36 @@ export function HuntingNewsBackfill({ adminConfigured }: { adminConfigured: bool
   );
 }
 
+export function NoiseWordRemove({ stem, label }: { stem: string; label: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  async function remove() {
+    if (!window.confirm(`Убрать «${label}» из шума? Посты с этим словом снова будут приходить на проверку.`)) {
+      return;
+    }
+    setBusy(true);
+    try {
+      await fetch(`/api/hunting/noise/${encodeURIComponent(stem)}`, { method: "DELETE" });
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={remove}
+      disabled={busy}
+      className="ml-1 text-[var(--muted)] hover:text-[var(--brand)] disabled:opacity-50"
+      aria-label={`Убрать «${label}» из шума`}
+    >
+      ×
+    </button>
+  );
+}
+
 export function HuntingNewsActions({ id, canSkip }: { id: string; canSkip: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);

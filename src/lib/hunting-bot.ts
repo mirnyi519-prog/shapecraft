@@ -13,7 +13,16 @@ import {
   type TelegramUser,
   userName,
 } from "@/lib/hunting-gathering";
-import { buildWeatherHtml, fetchHuntingWeather } from "@/lib/hunting-weather";
+import {
+  buildWeatherHtml,
+  fetchHuntingWeather,
+  fetchSeasonSignals,
+  fireDanger,
+  fireDangerLine,
+  seasonLines,
+  stormWarnings,
+  stormWarningsHtml,
+} from "@/lib/hunting-weather";
 import {
   DOCUMENTS_USAGE,
   handleDocumentCommand,
@@ -24,7 +33,18 @@ import {
 import { type BotTopic, logBotUsage, pruneBotUsage } from "@/lib/hunting-usage";
 import { type ActiveAlert, collectAlerts, getActiveQuarantines } from "@/lib/hunting-alerts";
 import { trackSourceHealth } from "@/lib/hunting-health";
-import { collectIncidents, handleIncidentCallback, sendHunterWarning } from "@/lib/hunting-incidents";
+import {
+  collectIncidents,
+  handleIncidentCallback,
+  handleNoiseCallback,
+  handleSubscriptionCallback,
+  sendHunterWarning,
+  sendNoiseSuggestions,
+  SUBSCRIPTION_TEXT,
+  subscriptionKeyboard,
+  weeklyMushroomPosts,
+  weeklyNewsLines,
+} from "@/lib/hunting-incidents";
 import {
   AMMO_GENERAL,
   AMMO_GROUPS,
@@ -50,6 +70,7 @@ import {
 } from "@/lib/hunting-laws";
 import {
   buildHuntingSummaryHtml,
+  escapeHtml,
   renderHuntItems,
   shortDate,
   toHuntItems,
@@ -129,6 +150,7 @@ const BASE_COMMANDS: { command: string; description: string }[] = [
   { command: "patron", description: "Какой патрон брать на кого и в какой сезон" },
   { command: "dokumenty", description: "Сроки моих документов — напоминания в личку" },
   { command: "vnimanie", description: "Предупредить все охотничьи чаты: шипы, браконьеры…" },
+  { command: "podpiska", description: "Новости в личку: звери, грибы, пожары…" },
   { command: "help", description: "Все команды" },
 ];
 
@@ -172,10 +194,11 @@ function helpText(): string {
     "/ceny — цены путёвок (/ceny sobaka, /ceny vznos, /ceny gost)",
     "/kontakty — адрес и егеря Шатурского хозяйства",
     "/patron — какой патрон брать сейчас (/patron utka — по сезонам)",
-    "/pogoda — погода, ветер, восход и закат на 3 дня",
+    "/pogoda — погода, ветер, восход и закат на 3 дня, грибы и пожароопасность",
     "/sbor кабан 26.10 — собрать людей на охоту (в группе)",
     "/dokument роха 15.03.2027 — напомню о сроке документа (в личке), список — /dokumenty",
     "/vnimanie шипы на площадке у … — предупредить все охотничьи чаты (можно фото с подписью)",
+    "/podpiska — новости в личку по темам: звери, грибы, пожары, лёд… (в личке)",
     "",
     "По видам:",
     SPECIES.map((species) => `/${species.command} — ${species.title.toLowerCase()}`).join("\n"),
@@ -397,11 +420,16 @@ export async function buildHuntingReply(command: string, arg = ""): Promise<stri
       return contactsText(overview);
     case "patron":
       return ammoText(arg, overview.today);
-    case "pogoda":
-      return fetchHuntingWeather(3).then(
-        (days) => buildWeatherHtml(days),
-        () => "Прогноз сейчас недоступен — попробуйте позже.",
-      );
+    case "pogoda": {
+      const [days, signals, mushroomPosts] = await Promise.all([
+        fetchHuntingWeather(3).catch(() => null),
+        fetchSeasonSignals().catch(() => null),
+        weeklyMushroomPosts().catch(() => 0),
+      ]);
+      return days
+        ? buildWeatherHtml(days, undefined, seasonLines(signals, mushroomPosts))
+        : "Прогноз сейчас недоступен — попробуйте позже.";
+    }
     default: {
       const species = SPECIES.find((item) => item.command === command);
       return species ? speciesText(species, overview, await getActiveQuarantines()) : buildLawsReply(command);
@@ -443,7 +471,12 @@ type TelegramUpdate = {
     chat?: TelegramChat;
     from?: TelegramUser;
   };
-  callback_query?: { id: string; data?: string; from: TelegramUser; message?: { chat?: TelegramChat } };
+  callback_query?: {
+    id: string;
+    data?: string;
+    from: TelegramUser;
+    message?: { message_id?: number; chat?: TelegramChat };
+  };
 };
 
 const COMMAND_TOPICS: Record<string, BotTopic> = {
@@ -458,6 +491,7 @@ const COMMAND_TOPICS: Record<string, BotTopic> = {
   dokument: { section: "Документы", topic: "dokument", title: "Запись срока документа" },
   dokumenty: { section: "Документы", topic: "dokumenty", title: "Список документов" },
   vnimanie: { section: "Происшествия", topic: "vnimanie", title: "Предупреждение во все чаты" },
+  podpiska: { section: "Происшествия", topic: "podpiska", title: "Подписка на новости" },
   myid: { section: "Справка", topic: "myid", title: "Мой Telegram id" },
 };
 
@@ -503,6 +537,20 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
       await handleIncidentCallback(query);
       return;
     }
+    if (query.data?.startsWith("noise:")) {
+      await handleNoiseCallback(query);
+      return;
+    }
+    if (query.data?.startsWith("sub:")) {
+      await logBotUsage({
+        from: query.from,
+        chat: query.message?.chat ?? { id: query.from.id, type: "private" },
+        topic: { section: "Происшествия", topic: "podpiska_toggle", title: "Подписка: кнопка рубрики" },
+        text: query.data,
+      });
+      await handleSubscriptionCallback(query);
+      return;
+    }
     const answer = query.data?.split(":")[2];
     await logBotUsage({
       from: query.from,
@@ -546,6 +594,24 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
         messageId: message.message_id,
       });
       await sendTelegramTo("hunting", chat.id, reply, message.message_thread_id ?? null);
+      return;
+    }
+    if (command === "podpiska") {
+      if (!isPrivate || !message?.from) {
+        const username = await getBotUsername();
+        await sendTelegramTo(
+          "hunting",
+          chat.id,
+          `Подписка на новости — в личке бота: ${username ? `https://t.me/${username}` : "напишите боту напрямую"}`,
+          message?.message_thread_id ?? null,
+        );
+        return;
+      }
+      await callTelegramApi("hunting", "sendMessage", {
+        chat_id: chat.id,
+        text: SUBSCRIPTION_TEXT,
+        reply_markup: await subscriptionKeyboard(String(message.from.id)),
+      });
       return;
     }
     if (command === "myid" && message?.from) {
@@ -793,6 +859,99 @@ async function sendLawsInForce(today: string) {
   }
 }
 
+/** С какого часа (МСК) в воскресенье публиковать итоги недели. */
+const WEEKLY_HOUR = 18;
+/** Прогноз непогоды и пожароопасность — не чаще, чем раз в столько часов. */
+const SIGNALS_EVERY_HOURS = 3;
+/** Повторять тревогу о высокой пожароопасности того же класса — не чаще раза в неделю. */
+const FIRE_ALERT_REPEAT_HOURS = 7 * 24;
+const FIRE_ALERT_LEVEL = 4;
+
+/** Непогода на сегодня-завтра и высокая пожароопасность — в охотничий чат, каждое предупреждение один раз. */
+async function sendSignalAlerts(now: Date) {
+  if (await recentlyDone("fetch:signals", SIGNALS_EVERY_HOURS, now)) {
+    return;
+  }
+  await markDone("fetch:signals", now);
+  const signals = await fetchSeasonSignals().catch((error) => {
+    console.error("hunting signals", error);
+    return null;
+  });
+  if (!signals) {
+    return;
+  }
+  const storms = stormWarnings(signals);
+  const sent = await alreadySent(storms.map((item) => `storm:${item.date}:${item.kind}`));
+  const fresh = storms.filter((item) => !sent.has(`storm:${item.date}:${item.kind}`));
+  if (fresh.length > 0) {
+    const result = await sendTelegramMessage(stormWarningsHtml(fresh), "hunting", { html: true });
+    if (result.ok) {
+      await markSent(fresh.map((item) => `storm:${item.date}:${item.kind}`));
+    }
+  }
+  const danger = fireDanger(signals);
+  const key = `fire-alert:${danger.level}`;
+  if (!danger.snow && danger.level >= FIRE_ALERT_LEVEL && !(await recentlyDone(key, FIRE_ALERT_REPEAT_HOURS, now))) {
+    const result = await sendTelegramMessage(
+      [
+        "🔥 <b>Высокая пожароопасность в лесах Шатуры</b>",
+        "",
+        escapeHtml(fireDangerLine(danger)),
+        "Костры, окурки и пыжи — главная причина лесных пожаров. При IV–V классе лесничество может закрыть въезд в лес.",
+        "",
+        "<i>Расчёт по погоде (Open-Meteo); официальные запреты бот присылает отдельно.</i>",
+      ].join("\n"),
+      "hunting",
+      { html: true },
+    );
+    if (result.ok) {
+      await markDone(key, now);
+    }
+  }
+}
+
+/** Воскресенье вечером — итоги недели: новости по рубрикам, грибы, пожароопасность, непогода. */
+async function sendWeeklyDigest(now: Date, today: string, hour: number) {
+  if (moscowWeekday(now) !== 0 || hour < WEEKLY_HOUR) {
+    return;
+  }
+  const key = `weekly:${today}`;
+  if ((await alreadySent([key])).size > 0) {
+    return;
+  }
+  const [news, signals, mushroomPosts] = await Promise.all([
+    weeklyNewsLines(now),
+    fetchSeasonSignals().catch(() => null),
+    weeklyMushroomPosts(now).catch(() => 0),
+  ]);
+  const season = seasonLines(signals, mushroomPosts);
+  const html = [
+    "📋 <b>Неделя в лесах Шатуры</b>",
+    "",
+    ...news,
+    ...(season.length > 0 ? ["", ...season] : []),
+    "",
+    "Новости в личку по темам — /podpiska · погода — /pogoda",
+  ].join("\n");
+  const result = await sendTelegramMessage(html, "hunting", { html: true });
+  if (result.ok) {
+    await markSent([key]);
+  }
+}
+
+/** Первого числа — модератору слова, которые стоит добавить в шум. */
+async function sendMonthlyNoise(today: string, hour: number) {
+  if (!today.endsWith("-01") || hour < 10) {
+    return;
+  }
+  const key = `noise-suggest:${today.slice(0, 7)}`;
+  if ((await alreadySent([key])).size > 0) {
+    return;
+  }
+  await sendNoiseSuggestions().catch((error) => console.error("hunting noise suggestions", error));
+  await markSent([key]);
+}
+
 async function recentlyDone(key: string, hours: number, now: Date): Promise<boolean> {
   const row = await prisma.huntingNotice.findUnique({ where: { key } });
   return Boolean(row && now.getTime() - row.sentAt.getTime() < hours * 3_600_000);
@@ -867,4 +1026,7 @@ export async function runHuntingSchedule(now = new Date()): Promise<void> {
   await sendDocumentReminders(overview.today, hour).catch((error) => console.error("hunting documents", error));
   await pruneBotUsage(now).catch((error) => console.error("hunting usage prune", error));
   await sendWeekendWeather(now, overview.today, hour);
+  await sendSignalAlerts(now).catch((error) => console.error("hunting signal alerts", error));
+  await sendWeeklyDigest(now, overview.today, hour).catch((error) => console.error("hunting weekly", error));
+  await sendMonthlyNoise(overview.today, hour);
 }
