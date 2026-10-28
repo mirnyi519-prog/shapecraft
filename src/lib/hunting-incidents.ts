@@ -146,6 +146,42 @@ const MUSHROOM_RE = new RegExp(
 );
 const MUSHROOM_NOISE_RE =
   /(?<![а-яё])(?:рецепт|ресторан|меню(?![а-яё])|пицц|жульен|мульт|игрушк|поделк|спектакл|сказк|театр|грибков|плесен)/i;
+/** Опасная и необычная погода — снегопады, гололёд, ветер, грозы, заморозки. */
+const WEATHER_STRONG_RE =
+  /(?<![а-яё])(?:метеопредупрежд|неблагоприятн[а-яё]*\s+(?:метео|погод)|снегопад|снежн[а-яё]*\s+(?:покров|бур|завал)|перв[а-яё]*\s+снег|метел|вьюг|гололёд|гололед|гололедиц|ледян[а-яё]*\s+дожд|заморозк|мороз[а-яё]*\s+до\s+[−-]?\d|аномальн[а-яё]*\s+(?:холод|тепл|жар|мороз|погод)|рекордн[а-яё]*\s+(?:тепл|холод|жар|мороз)|похолодан|ураган|штормов|сильн[а-яё]*\s+ветер|порыв[а-яё]*\s+ветра|гроз[аыуое](?![а-яё])|грозов|ливн(?!ев[а-яё]*\s+(?:сток|канализ|канав|колодц))|(?:жёлт|желт|оранжев|красн)[а-яё]*\s+(?:уров|код)[а-яё]*\s+(?:погодн|метео|опасн))/i;
+/** Прогноз без явления: «синоптики назвали сроки», «погода на выходные». */
+const WEATHER_FORECAST_RE =
+  /(?<![а-яё])(?:синоптик|гидрометцентр|метеоролог|метеобюро|прогноз[а-яё]*\s+погод|погод[аеуы]\s+на\s+(?:выходн|недел|ноябр|декабр|январ|феврал|март)|метеорологическ[а-яё]*\s+зим)/i;
+/** Ежедневное «С добрым утром, сегодня +11» — прогноз на день, не новость. */
+const GREETING_RE = /(?<![а-яё])(?:добр(?:ое|ым|ый|ого)\s+(?:[а-яё]+\s+)?(?:утр|вечер|дн)|с\s+началом\s+(?:нов[а-яё]+\s+)?(?:рабоч|недел))/i;
+/** Областной пост про конкретный чужой округ: «в округе #Ступино», «г.о. Подольск». */
+const OTHER_DISTRICT_RE = /(?:округ[еау]?\s+#?[А-ЯЁ]|г\.\s?о\.\s*[А-ЯЁ]|#(?!Подмосков|Москв)[А-ЯЁ][а-яё]+)/;
+/** Где погода: Подмосковье, Москва, Центр — или наш округ. */
+const WEATHER_AREA_RE =
+  /(?<![а-яё])(?:подмосков|московск[а-яё]*\s+(?:област|регион)|столичн[а-яё]*\s+(?:регион|округ)|москв(?:а|е|у|ой|ы)(?![а-яё])|мегаполис|центральн[а-яё]*\s+(?:росси|район)|цфо(?![а-яё]))/i;
+/** Погода про другие края: «морозы в Сибири» — не наше. */
+const WEATHER_ELSEWHERE_RE =
+  /(?<![а-яё])(?:област|кра[йяею](?![а-яё])|республик|сибир|урал|кавказ|поволж|петербург|ленинград|якут|забайкал|приморь|крым|кубан|юг[ае]?\s+росси|европейск[а-яё]*\s+част)/i;
+/** «Ураган эмоций», «магнитная буря», Луна охотника, коммунальщики готовят технику к зиме. */
+const WEATHER_NOISE_RE =
+  /(?<![а-яё])(?:ураган[а-яё]*\s+(?:эмоц|позитив|страст)|магнитн[а-яё]*\s+бур|туман[а-яё]*\s+войн|полнолун|лун[аеыу]\s+охотник|звездопад|затмени|готовност[а-яё]*\s+(?:[а-яё]+\s+)?техник|подготовк[а-яё]*\s+к\s+зим)/i;
+
+/** regional — областной канал: погода должна быть про область целиком или про наш округ. */
+function weatherNews(text: string, regional = false): boolean {
+  const strong = WEATHER_STRONG_RE.test(text);
+  const forecast = WEATHER_FORECAST_RE.test(text) && !GREETING_RE.test(text);
+  if ((!strong && !forecast) || WEATHER_NOISE_RE.test(text)) {
+    return false;
+  }
+  if (DISTRICT_RE.test(text)) {
+    return true;
+  }
+  if (regional) {
+    return WEATHER_AREA_RE.test(text) && !OTHER_DISTRICT_RE.test(text);
+  }
+  return WEATHER_AREA_RE.test(text) || !WEATHER_ELSEWHERE_RE.test(text);
+}
+
 /** «Барсуков», «Перепелицын», «Волкова» — фамилии, а не звери. */
 const SURNAME_RE = /^[А-ЯЁ][а-яё]*(?:ов|ев|ёв|ин|ын)(?:а|у|ым|ой|е|ых|ыми)?$/;
 
@@ -232,17 +268,22 @@ function hasNoiseStem(text: string, noiseStems: readonly string[]): boolean {
   return noiseStems.some((stem) => stems.has(stem));
 }
 
-/** regional — пост из областного канала: нужно ещё и место в Шатурском округе (кроме предупреждений про лёд). */
+/**
+ * regional — пост из областного канала: нужно ещё и место в Шатурском округе
+ * (кроме предупреждений про лёд и погоды — они на всю область).
+ */
 export function isIncident(text: string, regional = false, noiseStems: readonly string[] = []): boolean {
+  const weather = weatherNews(text, regional);
   const relevant =
     (PLACE_RE.test(text) && EVENT_RE.test(text)) ||
     mentions(text, WILDLIFE_RE, WILDLIFE_NOISE_RE) ||
     mentions(text, MUSHROOM_RE, MUSHROOM_NOISE_RE) ||
-    mentionsIce(text);
+    mentionsIce(text) ||
+    weather;
   if (!relevant || NOISE_RE.test(text) || hasNoiseStem(text, noiseStems)) {
     return false;
   }
-  return !regional || DISTRICT_RE.test(text) || (ICE_WARNING_RE.test(text) && !ICE_NOISE_RE.test(text));
+  return !regional || weather || DISTRICT_RE.test(text) || (ICE_WARNING_RE.test(text) && !ICE_NOISE_RE.test(text));
 }
 
 function matches(source: Source, text: string, noiseStems: readonly string[]): boolean {
@@ -262,6 +303,7 @@ export const RUBRICS = [
   { id: "water", emoji: "🧊", label: "Вода и лёд" },
   { id: "wildlife", emoji: "🐾", label: "Звери и птицы" },
   { id: "mushroom", emoji: "🍄", label: "Грибы" },
+  { id: "weather", emoji: "🌨", label: "Погода и прогнозы" },
   { id: "other", emoji: "📰", label: "Прочее" },
 ] as const;
 
@@ -284,6 +326,7 @@ export function rubricsOf(text: string): RubricId[] {
   if (WATER_RE.test(text) || mentionsIce(text)) found.push("water");
   if (wildlife) found.push("wildlife");
   if (mentions(text, MUSHROOM_RE, MUSHROOM_NOISE_RE)) found.push("mushroom");
+  if (weatherNews(text)) found.push("weather");
   return found.length > 0 ? found : ["other"];
 }
 
