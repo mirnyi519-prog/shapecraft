@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
-import { Badge, Card } from "@/components/ui";
+import { Badge, Card, viewTab } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
 import { getBotUsageStats, USAGE_PERIODS } from "@/lib/hunting-usage";
 import { formatMoscow } from "@/lib/timezone";
@@ -72,9 +72,7 @@ export default async function BotStatsPage({ searchParams }: { searchParams: Pro
               <Link
                 key={value}
                 href={`/other/bot-stats?days=${value}`}
-                className={`rounded-full px-3 py-1 text-sm ring-1 ring-[var(--border)] ${
-                  value === days ? "bg-[var(--brand)] text-white" : "bg-white"
-                }`}
+                className={viewTab(value === days)}
               >
                 {value === 365 ? "год" : `${value} дн.`}
               </Link>

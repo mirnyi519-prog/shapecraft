@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useMemo, useState } from "react";
-import { Card } from "@/components/ui";
+import { Card, viewTab } from "@/components/ui";
 import { formatDateTime } from "@/lib/calculations";
 import type { IpVisitSummary } from "@/lib/visits";
 
@@ -124,11 +124,7 @@ export function VisitsTable({ rows }: { rows: IpVisitSummary[] }) {
                 key={item.id}
                 type="button"
                 onClick={() => setSort(item.id)}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                  active
-                    ? "bg-[var(--brand)] text-white"
-                    : "border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] hover:bg-white"
-                }`}
+                className={viewTab(active)}
               >
                 {item.label}
               </button>

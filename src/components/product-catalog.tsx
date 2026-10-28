@@ -9,7 +9,7 @@ import { ModalCloseButton } from "@/components/modal-close-button";
 import { ProductGallery } from "@/components/product-gallery";
 import { ProductPhoto } from "@/components/product-photo";
 import { ProductSpecsBlock } from "@/components/product-specs-block";
-import { Badge, Button, Card } from "@/components/ui";
+import { Badge, Button, Card, viewTab } from "@/components/ui";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
 import { formatRub } from "@/lib/calculations";
 import type { CatalogCategory } from "@/lib/categories";
@@ -402,11 +402,7 @@ export function ProductCatalog({
           <button
             type="button"
             onClick={() => setCategoryId(null)}
-            className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition ${
-              categoryId === null
-                ? "bg-[var(--brand)] text-white"
-                : "border border-[var(--border)] bg-white text-[var(--text)] hover:bg-[var(--bg)]"
-            }`}
+            className={viewTab(categoryId === null, "min-h-10")}
           >
             Все
           </button>
@@ -417,11 +413,7 @@ export function ProductCatalog({
                 key={category.id}
                 type="button"
                 onClick={() => setCategoryId(category.id)}
-                className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition ${
-                  active
-                    ? "bg-[var(--brand)] text-white"
-                    : "border border-[var(--border)] bg-white text-[var(--text)] hover:bg-[var(--bg)]"
-                }`}
+                className={viewTab(active, "min-h-10")}
               >
                 {category.name}
               </button>

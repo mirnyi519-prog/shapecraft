@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { BuyClickOutcomeSelect } from "@/components/buy-click-outcome-select";
 import { BuyClicksResetButton } from "@/components/buy-clicks-reset-button";
 import { ProductThumb } from "@/components/product-thumb";
-import { Button, Card, StatCard } from "@/components/ui";
+import { Button, Card, StatCard, viewTab } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
 import { getBuyClickStats } from "@/lib/buy-clicks";
 import { formatDateTime } from "@/lib/calculations";
@@ -68,33 +68,11 @@ export default async function ViewsPage({
           </Link>
         </div>
 
-        <div
-          className="inline-flex rounded-full border border-[var(--border)] bg-white p-1"
-          role="tablist"
-          aria-label="Раздел просмотров"
-        >
-          <Link
-            href="/views"
-            role="tab"
-            aria-selected={tab === "cards"}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-              tab === "cards"
-                ? "bg-[var(--brand)] text-white"
-                : "text-[var(--text)] hover:bg-[var(--bg)]"
-            }`}
-          >
+        <div className="flex gap-2" role="tablist" aria-label="Раздел просмотров">
+          <Link href="/views" role="tab" aria-selected={tab === "cards"} className={viewTab(tab === "cards")}>
             Карточки
           </Link>
-          <Link
-            href="/views?tab=buy"
-            role="tab"
-            aria-selected={tab === "buy"}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-              tab === "buy"
-                ? "bg-[var(--brand)] text-white"
-                : "text-[var(--text)] hover:bg-[var(--bg)]"
-            }`}
-          >
+          <Link href="/views?tab=buy" role="tab" aria-selected={tab === "buy"} className={viewTab(tab === "buy")}>
             Клики «Купить»
           </Link>
         </div>

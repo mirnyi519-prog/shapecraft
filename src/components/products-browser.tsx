@@ -8,7 +8,7 @@ import {
   ProductAdminCard,
   type ProductCardData,
 } from "@/components/product-admin-card";
-import { Card } from "@/components/ui";
+import { Card, viewTab } from "@/components/ui";
 import { hasListPrice } from "@/lib/pricing";
 
 function normalize(text: string): string {
@@ -268,11 +268,7 @@ export function ProductsBrowser({
               <button
                 type="button"
                 onClick={() => setCategoryId(null)}
-                className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition ${
-                  categoryId === null
-                    ? "bg-[var(--brand)] text-white"
-                    : "border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] hover:bg-white"
-                }`}
+                className={viewTab(categoryId === null)}
               >
                 Все разделы
               </button>
@@ -283,11 +279,7 @@ export function ProductsBrowser({
                     key={category.id}
                     type="button"
                     onClick={() => setCategoryId(category.id)}
-                    className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition ${
-                      active
-                        ? "bg-[var(--brand)] text-white"
-                        : "border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] hover:bg-white"
-                    }`}
+                    className={viewTab(active)}
                   >
                     {category.name}
                   </button>

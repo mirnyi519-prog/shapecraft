@@ -8,6 +8,7 @@ import {
   type HuntingPriceList,
   type HuntingTier,
 } from "@/lib/hunting-shared";
+import { viewTab } from "@/components/ui";
 
 export function HuntingPrices({ prices }: { prices: HuntingPriceList }) {
   const [tier, setTier] = useState<HuntingTier>("member");
@@ -31,11 +32,7 @@ export function HuntingPrices({ prices }: { prices: HuntingPriceList }) {
             key={item.id}
             type="button"
             onClick={() => setTier(item.id)}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-              item.id === tier
-                ? "bg-[var(--brand)] text-white"
-                : "border border-[var(--border)] bg-white hover:bg-[var(--bg)]"
-            }`}
+            className={viewTab(item.id === tier)}
           >
             {item.label}
           </button>

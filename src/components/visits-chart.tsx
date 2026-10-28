@@ -5,6 +5,7 @@ import type {
   VisitsChartPeriod,
   VisitsChartSeries,
 } from "@/lib/visit-chart";
+import { viewTab } from "@/components/ui";
 
 const PERIODS: { id: VisitsChartPeriod; label: string }[] = [
   { id: "day", label: "День" },
@@ -110,11 +111,7 @@ export function VisitsChart({ initialData }: { initialData: VisitsChartSeries })
                 type="button"
                 onClick={() => selectPeriod(item.id)}
                 disabled={pending}
-                className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition ${
-                  active
-                    ? "bg-[var(--brand)] text-white"
-                    : "border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] hover:bg-white"
-                } disabled:opacity-60`}
+                className={viewTab(active)}
               >
                 {item.label}
               </button>

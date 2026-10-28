@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ProductPhoto } from "@/components/product-photo";
-import { Button, Input, Textarea } from "@/components/ui";
+import { Button, Input, Textarea, viewTab } from "@/components/ui";
 import {
   CATALOG_LINE_LABELS,
   CATALOG_LINES,
@@ -355,11 +355,7 @@ export function ProductForm({
                 onClick={() =>
                   setValues((current) => ({ ...current, catalogLine: line }))
                 }
-                className={`rounded-full px-3 py-2 text-sm font-medium transition ${
-                  selected
-                    ? "bg-[var(--brand)] text-white"
-                    : "border border-[var(--border)] bg-white text-[var(--text)] hover:bg-[var(--bg)]"
-                }`}
+                className={viewTab(selected)}
               >
                 {CATALOG_LINE_LABELS[line]}
               </button>
@@ -388,11 +384,7 @@ export function ProductForm({
                         : [...current.categoryIds, category.id],
                     }))
                   }
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                    selected
-                      ? "bg-[var(--brand)] text-white"
-                      : "border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] hover:bg-white"
-                  }`}
+                  className={viewTab(selected)}
                 >
                   {category.name}
                 </button>
@@ -604,11 +596,7 @@ export function ProductForm({
                 onClick={() =>
                   setValues((current) => ({ ...current, zeroStockMode: mode }))
                 }
-                className={`rounded-full px-3 py-2 text-sm font-medium transition ${
-                  selected
-                    ? "bg-[var(--brand)] text-white"
-                    : "border border-[var(--border)] bg-white text-[var(--text)] hover:bg-[var(--bg)]"
-                }`}
+                className={viewTab(selected)}
                 title={ZERO_STOCK_MODE_HINTS[mode]}
               >
                 {ZERO_STOCK_MODE_LABELS[mode]}

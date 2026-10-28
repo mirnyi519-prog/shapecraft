@@ -176,9 +176,158 @@ body {
   z-index: 1;
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+/* в base-слое — иначе перебивает text-* утилиты Tailwind на ссылках */
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+/*
+ * Вкладки и переключатели — как в базе знаний БетаПРО. В слое components, чтобы утилиты Tailwind
+ * (отступы, ширина, высота) могли их дополнять.
+ * .chrome-tabs — разделы (стиль Chrome): активная вкладка вырастает из .chrome-panel под ней;
+ *   .chrome-tabs.on-page — без панели: вкладки стоят на линии, активная — цвета фона страницы.
+ * .view-tab — переключатель внутри блока: «День / Неделя / Месяц», фильтры, режимы.
+ */
+@layer components {
+  .chrome-tabs {
+    --tab-surface: #fff;
+    display: flex;
+    align-items: flex-end;
+    padding: 0 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+  .chrome-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .chrome-tabs.on-page {
+    --tab-surface: var(--bg);
+    box-shadow: inset 0 -1px 0 var(--border);
+  }
+  .chrome-tab {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px 11px;
+    border: 1px solid transparent;
+    border-bottom: 0;
+    border-radius: 10px 10px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+  .chrome-tab:not(.is-active):not(:hover) + .chrome-tab:not(.is-active):not(:hover)::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 28%;
+    bottom: 28%;
+    width: 1px;
+    background: var(--border);
+  }
+  .chrome-tab:not(.is-active):hover {
+    margin-bottom: 4px;
+    padding-bottom: 7px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--text);
+  }
+  .chrome-tab.is-active {
+    z-index: 2;
+    margin-bottom: -1px;
+    padding-bottom: 12px;
+    border-color: var(--border);
+    background: var(--tab-surface);
+    color: var(--text);
+  }
+  .chrome-tabs.on-page .chrome-tab.is-active {
+    margin-bottom: 0;
+    padding-bottom: 11px;
+  }
+  .chrome-tab.is-active::before,
+  .chrome-tab.is-active::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    width: 12px;
+    height: 12px;
+    border-bottom: 1px solid var(--border);
+    pointer-events: none;
+  }
+  .chrome-tab.is-active::before {
+    left: -12px;
+    border-right: 1px solid var(--border);
+    border-bottom-right-radius: 12px;
+    box-shadow: 6px 6px 0 0 var(--tab-surface);
+  }
+  .chrome-tab.is-active::after {
+    right: -12px;
+    border-left: 1px solid var(--border);
+    border-bottom-left-radius: 12px;
+    box-shadow: -6px 6px 0 0 var(--tab-surface);
+  }
+  .chrome-tab-badge {
+    min-width: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.06);
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+  }
+  .chrome-panel {
+    position: relative;
+    z-index: 1;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  .view-tab {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+  }
+  .view-tab:hover {
+    border-color: var(--muted);
+  }
+  .view-tab.is-active {
+    border-color: var(--brand);
+    background: var(--brand-soft);
+    color: var(--brand);
+  }
+  .view-tab:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+  .view-tab-count {
+    color: var(--muted);
+    font-weight: 500;
+  }
 }
 
 .touch-scroll {

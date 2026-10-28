@@ -50,6 +50,16 @@ export function StatCard({
   );
 }
 
+/** Вкладка раздела (стиль Chrome) — внутри `.chrome-tabs`. */
+export function chromeTab(active: boolean): string {
+  return active ? "chrome-tab is-active" : "chrome-tab";
+}
+
+/** Переключатель внутри блока: период, фильтр, режим. */
+export function viewTab(active: boolean, className = ""): string {
+  return `view-tab${active ? " is-active" : ""}${className ? ` ${className}` : ""}`;
+}
+
 export function Button({
   children,
   variant = "primary",

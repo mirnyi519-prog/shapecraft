@@ -34,10 +34,6 @@ function href(status: IncidentFilter, rubric: RubricId | null): string {
   return `/other/news?status=${status}${rubric ? `&rubric=${rubric}` : ""}`;
 }
 
-function chip(active: boolean): string {
-  return `rounded-full px-3 py-1 text-sm ring-1 ring-[var(--border)] ${active ? "bg-[var(--brand)] text-white" : "bg-white"}`;
-}
-
 export default async function HuntingNewsPage({
   searchParams,
 }: {
@@ -77,120 +73,145 @@ export default async function HuntingNewsPage({
             через /vnimanie.
           </p>
           <HuntingNewsBackfill adminConfigured={huntingAdminId() !== ""} />
-          <div className="flex flex-wrap gap-2">
-            {INCIDENT_FILTERS.map((item) => (
-              <Link key={item.id} href={href(item.id, rubric)} className={chip(item.id === filter)}>
-                {item.label} · {counts[item.id]}
-              </Link>
-            ))}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Link href={href(filter, null)} className={chip(rubric === null)}>
-              Все рубрики
-            </Link>
-            {RUBRICS.filter((item) => rubricCounts[item.id] > 0 || item.id === rubric).map((item) => (
-              <Link key={item.id} href={href(filter, item.id)} className={chip(item.id === rubric)}>
-                {item.emoji} {item.label} · {rubricCounts[item.id]}
-              </Link>
-            ))}
-          </div>
         </div>
 
-        {items.length === 0 ? (
-          <Card>
-            <p className="text-[var(--muted)]">
-              {filter === "pending" ? "Новостей, ждущих решения, нет." : "Здесь пока пусто."}
-            </p>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {items.map((item) => {
-              const status = item.source === "hunter" ? { label: "от охотника", tone: "success" as const } : STATUS[item.status];
-              const external = item.url.startsWith("http");
-              const rubrics = item.rubricIds.map((id) => RUBRICS.find((entry) => entry.id === id)!);
+        <div>
+          <nav className="chrome-tabs" role="tablist" aria-label="Статус новостей">
+            {INCIDENT_FILTERS.map((item) => {
+              const active = item.id === filter;
               return (
-                <Card key={item.id}>
-                  <div className="flex flex-col gap-4 sm:flex-row">
-                    {item.photoCount > 0 ? (
-                      <div className="grid shrink-0 grid-cols-3 gap-1.5 sm:w-44">
-                        {Array.from({ length: item.photoCount }, (_, index) => (
-                          <a
-                            key={index}
-                            href={`/api/hunting/incidents/${item.id}/photo?i=${index}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={index === 0 ? "col-span-3" : undefined}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={`/api/hunting/incidents/${item.id}/photo?i=${index}`}
-                              alt=""
-                              loading="lazy"
-                              className={`w-full bg-[var(--brand-soft)] object-cover ${index === 0 ? "h-40 rounded-xl sm:h-32" : "h-12 rounded-lg"}`}
-                            />
-                          </a>
-                        ))}
-                      </div>
-                    ) : null}
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="text-sm">
-                          <span className="font-semibold">{item.sourceLabel}</span>
-                          <span className="text-[var(--muted)]"> · {when(item.publishedAt)}</span>
-                          {item.place ? <span className="text-[var(--muted)]"> · 📍 {item.place}</span> : null}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {item.duplicateOf ? <Badge tone="neutral">повтор</Badge> : null}
-                          {status ? <Badge tone={status.tone}>{status.label}</Badge> : null}
-                        </div>
-                      </div>
-                      {rubrics.length > 0 ? (
-                        <div className="flex flex-wrap gap-1.5 text-xs">
-                          {rubrics.map((entry) => (
-                            <span key={entry.id} className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5">
-                              {entry.emoji} {entry.label}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-                      <p className="line-clamp-6 whitespace-pre-line text-sm">{item.text}</p>
-                      {item.also.length > 0 ? (
-                        <p className="text-xs text-[var(--muted)]">
-                          Также писали:{" "}
-                          {item.also.map((entry, index) => (
-                            <span key={entry.url}>
-                              {index > 0 ? ", " : ""}
-                              <a href={entry.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                {entry.sourceLabel}
-                              </a>
-                            </span>
-                          ))}
-                        </p>
-                      ) : null}
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        {external ? (
-                          <a
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm font-medium text-[var(--brand)] hover:underline"
-                          >
-                            Оригинал
-                          </a>
-                        ) : (
-                          <span />
-                        )}
-                        {item.source !== "hunter" && item.status !== "published" ? (
-                          <HuntingNewsActions id={item.id} canSkip={item.status === "pending"} />
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+                <Link
+                  key={item.id}
+                  href={href(item.id, rubric)}
+                  role="tab"
+                  aria-selected={active}
+                  className={`chrome-tab${active ? " is-active" : ""}`}
+                >
+                  {item.label}
+                  <span className="chrome-tab-badge">{counts[item.id]}</span>
+                </Link>
               );
             })}
+          </nav>
+          <div className="chrome-panel space-y-4 p-4 sm:p-5">
+            <div className="touch-scroll flex gap-2 overflow-x-auto [scrollbar-width:none]" role="tablist" aria-label="Рубрики">
+              <Link
+                href={href(filter, null)}
+                role="tab"
+                aria-selected={rubric === null}
+                className={`view-tab${rubric === null ? " is-active" : ""}`}
+              >
+                Все рубрики
+              </Link>
+              {RUBRICS.filter((item) => rubricCounts[item.id] > 0 || item.id === rubric).map((item) => (
+                <Link
+                  key={item.id}
+                  href={href(filter, item.id)}
+                  role="tab"
+                  aria-selected={item.id === rubric}
+                  className={`view-tab${item.id === rubric ? " is-active" : ""}`}
+                >
+                  {item.emoji} {item.label}
+                  <span className="view-tab-count">{rubricCounts[item.id]}</span>
+                </Link>
+              ))}
+            </div>
+
+            {items.length === 0 ? (
+              <p className="py-6 text-center text-[var(--muted)]">
+                {filter === "pending" ? "Новостей, ждущих решения, нет." : "Здесь пока пусто."}
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {items.map((item) => {
+                  const status = item.source === "hunter" ? { label: "от охотника", tone: "success" as const } : STATUS[item.status];
+                  const external = item.url.startsWith("http");
+                  const rubrics = item.rubricIds.map((id) => RUBRICS.find((entry) => entry.id === id)!);
+                  return (
+                    <Card key={item.id}>
+                      <div className="flex flex-col gap-4 sm:flex-row">
+                        {item.photoCount > 0 ? (
+                          <div className="grid shrink-0 grid-cols-3 gap-1.5 sm:w-44">
+                            {Array.from({ length: item.photoCount }, (_, index) => (
+                              <a
+                                key={index}
+                                href={`/api/hunting/incidents/${item.id}/photo?i=${index}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={index === 0 ? "col-span-3" : undefined}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={`/api/hunting/incidents/${item.id}/photo?i=${index}`}
+                                  alt=""
+                                  loading="lazy"
+                                  className={`w-full bg-[var(--brand-soft)] object-cover ${index === 0 ? "h-40 rounded-xl sm:h-32" : "h-12 rounded-lg"}`}
+                                />
+                              </a>
+                            ))}
+                          </div>
+                        ) : null}
+                        <div className="min-w-0 flex-1 space-y-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="text-sm">
+                              <span className="font-semibold">{item.sourceLabel}</span>
+                              <span className="text-[var(--muted)]"> · {when(item.publishedAt)}</span>
+                              {item.place ? <span className="text-[var(--muted)]"> · 📍 {item.place}</span> : null}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {item.duplicateOf ? <Badge tone="neutral">повтор</Badge> : null}
+                              {status ? <Badge tone={status.tone}>{status.label}</Badge> : null}
+                            </div>
+                          </div>
+                          {rubrics.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5 text-xs">
+                              {rubrics.map((entry) => (
+                                <span key={entry.id} className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5">
+                                  {entry.emoji} {entry.label}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+                          <p className="line-clamp-6 whitespace-pre-line text-sm">{item.text}</p>
+                          {item.also.length > 0 ? (
+                            <p className="text-xs text-[var(--muted)]">
+                              Также писали:{" "}
+                              {item.also.map((entry, index) => (
+                                <span key={entry.url}>
+                                  {index > 0 ? ", " : ""}
+                                  <a href={entry.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                    {entry.sourceLabel}
+                                  </a>
+                                </span>
+                              ))}
+                            </p>
+                          ) : null}
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            {external ? (
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm font-medium text-[var(--brand)] hover:underline"
+                              >
+                                Оригинал
+                              </a>
+                            ) : (
+                              <span />
+                            )}
+                            {item.source !== "hunter" && item.status !== "published" ? (
+                              <HuntingNewsActions id={item.id} canSkip={item.status === "pending"} />
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         <Card>
           <div className="space-y-3">

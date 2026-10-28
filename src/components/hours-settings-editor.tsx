@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button, Card, Input } from "@/components/ui";
+import { Button, Card, Input, viewTab } from "@/components/ui";
 import {
   WEEKDAY_LABELS,
   WEEKDAY_ORDER,
@@ -179,11 +179,7 @@ export function HoursSettingsEditor({ initial }: { initial: StoreSettingsView })
                 key={item.id}
                 type="button"
                 onClick={() => setHoursMode(item.id)}
-                className={`min-h-11 rounded-xl px-3 text-sm font-medium transition ${
-                  active
-                    ? "bg-[var(--brand)] text-white"
-                    : "border border-[var(--border)] bg-white hover:bg-[var(--bg)]"
-                }`}
+                className={viewTab(active, "min-h-11")}
               >
                 {item.label}
               </button>

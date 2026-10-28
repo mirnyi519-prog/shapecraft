@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Badge, Button, Card } from "@/components/ui";
+import { Badge, Button, Card, viewTab } from "@/components/ui";
 import { formatDateTime } from "@/lib/calculations";
 import { feedbackCardClass, type FeedbackRow } from "@/lib/feedback";
 
@@ -177,11 +177,7 @@ export function FeedbackManager({
                 key={item.id}
                 type="button"
                 onClick={() => setChip(item.id)}
-                className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition ${
-                  active
-                    ? "bg-[var(--brand)] text-white"
-                    : "border border-[var(--border)] bg-[var(--bg)] text-[var(--text)] hover:bg-white"
-                }`}
+                className={viewTab(active)}
               >
                 {item.label}
               </button>

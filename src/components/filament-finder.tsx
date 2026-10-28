@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Badge, Button, Card } from "@/components/ui";
+import { Badge, Button, Card, viewTab } from "@/components/ui";
 import { formatDateTime, formatRub } from "@/lib/calculations";
 import {
   FILAMENT_FRESH_DAYS,
@@ -119,11 +119,7 @@ export function FilamentFinder({ recent }: { recent: FilamentRecentQuery[] }) {
                   key={preset}
                   type="button"
                   onClick={() => setText(preset)}
-                  className={`shrink-0 rounded-full px-3 py-2 text-sm font-medium transition ${
-                    active
-                      ? "bg-[var(--brand)] text-white"
-                      : "border border-[var(--border)] bg-white hover:bg-[var(--bg)]"
-                  }`}
+                  className={viewTab(active)}
                 >
                   {preset}
                 </button>

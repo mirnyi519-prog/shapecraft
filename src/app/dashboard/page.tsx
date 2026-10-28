@@ -4,7 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { PriceListPrint } from "@/components/price-list-print";
 import { ProductThumb } from "@/components/product-thumb";
 import { SalesChart } from "@/components/sales-chart";
-import { Badge, Button, Card, StatCard } from "@/components/ui";
+import { Badge, Button, Card, chromeTab, StatCard } from "@/components/ui";
 import { formatDate, formatDateTime, formatRub } from "@/lib/calculations";
 import { getSession, isAdmin } from "@/lib/auth";
 import { getBuyClickStats } from "@/lib/buy-clicks";
@@ -178,11 +178,7 @@ export default async function DashboardPage({
           <p className="text-[var(--muted)]">Обзор продаж и остатков</p>
         </PriceListPrint>
 
-        <div
-          className="flex gap-1 overflow-x-auto rounded-full border border-[var(--border)] bg-white p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          role="tablist"
-          aria-label="Разделы сводки"
-        >
+        <nav className="chrome-tabs on-page" role="tablist" aria-label="Разделы сводки">
           {visibleTabs.map((item) => {
             const active = tab === item.id;
             return (
@@ -191,17 +187,13 @@ export default async function DashboardPage({
                 href={tabHref(item.id)}
                 role="tab"
                 aria-selected={active}
-                className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition ${
-                  active
-                    ? "bg-[var(--brand)] text-white"
-                    : "text-[var(--text)] hover:bg-[var(--bg)]"
-                }`}
+                className={chromeTab(active)}
               >
                 {item.label}
               </Link>
             );
           })}
-        </div>
+        </nav>
 
         <ActiveHoldsPanel />
 
