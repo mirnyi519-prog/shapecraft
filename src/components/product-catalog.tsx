@@ -9,7 +9,7 @@ import { ModalCloseButton } from "@/components/modal-close-button";
 import { ProductGallery } from "@/components/product-gallery";
 import { ProductPhoto } from "@/components/product-photo";
 import { ProductSpecsBlock } from "@/components/product-specs-block";
-import { Badge, Button, Card, viewTab } from "@/components/ui";
+import { Badge, Button, Card, chromeTab } from "@/components/ui";
 import { useScrollLock } from "@/hooks/use-scroll-lock";
 import { formatRub } from "@/lib/calculations";
 import type { CatalogCategory } from "@/lib/categories";
@@ -398,11 +398,11 @@ export function ProductCatalog({
   return (
     <>
       {categories.length > 0 ? (
-        <div className="mb-4 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="mb-4 chrome-tabs on-page">
           <button
             type="button"
             onClick={() => setCategoryId(null)}
-            className={viewTab(categoryId === null, "min-h-10")}
+            className={chromeTab(categoryId === null)}
           >
             Все
           </button>
@@ -413,7 +413,7 @@ export function ProductCatalog({
                 key={category.id}
                 type="button"
                 onClick={() => setCategoryId(category.id)}
-                className={viewTab(active, "min-h-10")}
+                className={chromeTab(active)}
               >
                 {category.name}
               </button>

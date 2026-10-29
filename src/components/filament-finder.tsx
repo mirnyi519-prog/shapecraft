@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Badge, Button, Card, viewTab } from "@/components/ui";
+import { Badge, Button, Card, chromeTab } from "@/components/ui";
 import { formatDateTime, formatRub } from "@/lib/calculations";
 import {
   FILAMENT_FRESH_DAYS,
@@ -111,7 +111,7 @@ export function FilamentFinder({ recent }: { recent: FilamentRecentQuery[] }) {
             void search(text);
           }}
         >
-          <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="chrome-tabs in-card">
             {FILAMENT_PRESETS.map((preset) => {
               const active = text.trim().toLowerCase() === preset.toLowerCase();
               return (
@@ -119,7 +119,7 @@ export function FilamentFinder({ recent }: { recent: FilamentRecentQuery[] }) {
                   key={preset}
                   type="button"
                   onClick={() => setText(preset)}
-                  className={viewTab(active)}
+                  className={chromeTab(active)}
                 >
                   {preset}
                 </button>

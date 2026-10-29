@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
-import { Badge, Card, viewTab } from "@/components/ui";
+import { Badge, Card, chromeTab } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
 import { getBotUsageStats, USAGE_PERIODS } from "@/lib/hunting-usage";
 import { formatMoscow } from "@/lib/timezone";
@@ -67,12 +67,12 @@ export default async function BotStatsPage({ searchParams }: { searchParams: Pro
             Сообщения в группе без команды бот не видит и не учитывает. Даты документов в журнал не попадают. Журнал
             хранится год.
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="chrome-tabs on-page">
             {USAGE_PERIODS.map((value) => (
               <Link
                 key={value}
                 href={`/other/bot-stats?days=${value}`}
-                className={viewTab(value === days)}
+                className={chromeTab(value === days)}
               >
                 {value === 365 ? "год" : `${value} дн.`}
               </Link>

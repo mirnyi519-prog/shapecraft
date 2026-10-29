@@ -3,7 +3,7 @@ import {
   PRODUCTS_VIEWS,
   type ProductsView,
 } from "@/components/app-nav-config";
-import { viewTab } from "@/components/ui";
+import { chromeTab } from "@/components/ui";
 
 export function ProductsViewChips({
   view,
@@ -16,7 +16,7 @@ export function ProductsViewChips({
 
   return (
     <div
-      className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="chrome-tabs on-page"
       role="tablist"
       aria-label="Фильтр товаров"
     >
@@ -28,7 +28,7 @@ export function ProductsViewChips({
             href={item.href}
             role="tab"
             aria-selected={active}
-            className={viewTab(active, "min-h-10")}
+            className={chromeTab(active)}
           >
             {item.label}
           </Link>

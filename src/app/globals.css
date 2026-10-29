@@ -188,8 +188,9 @@ body {
  * Вкладки и переключатели — как в базе знаний БетаПРО. В слое components, чтобы утилиты Tailwind
  * (отступы, ширина, высота) могли их дополнять.
  * .chrome-tabs — разделы (стиль Chrome): активная вкладка вырастает из .chrome-panel под ней;
- *   .chrome-tabs.on-page — без панели: вкладки стоят на линии, активная — цвета фона страницы.
- * .view-tab — переключатель внутри блока: «День / Неделя / Месяц», фильтры, режимы.
+ *   .chrome-tabs.on-page — без панели: вкладки стоят на линии, активная — цвета фона страницы;
+ *   .chrome-tabs.in-card — то же внутри белой карточки.
+ * .view-tab — только для множественного выбора (несколько отмеченных сразу), где вкладки не подходят.
  */
 @layer components {
   .chrome-tabs {
@@ -204,9 +205,12 @@ body {
   .chrome-tabs::-webkit-scrollbar {
     display: none;
   }
+  .chrome-tabs.on-page,
+  .chrome-tabs.in-card {
+    box-shadow: inset 0 -1px 0 var(--border);
+  }
   .chrome-tabs.on-page {
     --tab-surface: var(--bg);
-    box-shadow: inset 0 -1px 0 var(--border);
   }
   .chrome-tab {
     position: relative;
@@ -249,7 +253,8 @@ body {
     background: var(--tab-surface);
     color: var(--text);
   }
-  .chrome-tabs.on-page .chrome-tab.is-active {
+  .chrome-tabs.on-page .chrome-tab.is-active,
+  .chrome-tabs.in-card .chrome-tab.is-active {
     margin-bottom: 0;
     padding-bottom: 11px;
   }

@@ -5,7 +5,7 @@ import { AppShell } from "@/components/app-shell";
 import { BuyClickOutcomeSelect } from "@/components/buy-click-outcome-select";
 import { BuyClicksResetButton } from "@/components/buy-clicks-reset-button";
 import { ProductThumb } from "@/components/product-thumb";
-import { Button, Card, StatCard, viewTab } from "@/components/ui";
+import { Button, Card, chromeTab, StatCard } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
 import { getBuyClickStats } from "@/lib/buy-clicks";
 import { formatDateTime } from "@/lib/calculations";
@@ -68,14 +68,14 @@ export default async function ViewsPage({
           </Link>
         </div>
 
-        <div className="flex gap-2" role="tablist" aria-label="Раздел просмотров">
-          <Link href="/views" role="tab" aria-selected={tab === "cards"} className={viewTab(tab === "cards")}>
+        <nav className="chrome-tabs on-page" role="tablist" aria-label="Раздел просмотров">
+          <Link href="/views" role="tab" aria-selected={tab === "cards"} className={chromeTab(tab === "cards")}>
             Карточки
           </Link>
-          <Link href="/views?tab=buy" role="tab" aria-selected={tab === "buy"} className={viewTab(tab === "buy")}>
+          <Link href="/views?tab=buy" role="tab" aria-selected={tab === "buy"} className={chromeTab(tab === "buy")}>
             Клики «Купить»
           </Link>
-        </div>
+        </nav>
 
         {tab === "cards" ? (
           <Card title="Просмотры карточек на витрине">

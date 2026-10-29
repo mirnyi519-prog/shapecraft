@@ -8,7 +8,7 @@ import {
   ProductAdminCard,
   type ProductCardData,
 } from "@/components/product-admin-card";
-import { Card, viewTab } from "@/components/ui";
+import { Card, chromeTab } from "@/components/ui";
 import { hasListPrice } from "@/lib/pricing";
 
 function normalize(text: string): string {
@@ -264,11 +264,11 @@ export function ProductsBrowser({
         {categories.length > 0 && view !== "archive" ? (
           <div className="space-y-2">
             <p className="text-sm font-medium">Раздел</p>
-            <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="chrome-tabs in-card">
               <button
                 type="button"
                 onClick={() => setCategoryId(null)}
-                className={viewTab(categoryId === null)}
+                className={chromeTab(categoryId === null)}
               >
                 Все разделы
               </button>
@@ -279,7 +279,7 @@ export function ProductsBrowser({
                     key={category.id}
                     type="button"
                     onClick={() => setCategoryId(category.id)}
-                    className={viewTab(active)}
+                    className={chromeTab(active)}
                   >
                     {category.name}
                   </button>

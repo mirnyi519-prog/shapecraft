@@ -8,7 +8,7 @@ import {
   type HuntingPriceList,
   type HuntingTier,
 } from "@/lib/hunting-shared";
-import { viewTab } from "@/components/ui";
+import { chromeTab } from "@/components/ui";
 
 export function HuntingPrices({ prices }: { prices: HuntingPriceList }) {
   const [tier, setTier] = useState<HuntingTier>("member");
@@ -26,13 +26,13 @@ export function HuntingPrices({ prices }: { prices: HuntingPriceList }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-2">
+      <div className="chrome-tabs in-card">
         {HUNTING_TIERS.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => setTier(item.id)}
-            className={viewTab(item.id === tier)}
+            className={chromeTab(item.id === tier)}
           >
             {item.label}
           </button>

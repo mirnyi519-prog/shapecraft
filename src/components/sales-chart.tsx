@@ -6,7 +6,7 @@ import type {
   SalesChartPeriod,
   SalesChartSeries,
 } from "@/lib/sales-stats";
-import { viewTab } from "@/components/ui";
+import { chromeTab } from "@/components/ui";
 
 const PERIODS: { id: SalesChartPeriod; label: string }[] = [
   { id: "day", label: "День" },
@@ -116,7 +116,7 @@ export function SalesChart({
           <h2 className="text-lg font-semibold">Дашборд продаж</h2>
           <p className="text-sm text-[var(--muted)]">{data.label}</p>
         </div>
-        <div className="flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="chrome-tabs in-card">
           {PERIODS.map((item) => {
             const active = period === item.id;
             return (
@@ -125,7 +125,7 @@ export function SalesChart({
                 type="button"
                 onClick={() => selectPeriod(item.id)}
                 disabled={pending}
-                className={viewTab(active)}
+                className={chromeTab(active)}
               >
                 {item.label}
               </button>

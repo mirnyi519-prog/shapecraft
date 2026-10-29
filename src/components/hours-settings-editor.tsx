@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button, Card, Input, viewTab } from "@/components/ui";
+import { Button, Card, Input, chromeTab } from "@/components/ui";
 import {
   WEEKDAY_LABELS,
   WEEKDAY_ORDER,
@@ -171,7 +171,7 @@ export function HoursSettingsEditor({ initial }: { initial: StoreSettingsView })
   return (
     <form onSubmit={(event) => void handleSave(event)} className="space-y-4">
       <Card title="Режим графика">
-        <div className="flex flex-wrap gap-2">
+        <div className="chrome-tabs in-card">
           {modeOptions.map((item) => {
             const active = hoursMode === item.id;
             return (
@@ -179,7 +179,7 @@ export function HoursSettingsEditor({ initial }: { initial: StoreSettingsView })
                 key={item.id}
                 type="button"
                 onClick={() => setHoursMode(item.id)}
-                className={viewTab(active, "min-h-11")}
+                className={chromeTab(active)}
               >
                 {item.label}
               </button>

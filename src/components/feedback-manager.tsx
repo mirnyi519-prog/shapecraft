@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Badge, Button, Card, viewTab } from "@/components/ui";
+import { Badge, Button, Card, chromeTab } from "@/components/ui";
 import { formatDateTime } from "@/lib/calculations";
 import { feedbackCardClass, type FeedbackRow } from "@/lib/feedback";
 
@@ -169,7 +169,7 @@ export function FeedbackManager({
             autoComplete="off"
           />
         </label>
-        <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="chrome-tabs in-card">
           {CHIPS.map((item) => {
             const active = chip === item.id;
             return (
@@ -177,7 +177,7 @@ export function FeedbackManager({
                 key={item.id}
                 type="button"
                 onClick={() => setChip(item.id)}
-                className={viewTab(active)}
+                className={chromeTab(active)}
               >
                 {item.label}
               </button>

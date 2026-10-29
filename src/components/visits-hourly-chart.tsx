@@ -5,7 +5,7 @@ import type {
   VisitsChartPeriod,
   VisitsHourlySeries,
 } from "@/lib/visit-chart";
-import { viewTab } from "@/components/ui";
+import { chromeTab } from "@/components/ui";
 
 const PERIODS: { id: VisitsChartPeriod; label: string }[] = [
   { id: "day", label: "30 дней" },
@@ -84,7 +84,7 @@ export function VisitsHourlyChart({
           <h2 className="text-lg font-semibold">Время входа</h2>
           <p className="text-sm text-[var(--muted)]">{data.label}</p>
         </div>
-        <div className="flex gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="chrome-tabs in-card">
           {PERIODS.map((item) => {
             const active = period === item.id;
             return (
@@ -93,7 +93,7 @@ export function VisitsHourlyChart({
                 type="button"
                 onClick={() => selectPeriod(item.id)}
                 disabled={pending}
-                className={viewTab(active)}
+                className={chromeTab(active)}
               >
                 {item.label}
               </button>

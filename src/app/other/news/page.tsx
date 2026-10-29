@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { HuntingNewsActions, HuntingNewsBackfill, NoiseWordRemove } from "@/components/hunting-news-controls";
-import { Badge, Card } from "@/components/ui";
+import { Badge, Card, chromeTab } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
 import {
   huntingAdminId,
@@ -85,7 +85,7 @@ export default async function HuntingNewsPage({
                   href={href(item.id, rubric)}
                   role="tab"
                   aria-selected={active}
-                  className={`chrome-tab${active ? " is-active" : ""}`}
+                  className={chromeTab(active)}
                 >
                   {item.label}
                   <span className="chrome-tab-badge">{counts[item.id]}</span>
@@ -94,13 +94,8 @@ export default async function HuntingNewsPage({
             })}
           </nav>
           <div className="chrome-panel space-y-4 p-4 sm:p-5">
-            <div className="touch-scroll flex gap-2 overflow-x-auto [scrollbar-width:none]" role="tablist" aria-label="Рубрики">
-              <Link
-                href={href(filter, null)}
-                role="tab"
-                aria-selected={rubric === null}
-                className={`view-tab${rubric === null ? " is-active" : ""}`}
-              >
+            <nav className="chrome-tabs in-card" role="tablist" aria-label="Рубрики">
+              <Link href={href(filter, null)} role="tab" aria-selected={rubric === null} className={chromeTab(rubric === null)}>
                 Все рубрики
               </Link>
               {RUBRICS.filter((item) => rubricCounts[item.id] > 0 || item.id === rubric).map((item) => (
@@ -109,13 +104,13 @@ export default async function HuntingNewsPage({
                   href={href(filter, item.id)}
                   role="tab"
                   aria-selected={item.id === rubric}
-                  className={`view-tab${item.id === rubric ? " is-active" : ""}`}
+                  className={chromeTab(item.id === rubric)}
                 >
                   {item.emoji} {item.label}
-                  <span className="view-tab-count">{rubricCounts[item.id]}</span>
+                  <span className="chrome-tab-badge">{rubricCounts[item.id]}</span>
                 </Link>
               ))}
-            </div>
+            </nav>
 
             {items.length === 0 ? (
               <p className="py-6 text-center text-[var(--muted)]">

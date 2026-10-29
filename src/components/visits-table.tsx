@@ -1,7 +1,7 @@
 "use client";
 
 import { useDeferredValue, useMemo, useState } from "react";
-import { Card, viewTab } from "@/components/ui";
+import { Card, chromeTab } from "@/components/ui";
 import { formatDateTime } from "@/lib/calculations";
 import type { IpVisitSummary } from "@/lib/visits";
 
@@ -116,7 +116,7 @@ export function VisitsTable({ rows }: { rows: IpVisitSummary[] }) {
             autoComplete="off"
           />
         </label>
-        <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="chrome-tabs in-card">
           {SORT_OPTIONS.map((item) => {
             const active = sort === item.id;
             return (
@@ -124,7 +124,7 @@ export function VisitsTable({ rows }: { rows: IpVisitSummary[] }) {
                 key={item.id}
                 type="button"
                 onClick={() => setSort(item.id)}
-                className={viewTab(active)}
+                className={chromeTab(active)}
               >
                 {item.label}
               </button>

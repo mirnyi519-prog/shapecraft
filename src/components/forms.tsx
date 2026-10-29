@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ProductPhoto } from "@/components/product-photo";
-import { Button, Input, Textarea, viewTab } from "@/components/ui";
+import { Button, chromeTab, Input, Textarea, viewTab } from "@/components/ui";
 import {
   CATALOG_LINE_LABELS,
   CATALOG_LINES,
@@ -345,7 +345,7 @@ export function ProductForm({
         <p className="text-sm text-[var(--muted)]">
           Товар попадёт в раздел «Сувениры» или «Для дома» на публичной витрине.
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="chrome-tabs in-card">
           {CATALOG_LINES.map((line) => {
             const selected = values.catalogLine === line;
             return (
@@ -355,7 +355,7 @@ export function ProductForm({
                 onClick={() =>
                   setValues((current) => ({ ...current, catalogLine: line }))
                 }
-                className={viewTab(selected)}
+                className={chromeTab(selected)}
               >
                 {CATALOG_LINE_LABELS[line]}
               </button>
@@ -586,7 +586,7 @@ export function ProductForm({
         <p className="text-sm text-[var(--muted)]">
           Как показывать товар на витрине, когда его нет.
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="chrome-tabs in-card">
           {ZERO_STOCK_MODES.map((mode) => {
             const selected = values.zeroStockMode === mode;
             return (
@@ -596,7 +596,7 @@ export function ProductForm({
                 onClick={() =>
                   setValues((current) => ({ ...current, zeroStockMode: mode }))
                 }
-                className={viewTab(selected)}
+                className={chromeTab(selected)}
                 title={ZERO_STOCK_MODE_HINTS[mode]}
               >
                 {ZERO_STOCK_MODE_LABELS[mode]}
