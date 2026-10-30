@@ -31,6 +31,7 @@ import {
   sendDocumentReminders,
 } from "@/lib/hunting-documents";
 import { type BotTopic, logBotUsage, pruneBotUsage } from "@/lib/hunting-usage";
+import { type ChatTool, huntingChatEnabled, huntingChatReply, pruneHuntingChat } from "@/lib/hunting-chat";
 import { type ActiveAlert, collectAlerts, getActiveQuarantines } from "@/lib/hunting-alerts";
 import { trackSourceHealth } from "@/lib/hunting-health";
 import {
@@ -38,6 +39,7 @@ import {
   handleIncidentCallback,
   handleNoiseCallback,
   handleSubscriptionCallback,
+  huntingAdminId,
   sendHunterWarning,
   sendNoiseSuggestions,
   SUBSCRIPTION_TEXT,
@@ -437,6 +439,115 @@ export async function buildHuntingReply(command: string, arg = ""): Promise<stri
   }
 }
 
+function plainText(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<a [^>]*href="([^"]+)"[^>]*>([^<]*)<\/a>/gi, "$2 ($1)")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, "&");
+}
+
+const noArgs = { type: "object" as const, properties: {} };
+
+/** Функции бота, которые GigaChat вызывает за фактами, — те же ответы, что и у команд. */
+const CHAT_TOOLS: ChatTool[] = [
+  {
+    name: "sezon",
+    description: "Какая охота сейчас открыта и что скоро откроется в Шатурском хозяйстве (сроки по распоряжениям МООиР)",
+    parameters: noArgs,
+    run: async () => plainText(buildHuntingSummaryHtml(await getHuntingOverview())),
+  },
+  {
+    name: "vid_dichi",
+    description: "Сроки охоты, нормы, карантины, цена путёвки и рекомендуемый патрон для конкретного вида дичи",
+    parameters: {
+      type: "object",
+      properties: {
+        vid: { type: "string", description: "Вид дичи: утка, гусь, вальдшнеп, тетерев, бекас, заяц, лиса, волк, бобр, барсук, кабан, лось, косуля, олень" },
+      },
+      required: ["vid"],
+    },
+    run: async ({ vid }) => {
+      const species = findSpeciesByText(String(vid ?? ""));
+      return species
+        ? speciesText(species, await getHuntingOverview(), await getActiveQuarantines())
+        : "Такого вида нет в справочнике бота.";
+    },
+  },
+  {
+    name: "ceny",
+    description: "Цены путёвок МООиР для категории охотника",
+    parameters: {
+      type: "object",
+      properties: {
+        kategoriya: {
+          type: "string",
+          enum: HUNTING_TIERS.map((tier) => tier.id),
+          description: HUNTING_TIERS.map((tier) => `${tier.id} — ${tier.label}`).join("; "),
+        },
+      },
+    },
+    run: async ({ kategoriya }) => {
+      const tier = HUNTING_TIERS.find((item) => item.id === kategoriya)?.id ?? "member";
+      return pricesText(await getHuntingOverview(), tier);
+    },
+  },
+  {
+    name: "kontakty",
+    description: "Адрес Шатурского хозяйства, телефоны егерей, ссылки",
+    parameters: noArgs,
+    run: async () => contactsText(await getHuntingOverview()),
+  },
+  {
+    name: "pogoda",
+    description: "Погода в Шатуре на 3 дня: температура, ветер, осадки, восход и закат, грибы, пожароопасность",
+    parameters: noArgs,
+    run: async () => (await buildHuntingReply("pogoda").then((html) => plainText(html ?? ""))) || "Прогноз недоступен.",
+  },
+  {
+    name: "patron",
+    description: "Какой патрон (дробь, картечь, пуля) брать на вид дичи или на текущий сезон",
+    parameters: {
+      type: "object",
+      properties: { vid: { type: "string", description: "Вид дичи или группа (птица, копытные, пушные); пусто — общий список на сезон" } },
+    },
+    run: async ({ vid }) => ammoText(String(vid ?? ""), (await getHuntingOverview()).today),
+  },
+  {
+    name: "zakon",
+    description: "Законы и правила: охота, оружие, хранение и перевозка, штрафы — с актуальной редакцией и ссылкой",
+    parameters: {
+      type: "object",
+      properties: {
+        tema: {
+          type: "string",
+          enum: LAW_COMMANDS.map((item) => item.command),
+          description: LAW_COMMANDS.map((item) => `${item.command} — ${item.description}`).join("; "),
+        },
+      },
+      required: ["tema"],
+    },
+    run: async ({ tema }) => plainText((await buildLawsReply(String(tema ?? "zakony"))) ?? "Такой темы нет."),
+  },
+  {
+    name: "novosti",
+    description: "Новости и происшествия за неделю: звери, браконьеры, погода, пожары, грибы",
+    parameters: noArgs,
+    run: async () => plainText((await weeklyNewsLines()).join("\n")),
+  },
+  {
+    name: "komandy",
+    description: "Список команд бота",
+    parameters: noArgs,
+    run: async () => helpText(),
+  },
+];
+
+const CHAT_TOPIC: BotTopic = { section: "Разговор", topic: "ai", title: "Разговор с ботом (GigaChat)" };
+
 const LAW_WORDS: [RegExp, string][] = [
   [/штраф|наказан|ответственн/i, "shtrafy"],
   [/хранен|сейф|перевоз/i, "hranenie"],
@@ -470,6 +581,7 @@ type TelegramUpdate = {
     message_thread_id?: number;
     chat?: TelegramChat;
     from?: TelegramUser;
+    reply_to_message?: { from?: { username?: string } };
   };
   callback_query?: {
     id: string;
@@ -529,7 +641,30 @@ function isHuntingChat(chat: TelegramChat): boolean {
   return ids.includes(String(chat.id)) || (chat.username != null && ids.includes(`@${chat.username}`));
 }
 
-/** Входящее сообщение: команды в группе и в личке, в личке — ещё и слово «утка», «кабан»… */
+/** Ответ по ключевым словам — когда GigaChat не подключён или не ответил. */
+async function keywordReply(text: string): Promise<{ reply: string | null; html: boolean }> {
+  if (/патрон|дроб|картеч/i.test(text)) {
+    return {
+      reply: ammoText(text.replace(/патрон\S*|дроб\S*|картеч\S*/gi, " "), (await getHuntingOverview()).today),
+      html: false,
+    };
+  }
+  const lawCommand = LAW_WORDS.find(([re]) => re.test(text))?.[1];
+  if (lawCommand) {
+    const reply = await buildLawsReply(lawCommand);
+    return { reply, html: reply != null };
+  }
+  const species = findSpeciesByText(text);
+  return {
+    reply: species ? speciesText(species, await getHuntingOverview(), await getActiveQuarantines()) : helpText(),
+    html: false,
+  };
+}
+
+/**
+ * Входящее сообщение: команды в группе и в личке. Свободный текст — разговор с GigaChat
+ * (в группе — только по упоминанию бота или ответом на его сообщение), без него — ключевые слова в личке.
+ */
 export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void> {
   if (update.callback_query) {
     const query = update.callback_query;
@@ -661,19 +796,40 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
     if (!reply && isPrivate) {
       reply = helpText();
     }
-  } else if (isPrivate) {
-    await logBotUsage({ from: message?.from, chat, topic: textTopic(text), text });
-    const lawCommand = LAW_WORDS.find(([re]) => re.test(text))?.[1];
-    const species = lawCommand ? undefined : findSpeciesByText(text);
-    if (/патрон|дроб|картеч/i.test(text)) {
-      reply = ammoText(text.replace(/патрон\S*|дроб\S*|картеч\S*/gi, " "), (await getHuntingOverview()).today);
-    } else if (lawCommand) {
-      reply = await buildLawsReply(lawCommand);
-      html = reply != null;
-    } else {
-      reply = species
-        ? speciesText(species, await getHuntingOverview(), await getActiveQuarantines())
-        : helpText();
+  } else {
+    const username = await getBotUsername();
+    const addressed =
+      isPrivate ||
+      (username != null &&
+        (text.toLowerCase().includes(`@${username}`) ||
+          message?.reply_to_message?.from?.username?.toLowerCase() === username));
+    const question = username ? text.replace(new RegExp(`@${username}\\b`, "gi"), "").trim() : text;
+    const useChat = addressed && question !== "" && message?.from != null && huntingChatEnabled();
+    if (useChat && message?.from) {
+      await logBotUsage({ from: message.from, chat, topic: CHAT_TOPIC, text: question });
+      await callTelegramApi("hunting", "sendChatAction", {
+        chat_id: chat.id,
+        action: "typing",
+        ...(message.message_thread_id != null ? { message_thread_id: message.message_thread_id } : {}),
+      });
+      reply = await huntingChatReply({
+        chatId: String(chat.id),
+        userId: String(message.from.id),
+        name: userName(message.from),
+        text: question,
+        isGroup: !isPrivate,
+        unlimited: String(message.from.id) === huntingAdminId(),
+        tools: CHAT_TOOLS,
+      }).catch((error) => {
+        console.error("hunting chat", error);
+        return null;
+      });
+    }
+    if (!reply && isPrivate) {
+      if (!useChat) {
+        await logBotUsage({ from: message?.from, chat, topic: textTopic(text), text });
+      }
+      ({ reply, html } = await keywordReply(text));
     }
   }
 
@@ -1025,6 +1181,7 @@ export async function runHuntingSchedule(now = new Date()): Promise<void> {
   await sendGatheringReminders(overview.today, hour);
   await sendDocumentReminders(overview.today, hour).catch((error) => console.error("hunting documents", error));
   await pruneBotUsage(now).catch((error) => console.error("hunting usage prune", error));
+  await pruneHuntingChat(now).catch((error) => console.error("hunting chat prune", error));
   await sendWeekendWeather(now, overview.today, hour);
   await sendSignalAlerts(now).catch((error) => console.error("hunting signal alerts", error));
   await sendWeeklyDigest(now, overview.today, hour).catch((error) => console.error("hunting weekly", error));

@@ -557,6 +557,24 @@ model HuntingBotEvent {
   @@index([userId])
 }
 
+/// Реплики разговора с охотничьим ботом (GigaChat) — память диалога и дневные лимиты.
+model HuntingChatMessage {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  chatId    String
+  /// Кто спросил (для ответов бота — кому ответил)
+  userId    String
+  name      String   @default("")
+  /// user | assistant
+  role      String
+  content   String
+  /// Токены GigaChat на ответ (у реплик user — 0)
+  tokens    Int      @default(0)
+
+  @@index([chatId, createdAt])
+  @@index([userId, createdAt])
+}
+
 /// Внешние ограничения для охоты в Шатуре: карантины (pravo.gov.ru) и запрет посещения лесов (Мособллес).
 model HuntingAlert {
   id          String   @id @default(cuid())
