@@ -552,6 +552,8 @@ model HuntingBotEvent {
   title     String
   /// Текст запроса без личных данных (для /dokument — только команда), до 200 символов
   text      String   @default("")
+  /// Что бот ответил (простой текст, до 2000 символов; сроки документов не сохраняются)
+  reply     String   @default("")
 
   @@index([createdAt])
   @@index([userId])

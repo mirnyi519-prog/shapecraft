@@ -64,8 +64,8 @@ export default async function BotStatsPage({ searchParams }: { searchParams: Pro
           <h1 className="text-2xl font-bold">Охотничий бот · аналитика</h1>
           <p className="text-[var(--muted)]">
             Кто пользуется ботом и о чём спрашивает: команды в группе и в личке, вопросы текстом, голоса в сборах.
-            Сообщения в группе без команды бот не видит и не учитывает. Даты документов в журнал не попадают. Журнал
-            хранится год.
+            В группе учитываются только команды, упоминания бота и ответы на его сообщения. К каждому обращению
+            сохраняется ответ бота; ответы о сроках документов и сами даты в журнал не попадают. Журнал хранится год.
           </p>
           <div className="chrome-tabs on-page">
             {USAGE_PERIODS.map((value) => (
@@ -162,7 +162,7 @@ export default async function BotStatsPage({ searchParams }: { searchParams: Pro
             <p className="text-sm text-[var(--muted)]">Нет обращений за период.</p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[48rem] border-collapse text-sm">
+              <table className="w-full min-w-[64rem] border-collapse text-sm">
                 <thead>
                   <tr className="text-left">
                     <th className="border-b border-[var(--border)] py-2 pr-3 font-semibold">Когда</th>
@@ -170,6 +170,7 @@ export default async function BotStatsPage({ searchParams }: { searchParams: Pro
                     <th className="border-b border-[var(--border)] px-3 py-2 font-semibold">Где</th>
                     <th className="border-b border-[var(--border)] px-3 py-2 font-semibold">Тема</th>
                     <th className="border-b border-[var(--border)] px-3 py-2 font-semibold">Запрос</th>
+                    <th className="border-b border-[var(--border)] px-3 py-2 font-semibold">Ответ бота</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -185,6 +186,18 @@ export default async function BotStatsPage({ searchParams }: { searchParams: Pro
                         <div className="text-xs text-[var(--muted)]">{event.section}</div>
                       </td>
                       <td className="border-b border-[var(--border)] px-3 py-2 text-[var(--muted)]">{event.text || "—"}</td>
+                      <td className="max-w-[28rem] border-b border-[var(--border)] px-3 py-2">
+                        {event.reply ? (
+                          <details>
+                            <summary className="cursor-pointer truncate text-[var(--muted)]">
+                              {event.reply.split("\n").find((line) => line.trim()) ?? event.reply}
+                            </summary>
+                            <div className="mt-2 rounded-lg bg-[var(--bg)] p-2 text-xs whitespace-pre-wrap">{event.reply}</div>
+                          </details>
+                        ) : (
+                          <span className="text-[var(--muted)]">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

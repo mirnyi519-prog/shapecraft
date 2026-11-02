@@ -30,7 +30,7 @@ import {
   reactivateDocuments,
   sendDocumentReminders,
 } from "@/lib/hunting-documents";
-import { type BotTopic, logBotUsage, pruneBotUsage } from "@/lib/hunting-usage";
+import { type BotTopic, logBotUsage, pruneBotUsage, saveBotReply } from "@/lib/hunting-usage";
 import { type ChatTool, huntingChatEnabled, huntingChatReply, pruneHuntingChat } from "@/lib/hunting-chat";
 import { type ActiveAlert, collectAlerts, getActiveQuarantines } from "@/lib/hunting-alerts";
 import { trackSourceHealth } from "@/lib/hunting-health";
@@ -703,6 +703,15 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
     return;
   }
   const isPrivate = chat.type === "private";
+  const threadId = message?.message_thread_id ?? null;
+
+  let eventId: string | null = null;
+  /** Отправка ответа + запись в журнал, что именно ответил бот. */
+  const send = async (value: string, options: { html?: boolean; logAs?: string } = {}) => {
+    const result = await sendTelegramTo("hunting", chat.id, value, threadId, { html: options.html });
+    const logged = options.logAs ?? (options.html ? plainText(value) : value);
+    await saveBotReply(eventId, result.ok ? logged : `⚠️ Не отправлено: ${result.error ?? "ошибка"}\n\n${logged}`);
+  };
 
   let reply: string | null = null;
   let html = false;
@@ -712,7 +721,7 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
     if (mention && mention !== (await getBotUsername())) {
       return;
     }
-    await logBotUsage({
+    eventId = await logBotUsage({
       from: message?.from,
       chat,
       topic: commandTopic(command),
@@ -728,29 +737,25 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
         photoFileId: photo?.file_id,
         messageId: message.message_id,
       });
-      await sendTelegramTo("hunting", chat.id, reply, message.message_thread_id ?? null);
+      await send(reply);
       return;
     }
     if (command === "podpiska") {
       if (!isPrivate || !message?.from) {
         const username = await getBotUsername();
-        await sendTelegramTo(
-          "hunting",
-          chat.id,
-          `Подписка на новости — в личке бота: ${username ? `https://t.me/${username}` : "напишите боту напрямую"}`,
-          message?.message_thread_id ?? null,
-        );
+        await send(`Подписка на новости — в личке бота: ${username ? `https://t.me/${username}` : "напишите боту напрямую"}`);
         return;
       }
-      await callTelegramApi("hunting", "sendMessage", {
+      const sent = await callTelegramApi("hunting", "sendMessage", {
         chat_id: chat.id,
         text: SUBSCRIPTION_TEXT,
         reply_markup: await subscriptionKeyboard(String(message.from.id)),
       });
+      await saveBotReply(eventId, sent.ok ? `${SUBSCRIPTION_TEXT}\n[кнопки рубрик]` : `⚠️ Не отправлено: ${sent.error}`);
       return;
     }
     if (command === "myid" && message?.from) {
-      await sendTelegramTo("hunting", chat.id, `Ваш Telegram id: ${message.from.id}`, message.message_thread_id ?? null);
+      await send(`Ваш Telegram id: ${message.from.id}`);
       return;
     }
     if (command === "sbor") {
@@ -764,12 +769,14 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
             today: (await getHuntingOverview()).today,
           });
       if (reply) {
-        await sendTelegramTo("hunting", chat.id, reply, message?.message_thread_id ?? null);
+        await send(reply);
       }
       return;
     }
     if (command === "dokument" || command === "dokumenty") {
+      let logAs: string | undefined = "[ответ о сроках документов не сохраняется]";
       if (!isPrivate) {
+        logAs = undefined;
         const username = await getBotUsername();
         reply = `Сроки документов — только в личке, чтобы даты не светились в чате: ${
           username ? `https://t.me/${username}` : "напишите боту напрямую"
@@ -784,8 +791,9 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
             : await handleDocumentCommand({ id: userId, name: userName(message.from) }, rest.join(" "), today);
       } else {
         reply = DOCUMENTS_USAGE;
+        logAs = undefined;
       }
-      await sendTelegramTo("hunting", chat.id, reply, message?.message_thread_id ?? null);
+      await send(reply, { logAs });
       return;
     }
     if (command === "start" && isPrivate && message?.from) {
@@ -806,7 +814,7 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
     const question = username ? text.replace(new RegExp(`@${username}\\b`, "gi"), "").trim() : text;
     const useChat = addressed && question !== "" && message?.from != null && huntingChatEnabled();
     if (useChat && message?.from) {
-      await logBotUsage({ from: message.from, chat, topic: CHAT_TOPIC, text: question });
+      eventId = await logBotUsage({ from: message.from, chat, topic: CHAT_TOPIC, text: question });
       await callTelegramApi("hunting", "sendChatAction", {
         chat_id: chat.id,
         action: "typing",
@@ -827,14 +835,14 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
     }
     if (!reply && isPrivate) {
       if (!useChat) {
-        await logBotUsage({ from: message?.from, chat, topic: textTopic(text), text });
+        eventId = await logBotUsage({ from: message?.from, chat, topic: textTopic(text), text });
       }
       ({ reply, html } = await keywordReply(text));
     }
   }
 
   if (reply) {
-    await sendTelegramTo("hunting", chat.id, reply, message?.message_thread_id ?? null, { html });
+    await send(reply, { html });
   }
 }
 

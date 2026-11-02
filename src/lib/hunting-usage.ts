@@ -16,11 +16,11 @@ export async function logBotUsage(input: {
   chat: { id: number; type?: string; title?: string };
   topic: BotTopic;
   text: string;
-}): Promise<void> {
+}): Promise<string | null> {
   if (!input.from) {
-    return;
+    return null;
   }
-  await prisma.huntingBotEvent
+  const event = await prisma.huntingBotEvent
     .create({
       data: {
         userId: String(input.from.id),
@@ -33,10 +33,24 @@ export async function logBotUsage(input: {
         text: input.text.slice(0, 200),
       },
     })
-    .catch((error) => console.error("hunting usage log", error));
+    .catch((error) => {
+      console.error("hunting usage log", error);
+      return null;
+    });
   await refreshDocumentNames(String(input.from.id), userName(input.from)).catch((error) =>
     console.error("hunting document names", error),
   );
+  return event?.id ?? null;
+}
+
+/** Дописывает к обращению ответ бота — простым текстом. */
+export async function saveBotReply(eventId: string | null, reply: string): Promise<void> {
+  if (!eventId) {
+    return;
+  }
+  await prisma.huntingBotEvent
+    .update({ where: { id: eventId }, data: { reply: reply.slice(0, 2000) } })
+    .catch((error) => console.error("hunting usage reply", error));
 }
 
 export async function pruneBotUsage(now = new Date()): Promise<void> {
