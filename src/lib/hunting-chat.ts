@@ -129,6 +129,16 @@ export async function huntingChatReply(input: {
   return answer;
 }
 
+/** Готовый ответ бота без GigaChat (план охоты) — в память, чтобы на уточнения модель знала контекст. */
+export async function rememberHuntingChat(input: { chatId: string; userId: string; name: string; text: string; reply: string }) {
+  await prisma.huntingChatMessage.createMany({
+    data: [
+      { chatId: input.chatId, userId: input.userId, name: input.name, role: "user", content: input.text.slice(0, 2000) },
+      { chatId: input.chatId, userId: input.userId, name: "", role: "assistant", content: input.reply.slice(0, 4000) },
+    ],
+  });
+}
+
 export async function pruneHuntingChat(now = new Date()): Promise<void> {
   await prisma.huntingChatMessage.deleteMany({
     where: { createdAt: { lt: new Date(now.getTime() - KEEP_DAYS * 86_400_000) } },

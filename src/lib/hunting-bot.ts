@@ -10,6 +10,7 @@ import {
   gatheringsForTomorrow,
   gatheringsOn,
   handleGatheringCallback,
+  parseGatheringArgs,
   type TelegramUser,
   userName,
 } from "@/lib/hunting-gathering";
@@ -32,7 +33,13 @@ import {
   sendDocumentReminders,
 } from "@/lib/hunting-documents";
 import { type BotTopic, logBotUsage, pruneBotUsage, saveBotReply } from "@/lib/hunting-usage";
-import { type ChatTool, huntingChatEnabled, huntingChatReply, pruneHuntingChat } from "@/lib/hunting-chat";
+import {
+  type ChatTool,
+  huntingChatEnabled,
+  huntingChatReply,
+  pruneHuntingChat,
+  rememberHuntingChat,
+} from "@/lib/hunting-chat";
 import { type ActiveAlert, collectAlerts, getActiveQuarantines } from "@/lib/hunting-alerts";
 import { trackSourceHealth } from "@/lib/hunting-health";
 import {
@@ -511,32 +518,33 @@ async function huntPlanText(species: Species, day: string): Promise<string> {
   const next = local.filter((entry) => entry.start > day).sort((a, b) => a.start.localeCompare(b.start))[0];
   const range = (entry: (typeof entries)[number]) => `${entry.label}: ${shortDate(entry.start)} – ${shortDate(entry.end, true)}`;
 
-  const lines = [`ПЛАН ОХОТЫ: ${species.title}, ${shortDate(day, true)}`, "", "1. Можно ли охотиться в эту дату:"];
+  const weekday = new Date(`${day}T12:00:00+03:00`).toLocaleDateString("ru-RU", { weekday: "long", timeZone: "Europe/Moscow" });
+  const when = `${shortDate(day, true)} (${weekday})`;
+  const lines = [`🎯 ${species.title} — ${when}`, ""];
   if (day < overview.today) {
-    lines.push("Дата уже прошла.");
+    lines.push("Эта дата уже прошла.");
   }
   if (onDay.length > 0) {
-    lines.push("ДА — охота открыта:", ...onDay.map((entry) => `• ${range(entry)}`));
+    lines.push(`✅ ${when} охотиться можно — сезон открыт:`, ...onDay.map((entry) => `• ${range(entry)}`));
   } else if (next) {
-    lines.push("НЕТ — в эту дату закрыта.", `Ближайшее открытие: ${range(next)}`);
+    lines.push(`⛔ ${when} охота закрыта.`, `Ближайшее открытие: ${range(next)}`);
   } else if (local.length > 0) {
     lines.push(
-      "НЕТ данных, что охота открыта в эту дату: распоряжения МООиР на эту дату нет — уточните у егеря (/kontakty).",
+      `❓ Распоряжения МООиР на ${shortDate(day, true)} пока нет — открыта ли охота, уточните у егеря (/kontakty).`,
       "Последние известные сроки:",
       ...local.slice(0, 3).map((entry) => `• ${range(entry)}`),
     );
   } else {
-    lines.push("В распоряжениях МООиР этого вида для Шатуры нет — уточните у егеря (/kontakty).");
+    lines.push("❓ В распоряжениях МООиР этого вида для Шатуры нет — уточните у егеря (/kontakty).");
   }
   const sources = [...new Map((onDay.length ? onDay : next ? [next] : []).map((entry) => [entry.orderUrl, entry])).values()];
-  lines.push(...sources.map((entry) => `Источник: ${entry.orderTitle} — ${entry.orderUrl}`));
 
   const rules = [...new Set(overview.orders.flatMap((order) => order.rules.filter((rule) => species.match.test(rule))))].slice(0, 3);
   if (rules.length > 0) {
     lines.push("Нормы и способы:", ...rules.map((rule) => `• ${rule}`));
   }
 
-  lines.push("", "2. Какой патрон взять:");
+  lines.push("", "🎯 Какой патрон взять:");
   const pick = pickAmmo(species.command, seasonForMonth(Number(day.slice(5, 7))));
   if (pick) {
     lines.push(`• ${formatAmmoTip(pick.tip)} — ${pick.tip.note}`);
@@ -547,7 +555,7 @@ async function huntPlanText(species: Species, day: string): Promise<string> {
     lines.push("Рекомендации нет — см. /patron.");
   }
 
-  lines.push("", "3. Путёвка МООиР (член МООиР / с собакой / со спецвзносом):");
+  lines.push("", "💰 Путёвка в МООиР (член общества / с собакой / со спецвзносом):");
   const priceRows = (overview.prices?.rows ?? []).filter(
     (row) => species.price.test(row.section) || species.price.test(row.label),
   );
@@ -569,9 +577,9 @@ async function huntPlanText(species: Species, day: string): Promise<string> {
     lines.push("Цена в прейскуранте не найдена — уточните у егеря (/kontakty).");
   }
 
-  lines.push("", `4. Погода в Шатуре на ${shortDate(day, true)}:`, await weatherForDay(day, overview.today));
+  lines.push("", `🌤 Погода в Шатуре на ${shortDate(day, true)}:`, await weatherForDay(day, overview.today));
 
-  lines.push("", "5. Важно:");
+  lines.push("", "📌 Важно:");
   for (const quarantine of quarantines) {
     if (QUARANTINE_SPECIES[quarantine.disease]?.includes(species.command)) {
       lines.push(
@@ -582,8 +590,35 @@ async function huntPlanText(species: Species, day: string): Promise<string> {
     }
   }
   lines.push("Документы и запреты — /pravila. Адрес хозяйства и егеря — /kontakty. Собрать компанию — /sbor.");
+  lines.push(...sources.map((entry) => `Сроки: ${entry.orderTitle} — ${entry.orderUrl}`));
   return lines.join("\n");
 }
+
+const MONTHS_GENITIVE = ["январ", "феврал", "март", "апрел", "ма", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр"];
+
+/** Дата охоты из фразы: «05.11.2026», «12 ноября», «завтра», «в субботу», «на выходных». */
+function huntDayInText(text: string, today: string): string | null {
+  const lower = text.toLowerCase();
+  const named = /(\d{1,2})\s+(январ|феврал|март|апрел|ма[яй]|июн|июл|август|сентябр|октябр|ноябр|декабр)\S*(?:\s+(\d{4}))?/.exec(lower);
+  if (named) {
+    const month = MONTHS_GENITIVE.findIndex((prefix) => named[2].startsWith(prefix)) + 1;
+    return parseHuntDay(`${named[1]}.${month}${named[3] ? `.${named[3]}` : ""}`, today);
+  }
+  const parsed = parseGatheringArgs(lower, today).date;
+  if (parsed) {
+    return parsed;
+  }
+  if (/выходн/.test(lower)) {
+    const current = new Date(`${today}T12:00:00Z`).getUTCDay();
+    return addDays(today, current === 0 ? 0 : (6 - current + 7) % 7);
+  }
+  return null;
+}
+
+/** «хочу сходить», «можно ли», «собираюсь» — человек планирует охоту, а не просто болтает. */
+const HUNT_INTENT = /хоч|пойд|пойт|сход|схож|собира|поед|поех|можно|открыт|охот/i;
+
+const PLAN_TOPIC: BotTopic = { section: "Разговор", topic: "plan", title: "План охоты: вид и дата" };
 
 /** Функции бота, которые GigaChat вызывает за фактами, — те же ответы, что и у команд. */
 const CHAT_TOOLS: ChatTool[] = [
@@ -978,6 +1013,25 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
         (text.toLowerCase().includes(`@${username}`) ||
           message?.reply_to_message?.from?.username?.toLowerCase() === username));
     const question = username ? text.replace(new RegExp(`@${username}\\b`, "gi"), "").trim() : text;
+    const planSpecies = addressed && message?.from ? findSpeciesByText(question) : undefined;
+    const today = planSpecies ? (await getHuntingOverview()).today : "";
+    const planDay = planSpecies ? huntDayInText(question, today) : null;
+    const shortQuestion = question.split(/\s+/).length <= 4;
+    if (planSpecies && message?.from && (planDay || shortQuestion || HUNT_INTENT.test(question))) {
+      eventId = await logBotUsage({ from: message.from, chat, topic: PLAN_TOPIC, text: question });
+      const plan = await huntPlanText(planSpecies, planDay ?? today);
+      await send(plan);
+      if (huntingChatEnabled()) {
+        await rememberHuntingChat({
+          chatId: String(chat.id),
+          userId: String(message.from.id),
+          name: userName(message.from),
+          text: question,
+          reply: plan,
+        }).catch((error) => console.error("hunting chat memory", error));
+      }
+      return;
+    }
     const useChat = addressed && question !== "" && message?.from != null && huntingChatEnabled();
     if (useChat && message?.from) {
       eventId = await logBotUsage({ from: message.from, chat, topic: CHAT_TOPIC, text: question });
