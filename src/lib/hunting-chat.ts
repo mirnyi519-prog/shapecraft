@@ -4,7 +4,7 @@ import { formatMoscow, startOfMoscowDay } from "@/lib/timezone";
 
 /** Сколько последних реплик чата модель видит как контекст. */
 const HISTORY = 12;
-const KEEP_DAYS = 30;
+const KEEP_DAYS = 14;
 const PER_USER_PER_DAY = 25;
 const TOTAL_PER_DAY = 400;
 /** Не больше стольких обращений к функциям бота на один вопрос. */

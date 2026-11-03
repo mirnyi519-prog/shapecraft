@@ -157,6 +157,8 @@ model AppSetting {
   sessionEpoch        Int       @default(0)
   /// Последняя публикация объявления маркет-ботом (лимит 1/час)
   lastMarketPublishAt DateTime?
+  /// Последняя ночная уборка старых данных и неиспользуемых фото
+  lastRetentionAt     DateTime?
 }
 
 model StoreBanner {

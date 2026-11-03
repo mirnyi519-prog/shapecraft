@@ -5,7 +5,7 @@
 set -euo pipefail
 
 BACKUP_DIR="${BACKUP_DIR:-/opt/shapecraft-backups}"
-KEEP="${KEEP:-7}"
+KEEP="${KEEP:-5}"
 CRON_FILE=/etc/cron.d/shapecraft-backup
 LOG_FILE=/var/log/shapecraft-backup.log
 

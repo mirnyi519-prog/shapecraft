@@ -469,7 +469,11 @@ function alsoLine(rows: { sourceLabel: string; url: string }[]): string[] {
 
 /** Рубрики и место для новостей, сохранённых до появления рубрик. */
 async function fillRubrics(): Promise<void> {
-  const rows = await prisma.huntingIncident.findMany({ where: { rubrics: "" }, select: { id: true, text: true }, take: 500 });
+  const rows = await prisma.huntingIncident.findMany({
+    where: { rubrics: "", text: { not: "" } },
+    select: { id: true, text: true },
+    take: 500,
+  });
   for (const row of rows) {
     await prisma.huntingIncident.update({
       where: { id: row.id },
@@ -1167,9 +1171,13 @@ export async function handleIncidentCallback(query: { id: string; data?: string;
     await answer("Решает модератор");
     return;
   }
-  const incident = await prisma.huntingIncident.findUnique({ where: { id: match[1] }, select: { status: true } });
+  const incident = await prisma.huntingIncident.findUnique({ where: { id: match[1] }, select: { status: true, text: true } });
   if (incident?.status !== "pending") {
     await answer("Уже обработано");
+    return;
+  }
+  if (!incident.text) {
+    await answer("Новость старше двух недель — уже удалена");
     return;
   }
   const result = await moderateIncident(match[1], match[2] === "pub");
@@ -1188,22 +1196,24 @@ export type IncidentFilter = (typeof INCIDENT_FILTERS)[number]["id"];
 
 export async function listIncidents(filter: IncidentFilter, rubric: RubricId | null = null, take = 100) {
   await fillRubrics();
+  /** Старше NEWS_KEEP_DAYS у новости остаётся только строка для статистики — в списке её нет. */
+  const kept = { text: { not: "" } };
   const base =
     filter === "all"
-      ? {}
+      ? kept
       : filter === "hunter"
-        ? { source: "hunter" }
-        : { status: filter, source: { not: "hunter" } };
+        ? { ...kept, source: "hunter" }
+        : { ...kept, status: filter, source: { not: "hunter" } };
   const where = rubric ? { ...base, rubrics: { contains: rubric } } : base;
   const [rows, counts] = await Promise.all([
     prisma.huntingIncident.findMany({ where, orderBy: { publishedAt: "desc" }, take }),
     prisma.huntingIncident.groupBy({
       by: ["status"],
-      where: { source: { not: "hunter" } },
+      where: { ...kept, source: { not: "hunter" } },
       _count: { _all: true },
     }),
   ]);
-  const hunter = await prisma.huntingIncident.count({ where: { source: "hunter" } });
+  const hunter = await prisma.huntingIncident.count({ where: { ...kept, source: "hunter" } });
   const count = (status: string) => counts.find((row) => row.status === status)?._count._all ?? 0;
   const [duplicates, inFilter] = await Promise.all([
     prisma.huntingIncident.findMany({
@@ -1362,7 +1372,8 @@ export async function noiseCandidates(now = new Date()) {
       status: { in: ["published", "skipped"] },
       publishedAt: { gte: new Date(now.getTime() - NOISE_LOOKBACK_DAYS * 86_400_000) },
     },
-    select: { text: true, status: true },
+    select: { text: true, fingerprint: true, status: true },
+    orderBy: { publishedAt: "desc" },
   });
   const known = new Set((await prisma.huntingNoiseWord.findMany({ select: { stem: true } })).map((row) => row.stem));
   const stats = new Map<string, { skipped: number; published: number; sample: string }>();
@@ -1370,6 +1381,10 @@ export async function noiseCandidates(now = new Date()) {
     const words = new Map<string, string>();
     for (const word of row.text.toLowerCase().replace(/ё/g, "е").match(/[а-я]{5,}/g) ?? []) {
       if (!words.has(word.slice(0, 6))) words.set(word.slice(0, 6), word);
+    }
+    // У новостей старше двух недель текста уже нет — остаются основы слов из отпечатка.
+    if (!row.text) {
+      for (const stem of row.fingerprint.split(" ").filter(Boolean)) words.set(stem, stem);
     }
     for (const [stem, word] of words) {
       const stat = stats.get(stem) ?? { skipped: 0, published: 0, sample: word };

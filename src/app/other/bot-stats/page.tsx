@@ -65,7 +65,8 @@ export default async function BotStatsPage({ searchParams }: { searchParams: Pro
           <p className="text-[var(--muted)]">
             Кто пользуется ботом и о чём спрашивает: команды в группе и в личке, вопросы текстом, голоса в сборах.
             В группе учитываются только команды, упоминания бота и ответы на его сообщения. К каждому обращению
-            сохраняется ответ бота; ответы о сроках документов и сами даты в журнал не попадают. Журнал хранится год.
+            сохраняется ответ бота; ответы о сроках документов и сами даты в журнал не попадают. Статистика хранится год,
+            тексты запросов и ответов — 14 дней.
           </p>
           <div className="chrome-tabs on-page">
             {USAGE_PERIODS.map((value) => (
@@ -157,7 +158,7 @@ export default async function BotStatsPage({ searchParams }: { searchParams: Pro
           </Card>
         ) : null}
 
-        <Card title="Последние обращения">
+        <Card title="Последние обращения · 14 дней">
           {stats.recent.length === 0 ? (
             <p className="text-sm text-[var(--muted)]">Нет обращений за период.</p>
           ) : (

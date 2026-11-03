@@ -345,6 +345,10 @@ export async function getVisitStats(): Promise<{
   >();
 
   for (const visit of visits) {
+    // IP хранится VISIT_IP_DAYS дней, у старых визитов он стёрт — в список IP они не попадают.
+    if (!visit.ipAddress) {
+      continue;
+    }
     let row = byIpMap.get(visit.ipAddress);
     if (!row) {
       row = {

@@ -42,7 +42,8 @@ export default async function VisitsPage() {
               Витрина («/»), гости без входа. Повтор с того же IP/cookie не чаще
               раза в 30 мин (чтобы F5 не раздувал статистику). Админка, экран,
               логин и боты превью (TelegramBot) не считаются. Сортировка по
-              умолчанию — свежие сверху.
+              умолчанию — свежие сверху. Графики считаются за всё время, а IP
+              и браузер хранятся 14 дней — потом визит остаётся без них.
             </p>
           </div>
           <Link href="/dashboard" className="w-full sm:w-auto">
@@ -54,7 +55,7 @@ export default async function VisitsPage() {
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <StatCard label="Всего визитов" value={String(stats.totalVisits)} />
-          <StatCard label="Уникальных IP" value={String(stats.uniqueIps)} />
+          <StatCard label="Уникальных IP · 14 дней" value={String(stats.uniqueIps)} />
           <StatCard
             label="Сегодня"
             value={String(stats.visitsToday)}

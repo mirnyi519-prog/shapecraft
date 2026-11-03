@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { refreshDocumentNames } from "@/lib/hunting-documents";
 import type { TelegramUser } from "@/lib/hunting-gathering";
 import { userName } from "@/lib/hunting-gathering";
+import { BOT_TEXT_DAYS } from "@/lib/retention";
 import { formatMoscow } from "@/lib/timezone";
 
 /** Сколько дней хранить журнал обращений. */
@@ -141,6 +142,6 @@ export async function getBotUsageStats(days: number, now = new Date()) {
     topics: topics.slice(0, 20),
     chats,
     timeline,
-    recent: events.slice(0, 50),
+    recent: events.filter((e) => e.createdAt.getTime() >= now.getTime() - BOT_TEXT_DAYS * 86_400_000).slice(0, 50),
   };
 }

@@ -443,7 +443,7 @@ export default async function DashboardPage({
                 value={String(visitStats.totalVisits)}
               />
               <StatCard
-                label="Уникальных IP"
+                label="Уникальных IP · 14 дней"
                 value={String(visitStats.uniqueIps)}
               />
               <StatCard
