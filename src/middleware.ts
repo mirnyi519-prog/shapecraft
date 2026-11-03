@@ -121,21 +121,25 @@ function logSecurityHit(
     return;
   }
 
-  const logUrl = new URL("/api/security/log", request.url);
+  // Как и трекер визитов — через loopback: запрос на публичный адрес из контейнера
+  // до приложения не доходит, и журнал молча пустеет.
+  const logUrl =
+    process.env.SECURITY_LOG_INTERNAL_URL?.trim() ||
+    `http://127.0.0.1:${process.env.PORT || "3000"}/api/security/log`;
+  const clientIp = getClientIp(request);
   void fetch(logUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "x-security-log-secret": secret,
-      "x-forwarded-for":
-        request.headers.get("x-forwarded-for") ?? getClientIp(request),
-      "x-real-ip": request.headers.get("x-real-ip") ?? "",
+      "x-forwarded-for": clientIp,
+      "x-real-ip": clientIp,
       "user-agent": request.headers.get("user-agent") ?? "",
     },
     body: JSON.stringify({
       type,
       path: pathname,
-      ipAddress: getClientIp(request),
+      ipAddress: clientIp,
       detail:
         detail ?? request.headers.get("user-agent")?.slice(0, 200) ?? null,
     }),
