@@ -3,7 +3,7 @@ import { fetchHtml } from "@/lib/hunting";
 import { escapeHtml } from "@/lib/hunting-format";
 import { type TelegramUser, userName } from "@/lib/hunting-gathering";
 import { htmlToText } from "@/lib/hunting-shared";
-import { callTelegramApi, getTelegramChannelConfig, huntingExtraChatIds } from "@/lib/telegram";
+import { callTelegramApi, getTelegramChannelConfig, huntingExtraChatIds, telegramPost } from "@/lib/telegram";
 import { formatMoscow } from "@/lib/timezone";
 
 type Source =
@@ -814,22 +814,12 @@ async function uploadToTelegram<T>(
   for (const [name, file] of Object.entries(files)) {
     form.set(name, new Blob([file.bytes], { type: file.type }), `${name}.jpg`);
   }
-  try {
-    const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-      method: "POST",
-      body: form,
-      signal: AbortSignal.timeout(60_000),
-    });
-    const body = (await response.json().catch(() => null)) as { ok?: boolean; result?: T; description?: string } | null;
-    if (!body?.ok) {
-      console.error(`hunting ${method} upload`, body?.description ?? response.status);
-      return { ok: false, error: body?.description ?? `Telegram HTTP ${response.status}` };
-    }
-    return { ok: true, result: body.result };
-  } catch (error) {
-    console.error(`hunting ${method} upload`, error);
-    return { ok: false, error: "фото не отправилось" };
+  const sent = await telegramPost<T>(token, method, form, 60_000);
+  if (!sent.ok) {
+    console.error(`hunting ${method} upload`, sent.error);
+    return { ok: false, error: sent.error ?? "фото не отправилось" };
   }
+  return { ok: true, result: sent.result };
 }
 
 /**

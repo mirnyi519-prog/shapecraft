@@ -1035,7 +1035,7 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
     const useChat = addressed && question !== "" && message?.from != null && huntingChatEnabled();
     if (useChat && message?.from) {
       eventId = await logBotUsage({ from: message.from, chat, topic: CHAT_TOPIC, text: question });
-      await callTelegramApi("hunting", "sendChatAction", {
+      void callTelegramApi("hunting", "sendChatAction", {
         chat_id: chat.id,
         action: "typing",
         ...(message.message_thread_id != null ? { message_thread_id: message.message_thread_id } : {}),

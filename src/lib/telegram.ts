@@ -1,10 +1,132 @@
 import dns from "node:dns";
+import https from "node:https";
+import type { LookupFunction } from "node:net";
 import { readFile } from "fs/promises";
 import path from "path";
 import { type ProductSpecsInput, telegramSpecLines } from "@/lib/product-specs";
 import { getUploadsDir, getMimeType } from "@/lib/upload";
 
 dns.setDefaultResultOrder("ipv4first");
+
+/**
+ * С сервера api.telegram.org открыт только по IPv6 (IPv4 заблокирован), а новое соединение
+ * изредка не устанавливается вовсе. Поэтому: IPv6 первым, соединения держим открытыми,
+ * а несостоявшееся за 3 с соединение пробуем заново.
+ */
+const CONNECT_TIMEOUT_MS = 3_000;
+const CONNECT_ATTEMPTS = 3;
+const RETRY_CODES = new Set(["ECONNECT_TIMEOUT", "ECONNREFUSED", "ENETUNREACH", "EHOSTUNREACH", "EAI_AGAIN"]);
+
+const ipv6First: LookupFunction = (hostname, options, callback) => {
+  dns.lookup(hostname, { ...options, all: true }, (error, addresses) => {
+    if (error || addresses.length === 0) {
+      callback(error ?? new Error(`DNS: ${hostname}`), "", 0);
+      return;
+    }
+    const sorted = [...addresses].sort((a, b) => b.family - a.family);
+    if (options.all) {
+      callback(null, sorted);
+    } else {
+      callback(null, sorted[0].address, sorted[0].family);
+    }
+  });
+};
+
+const telegramAgent = new https.Agent({
+  keepAlive: true,
+  keepAliveMsecs: 30_000,
+  timeout: 120_000,
+  autoSelectFamily: true,
+  lookup: ipv6First,
+});
+
+type TelegramBody = { ok?: boolean; result?: unknown; description?: string };
+
+function telegramRequestOnce(
+  url: string,
+  body: Buffer,
+  contentType: string,
+  timeoutMs: number,
+): Promise<{ status: number; body: TelegramBody | null }> {
+  return new Promise((resolve, reject) => {
+    const request = https.request(
+      url,
+      {
+        method: "POST",
+        agent: telegramAgent,
+        headers: { "Content-Type": contentType, "Content-Length": body.length },
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("error", reject);
+        response.on("end", () => {
+          clearTimeout(total);
+          let parsed: TelegramBody | null = null;
+          try {
+            parsed = JSON.parse(Buffer.concat(chunks).toString("utf8")) as TelegramBody;
+          } catch {
+            parsed = null;
+          }
+          resolve({ status: response.statusCode ?? 0, body: parsed });
+        });
+      },
+    );
+    const fail = (code: string, message: string) => request.destroy(Object.assign(new Error(message), { code }));
+    const total = setTimeout(() => fail("ETIMEOUT", `timeout: Telegram не ответил за ${timeoutMs / 1000}с`), timeoutMs);
+    request.on("socket", (socket) => {
+      if (!socket.connecting) {
+        return;
+      }
+      const connect = setTimeout(() => fail("ECONNECT_TIMEOUT", "Telegram: соединение не установилось"), CONNECT_TIMEOUT_MS);
+      socket.once("secureConnect", () => clearTimeout(connect));
+      socket.once("close", () => clearTimeout(connect));
+    });
+    request.on("error", (error) => {
+      clearTimeout(total);
+      reject(Object.assign(error, { reusedSocket: request.reusedSocket }));
+    });
+    request.end(body);
+  });
+}
+
+/** Вызов Bot API: JSON или multipart (FormData). Повтор — только если запрос точно не ушёл. */
+export async function telegramPost<T = unknown>(
+  token: string,
+  method: string,
+  payload: Record<string, unknown> | FormData,
+  timeoutMs = 12_000,
+): Promise<{ ok: boolean; status: number; result?: T; error?: string }> {
+  let body: Buffer;
+  let contentType = "application/json";
+  if (payload instanceof FormData) {
+    const encoded = new Response(payload);
+    body = Buffer.from(await encoded.arrayBuffer());
+    contentType = encoded.headers.get("content-type") ?? "multipart/form-data";
+  } else {
+    body = Buffer.from(JSON.stringify(payload));
+  }
+  const url = `https://api.telegram.org/bot${token}/${method}`;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      const response = await telegramRequestOnce(url, body, contentType, timeoutMs);
+      if (response.status < 200 || response.status >= 300 || !response.body?.ok) {
+        return {
+          ok: false,
+          status: response.status,
+          error: response.body?.description || `Telegram HTTP ${response.status}`,
+        };
+      }
+      return { ok: true, status: response.status, result: response.body.result as T };
+    } catch (error) {
+      const { code = "", reusedSocket } = error as NodeJS.ErrnoException & { reusedSocket?: boolean };
+      const notSent = RETRY_CODES.has(code) || (reusedSocket === true && code === "ECONNRESET");
+      if (!notSent || attempt >= CONNECT_ATTEMPTS) {
+        return { ok: false, status: 0, error: formatFetchError(error) };
+      }
+    }
+  }
+}
 
 export type TelegramSendResult = {
   ok: boolean;
@@ -212,53 +334,18 @@ async function postTelegramText(
   options: { html?: boolean },
 ): Promise<TelegramSendResult> {
   const { token, label, channel } = config;
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
-    const response = await fetch(
-      `https://api.telegram.org/bot${token}/sendMessage`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: toChatId(chatId),
-          text: text.slice(0, 4000),
-          disable_web_page_preview: true,
-          ...(options.html ? { parse_mode: "HTML" } : {}),
-          ...(threadId != null ? { message_thread_id: threadId } : {}),
-        }),
-        signal: controller.signal,
-      },
-    ).finally(() => clearTimeout(timer));
-
-    const body = (await response.json().catch(() => null)) as {
-      ok?: boolean;
-      description?: string;
-    } | null;
-
-    if (!response.ok || !body?.ok) {
-      const error = body?.description || `Telegram HTTP ${response.status}`;
-      console.error("telegram send failed", {
-        channel,
-        label,
-        error,
-        chatId,
-        status: response.status,
-      });
-      return {
-        ok: false,
-        configured: true,
-        status: response.status,
-        error,
-      };
-    }
-
-    return { ok: true, configured: true, status: response.status };
-  } catch (error) {
-    const message = formatFetchError(error);
-    console.error("telegram send exception", { channel, message });
-    return { ok: false, configured: true, error: message };
+  const result = await telegramPost(token, "sendMessage", {
+    chat_id: toChatId(chatId),
+    text: text.slice(0, 4000),
+    disable_web_page_preview: true,
+    ...(options.html ? { parse_mode: "HTML" } : {}),
+    ...(threadId != null ? { message_thread_id: threadId } : {}),
+  });
+  if (!result.ok) {
+    console.error("telegram send failed", { channel, label, error: result.error, chatId, status: result.status });
+    return { ok: false, configured: true, status: result.status || undefined, error: result.error };
   }
+  return { ok: true, configured: true, status: result.status };
 }
 
 /** Любой метод Bot API от имени бота канала (setWebhook, setMyCommands, getMe…). */
@@ -271,27 +358,8 @@ export async function callTelegramApi<T = unknown>(
   if (!token) {
     return { ok: false, error: notConfiguredError(channel) };
   }
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
-    const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timer));
-    const body = (await response.json().catch(() => null)) as {
-      ok?: boolean;
-      result?: T;
-      description?: string;
-    } | null;
-    if (!response.ok || !body?.ok) {
-      return { ok: false, error: body?.description || `Telegram HTTP ${response.status}` };
-    }
-    return { ok: true, result: body.result };
-  } catch (error) {
-    return { ok: false, error: formatFetchError(error) };
-  }
+  const { ok, result, error } = await telegramPost<T>(token, method, payload);
+  return { ok, result, error };
 }
 
 /** Ответ в конкретный чат (личка или группа, откуда пришла команда). */
@@ -385,41 +453,18 @@ async function sendPhotoJson(
   caption: string,
   threadId: number | null = null,
 ): Promise<TelegramSendResult> {
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
-    const response = await fetch(
-      `https://api.telegram.org/bot${token}/sendPhoto`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: toChatId(chatId),
-          photo: photoUrl,
-          caption,
-          ...(threadId != null ? { message_thread_id: threadId } : {}),
-        }),
-        signal: controller.signal,
-      },
-    ).finally(() => clearTimeout(timer));
-
-    const body = (await response.json().catch(() => null)) as {
-      ok?: boolean;
-      description?: string;
-    } | null;
-
-    if (!response.ok || !body?.ok) {
-      return {
-        ok: false,
-        configured: true,
-        status: response.status,
-        error: body?.description || `Telegram HTTP ${response.status}`,
-      };
-    }
-    return { ok: true, configured: true, status: response.status };
-  } catch (error) {
-    return { ok: false, configured: true, error: formatFetchError(error) };
-  }
+  const result = await telegramPost(
+    token,
+    "sendPhoto",
+    {
+      chat_id: toChatId(chatId),
+      photo: photoUrl,
+      caption,
+      ...(threadId != null ? { message_thread_id: threadId } : {}),
+    },
+    20_000,
+  );
+  return { ok: result.ok, configured: true, status: result.status || undefined, error: result.error };
 }
 
 async function sendPhotoMultipart(
@@ -443,31 +488,8 @@ async function sendPhotoMultipart(
     });
     form.set("photo", blob, filename);
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
-    const response = await fetch(
-      `https://api.telegram.org/bot${token}/sendPhoto`,
-      {
-        method: "POST",
-        body: form,
-        signal: controller.signal,
-      },
-    ).finally(() => clearTimeout(timer));
-
-    const body = (await response.json().catch(() => null)) as {
-      ok?: boolean;
-      description?: string;
-    } | null;
-
-    if (!response.ok || !body?.ok) {
-      return {
-        ok: false,
-        configured: true,
-        status: response.status,
-        error: body?.description || `Telegram HTTP ${response.status}`,
-      };
-    }
-    return { ok: true, configured: true, status: response.status };
+    const result = await telegramPost(token, "sendPhoto", form, 20_000);
+    return { ok: result.ok, configured: true, status: result.status || undefined, error: result.error };
   } catch (error) {
     return { ok: false, configured: true, error: formatFetchError(error) };
   }
