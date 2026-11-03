@@ -95,15 +95,12 @@ import {
 } from "@/lib/hunting-shared";
 import {
   callTelegramApi,
-  getPublicSiteUrl,
   getTelegramChannelConfig,
   huntingExtraChatIds,
   sendTelegramMessage,
   sendTelegramTo,
 } from "@/lib/telegram";
 import { formatMoscow, moscowWeekday } from "@/lib/timezone";
-
-export const HUNTING_WEBHOOK_PATH = "/api/telegram/hunting";
 
 /** Сверка с mooir.ru по расписанию — не чаще, чем раз в столько часов. */
 const SCHEDULE_COLLECT_HOURS = 6;
@@ -1066,20 +1063,14 @@ export async function handleHuntingUpdate(update: TelegramUpdate): Promise<void>
   }
 }
 
-/** Привязывает бота к сайту: webhook для команд и меню команд в Telegram. */
+/** Привязывает бота к сайту: сообщения забирает long polling (hunting-polling), здесь — снять webhook и меню команд. */
 export async function connectHuntingBot(): Promise<{ ok: boolean; username?: string; error?: string }> {
-  const secret = huntingWebhookSecret();
-  if (!secret) {
+  if (!huntingWebhookSecret()) {
     return { ok: false, error: "TELEGRAM_HUNTING_BOT_TOKEN не задан" };
   }
-  const webhook = await callTelegramApi("hunting", "setWebhook", {
-    url: `${getPublicSiteUrl()}${HUNTING_WEBHOOK_PATH}`,
-    secret_token: secret,
-    allowed_updates: ["message", "callback_query"],
-    drop_pending_updates: true,
-  });
+  const webhook = await callTelegramApi("hunting", "deleteWebhook", { drop_pending_updates: false });
   if (!webhook.ok) {
-    return { ok: false, error: `setWebhook: ${webhook.error}` };
+    return { ok: false, error: `deleteWebhook: ${webhook.error}` };
   }
   const commands = [
     ...BASE_COMMANDS,

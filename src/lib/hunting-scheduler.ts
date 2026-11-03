@@ -1,4 +1,5 @@
 import { runHuntingSchedule } from "@/lib/hunting-bot";
+import { startHuntingPolling } from "@/lib/hunting-polling";
 import { runRetentionIfDue } from "@/lib/retention";
 
 const TICK_MS = 30 * 60_000;
@@ -6,11 +7,12 @@ const FIRST_TICK_MS = 90_000;
 
 const state = globalThis as typeof globalThis & { __huntingScheduler?: NodeJS.Timeout };
 
-/** Каждые полчаса: сверка с МООиР, напоминания и прогноз на выходные в охотничью группу, ночью — уборка старых данных. */
+/** Сообщения боту — long polling; каждые полчаса: сверка с МООиР, напоминания и прогноз, ночью — уборка старых данных. */
 export function startHuntingScheduler() {
   if (state.__huntingScheduler) {
     return;
   }
+  startHuntingPolling();
   let busy = false;
   const tick = () => {
     if (busy) {

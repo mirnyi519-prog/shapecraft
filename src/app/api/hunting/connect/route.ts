@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
 import { connectHuntingBot } from "@/lib/hunting-bot";
 
-/** Подключает команды охотничьего бота (webhook + меню). */
+/** Подключает команды охотничьего бота (снимает webhook — работает long polling — и ставит меню). */
 export async function POST() {
   try {
     await requireAdmin();
