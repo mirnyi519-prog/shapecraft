@@ -22,6 +22,7 @@ import {
   seasonLines,
   stormWarnings,
   stormWarningsHtml,
+  weatherDayLines,
 } from "@/lib/hunting-weather";
 import {
   DOCUMENTS_USAGE,
@@ -452,8 +453,163 @@ function plainText(html: string): string {
 
 const noArgs = { type: "object" as const, properties: {} };
 
+/** «2026-11-12», «12.11.2026», «12.11» → YYYY-MM-DD; без даты — сегодня. */
+function parseHuntDay(value: unknown, today: string): string {
+  const text = String(value ?? "").trim();
+  const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) {
+    return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
+  }
+  const ru = text.match(/^(\d{1,2})\.(\d{1,2})(?:\.(\d{2,4}))?/);
+  if (!ru) {
+    return today;
+  }
+  const md = `${ru[2].padStart(2, "0")}-${ru[1].padStart(2, "0")}`;
+  if (ru[3]) {
+    return `${ru[3].length === 2 ? `20${ru[3]}` : ru[3]}-${md}`;
+  }
+  const year = Number(today.slice(0, 4));
+  return `${today.slice(5) > md ? year + 1 : year}-${md}`;
+}
+
+const FORECAST_DAYS = 16;
+
+/** Погода на конкретный день — или честное «прогноза ещё нет». */
+async function weatherForDay(day: string, today: string): Promise<string> {
+  if (day < today) {
+    return "Дата уже прошла — прогноза нет.";
+  }
+  const days = await fetchHuntingWeather(FORECAST_DAYS).catch(() => null);
+  if (!days) {
+    return "Прогноз сейчас недоступен.";
+  }
+  const found = days.find((item) => item.date === day);
+  if (!found) {
+    const last = days[days.length - 1]?.date;
+    return `Прогноза на ${shortDate(day, true)} ещё нет: он появится ближе к дате (сейчас есть до ${last ? shortDate(last, true) : "—"}). Посмотрите /pogoda за 2–3 дня до выезда.`;
+  }
+  const ahead = Math.round((Date.parse(day) - Date.parse(today)) / 86_400_000);
+  return [
+    ...weatherDayLines(found).map(plainText),
+    ...(ahead > 7 ? ["Прогноз больше чем на неделю вперёд неточный — уточните ближе к дате (/pogoda)."] : []),
+  ].join("\n");
+}
+
+/** Всё к выезду на охоту: можно ли в эту дату, патрон, путёвка, погода, карантины. */
+async function huntPlanText(species: Species, day: string): Promise<string> {
+  const [overview, quarantines] = await Promise.all([getHuntingOverview(), getActiveQuarantines()]);
+  const entries = [
+    ...new Map(
+      overview.orders
+        .flatMap((order) => order.entries.map((entry) => ({ ...entry, orderTitle: order.title, orderUrl: order.url })))
+        .filter((entry) => species.match.test(entry.label))
+        .map((entry) => [`${entry.label}|${entry.start}|${entry.end}`, entry]),
+    ).values(),
+  ];
+  const local = entries.filter((entry) => entry.scope !== "excluded");
+  const onDay = local.filter((entry) => entry.start <= day && day <= entry.end);
+  const next = local.filter((entry) => entry.start > day).sort((a, b) => a.start.localeCompare(b.start))[0];
+  const range = (entry: (typeof entries)[number]) => `${entry.label}: ${shortDate(entry.start)} – ${shortDate(entry.end, true)}`;
+
+  const lines = [`ПЛАН ОХОТЫ: ${species.title}, ${shortDate(day, true)}`, "", "1. Можно ли охотиться в эту дату:"];
+  if (day < overview.today) {
+    lines.push("Дата уже прошла.");
+  }
+  if (onDay.length > 0) {
+    lines.push("ДА — охота открыта:", ...onDay.map((entry) => `• ${range(entry)}`));
+  } else if (next) {
+    lines.push("НЕТ — в эту дату закрыта.", `Ближайшее открытие: ${range(next)}`);
+  } else if (local.length > 0) {
+    lines.push(
+      "НЕТ данных, что охота открыта в эту дату: распоряжения МООиР на эту дату нет — уточните у егеря (/kontakty).",
+      "Последние известные сроки:",
+      ...local.slice(0, 3).map((entry) => `• ${range(entry)}`),
+    );
+  } else {
+    lines.push("В распоряжениях МООиР этого вида для Шатуры нет — уточните у егеря (/kontakty).");
+  }
+  const sources = [...new Map((onDay.length ? onDay : next ? [next] : []).map((entry) => [entry.orderUrl, entry])).values()];
+  lines.push(...sources.map((entry) => `Источник: ${entry.orderTitle} — ${entry.orderUrl}`));
+
+  const rules = [...new Set(overview.orders.flatMap((order) => order.rules.filter((rule) => species.match.test(rule))))].slice(0, 3);
+  if (rules.length > 0) {
+    lines.push("Нормы и способы:", ...rules.map((rule) => `• ${rule}`));
+  }
+
+  lines.push("", "2. Какой патрон взять:");
+  const pick = pickAmmo(species.command, seasonForMonth(Number(day.slice(5, 7))));
+  if (pick) {
+    lines.push(`• ${formatAmmoTip(pick.tip)} — ${pick.tip.note}`);
+    if (pick.species.rule) {
+      lines.push(`⚠️ ${pick.species.rule}`);
+    }
+  } else {
+    lines.push("Рекомендации нет — см. /patron.");
+  }
+
+  lines.push("", "3. Путёвка МООиР (член МООиР / с собакой / со спецвзносом):");
+  const priceRows = (overview.prices?.rows ?? []).filter(
+    (row) => species.price.test(row.section) || species.price.test(row.label),
+  );
+  if (priceRows.length > 0) {
+    for (const row of priceRows) {
+      const [member, dogs, fee] = row.prices;
+      const parts = [
+        member != null ? formatRub(member) : null,
+        dogs != null && dogs !== member ? `с собакой ${formatRub(dogs)}` : null,
+        fee != null ? `спецвзнос ${formatRub(fee)}` : null,
+      ].filter(Boolean);
+      lines.push(`• ${row.label} — ${parts.join(", ")}${member == null ? " (только со спецвзносом)" : ""}`);
+    }
+    lines.push("Не члены МООиР — от ×5, Росохотрыболовсоюз — ×2.");
+    if (overview.prices?.url) {
+      lines.push(`Прейскурант: ${overview.prices.url}`);
+    }
+  } else {
+    lines.push("Цена в прейскуранте не найдена — уточните у егеря (/kontakty).");
+  }
+
+  lines.push("", `4. Погода в Шатуре на ${shortDate(day, true)}:`, await weatherForDay(day, overview.today));
+
+  lines.push("", "5. Важно:");
+  for (const quarantine of quarantines) {
+    if (QUARANTINE_SPECIES[quarantine.disease]?.includes(species.command)) {
+      lines.push(
+        quarantine.disease === "asf"
+          ? "⚠️ Карантин по АЧС: в зоне карантина загоном, нагоном и с собаками нельзя (п. 62.17)."
+          : "⚠️ Карантин по бешенству — осторожно с добычей и собаками.",
+      );
+    }
+  }
+  lines.push("Документы и запреты — /pravila. Адрес хозяйства и егеря — /kontakty. Собрать компанию — /sbor.");
+  return lines.join("\n");
+}
+
 /** Функции бота, которые GigaChat вызывает за фактами, — те же ответы, что и у команд. */
 const CHAT_TOOLS: ChatTool[] = [
+  {
+    name: "plan_ohoty",
+    description:
+      "ГЛАВНАЯ функция. Вызывай, когда человек собирается на охоту, называет вид дичи и/или дату. Возвращает сразу всё: открыта ли охота в эту дату, какой патрон взять, цену путёвки МООиР, погоду на эту дату, карантины",
+    parameters: {
+      type: "object",
+      properties: {
+        vid: {
+          type: "string",
+          description: "Вид дичи: утка, гусь, вальдшнеп, тетерев, бекас, заяц, лиса, волк, бобр, барсук, кабан, лось, косуля, олень",
+        },
+        data: { type: "string", description: "Дата охоты в формате YYYY-MM-DD; если не названа — пусто (сегодня)" },
+      },
+      required: ["vid"],
+    },
+    run: async ({ vid, data }) => {
+      const species = findSpeciesByText(String(vid ?? ""));
+      if (!species) {
+        return "Такого вида нет в справочнике бота.";
+      }
+      return huntPlanText(species, parseHuntDay(data, (await getHuntingOverview()).today));
+    },
+  },
   {
     name: "sezon",
     description: "Какая охота сейчас открыта и что скоро откроется в Шатурском хозяйстве (сроки по распоряжениям МООиР)",
@@ -503,9 +659,19 @@ const CHAT_TOOLS: ChatTool[] = [
   },
   {
     name: "pogoda",
-    description: "Погода в Шатуре на 3 дня: температура, ветер, осадки, восход и закат, грибы, пожароопасность",
-    parameters: noArgs,
-    run: async () => (await buildHuntingReply("pogoda").then((html) => plainText(html ?? ""))) || "Прогноз недоступен.",
+    description:
+      "Погода в Шатуре: без даты — на 3 дня (с грибами и пожароопасностью), с датой — на этот день (прогноз есть до 16 дней вперёд)",
+    parameters: {
+      type: "object",
+      properties: { data: { type: "string", description: "Дата в формате YYYY-MM-DD; пусто — ближайшие 3 дня" } },
+    },
+    run: async ({ data }) => {
+      if (data) {
+        const today = (await getHuntingOverview()).today;
+        return weatherForDay(parseHuntDay(data, today), today);
+      }
+      return (await buildHuntingReply("pogoda").then((html) => plainText(html ?? ""))) || "Прогноз недоступен.";
+    },
   },
   {
     name: "patron",

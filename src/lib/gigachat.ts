@@ -132,8 +132,8 @@ export async function gigachatComplete(messages: GigaMessage[], functions: GigaF
     model: gigachatModel(),
     messages,
     ...(functions.length > 0 ? { functions, function_call: "auto" } : {}),
-    temperature: 0.4,
-    max_tokens: 700,
+    temperature: 0.3,
+    max_tokens: 1200,
   });
   const result = await httpsJson<{
     choices: { message: GigaReply["message"]; finish_reason: string }[];
