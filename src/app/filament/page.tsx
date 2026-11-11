@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { AnalyticsSwitch } from "@/components/analytics-switch";
 import { AppShell } from "@/components/app-shell";
 import { FilamentFinder } from "@/components/filament-finder";
+import { FilamentGuideP1S } from "@/components/filament-guide-p1s";
 import { getSession, isAdmin } from "@/lib/auth";
 import { getRecentFilamentQueries } from "@/lib/filament";
 
@@ -30,6 +31,7 @@ export default async function FilamentPage() {
           </p>
         </div>
         <FilamentFinder recent={recent} />
+        <FilamentGuideP1S />
       </div>
     </AppShell>
   );
