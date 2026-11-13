@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { AppShell } from "@/components/app-shell";
 import { HuntingPrices } from "@/components/hunting-prices";
 import { HuntingRefreshButton } from "@/components/hunting-refresh-button";
+import { HuntingSeasonTable } from "@/components/hunting-season-table";
 import { Badge, Card } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
 import {
@@ -160,6 +161,10 @@ export default async function HuntingPage() {
               ))}
             </ul>
           )}
+        </Card>
+
+        <Card title={`Примерные сроки на ${Number(overview.today.slice(0, 4)) + 1} год · по 10 сезонам МООиР`}>
+          <HuntingSeasonTable year={Number(overview.today.slice(0, 4)) + 1} />
         </Card>
 
         {overview.prices ? (

@@ -78,6 +78,7 @@ import {
   LAW_COMMANDS,
   lawsInForceOn,
 } from "@/lib/hunting-laws";
+import { ESTIMATE_SOURCE, estimateWindows, type EstimatedWindow } from "@/lib/hunting-history";
 import {
   buildHuntingSummaryHtml,
   escapeHtml,
@@ -294,8 +295,14 @@ function speciesText(species: Species, overview: HuntingOverview, quarantines: A
         : "Сейчас закрыта. Последние сроки по распоряжениям МООиР:",
       ...unique.slice(0, 3).map(entryLine),
     );
-  } else {
-    lines.push("", "В свежих распоряжениях МООиР этого вида нет — сроки уточняйте у егеря (/kontakty).");
+  }
+  if (current.length === 0) {
+    const estimated = estimateWindows(species.command, overview.today, all.map((entry) => entry.start));
+    if (estimated.length > 0) {
+      lines.push("", "Ближайшие сроки — примерно:", ...estimated.slice(0, 3).map(estimateLine), ESTIMATE_SOURCE);
+    } else if (unique.length === 0) {
+      lines.push("", "В свежих распоряжениях МООиР этого вида нет — сроки уточняйте у егеря (/kontakty).");
+    }
   }
 
   for (const quarantine of quarantines) {
@@ -499,6 +506,10 @@ async function weatherForDay(day: string, today: string): Promise<string> {
   ].join("\n");
 }
 
+function estimateLine(window: EstimatedWindow): string {
+  return `• ${window.rule.label}: ~${shortDate(window.start)} – ${shortDate(window.end, true)} (${window.rule.rule})`;
+}
+
 /** Всё к выезду на охоту: можно ли в эту дату, патрон, путёвка, погода, карантины. */
 async function huntPlanText(species: Species, day: string): Promise<string> {
   const [overview, quarantines] = await Promise.all([getHuntingOverview(), getActiveQuarantines()]);
@@ -514,6 +525,9 @@ async function huntPlanText(species: Species, day: string): Promise<string> {
   const onDay = local.filter((entry) => entry.start <= day && day <= entry.end);
   const next = local.filter((entry) => entry.start > day).sort((a, b) => a.start.localeCompare(b.start))[0];
   const range = (entry: (typeof entries)[number]) => `${entry.label}: ${shortDate(entry.start)} – ${shortDate(entry.end, true)}`;
+  const estimated =
+    onDay.length > 0 || next ? [] : estimateWindows(species.command, day, entries.map((entry) => entry.start));
+  const estimatedOpen = estimated.filter((window) => window.start <= day);
 
   const weekday = new Date(`${day}T12:00:00+03:00`).toLocaleDateString("ru-RU", { weekday: "long", timeZone: "Europe/Moscow" });
   const when = `${shortDate(day, true)} (${weekday})`;
@@ -525,6 +539,15 @@ async function huntPlanText(species: Species, day: string): Promise<string> {
     lines.push(`✅ ${when} охотиться можно — сезон открыт:`, ...onDay.map((entry) => `• ${range(entry)}`));
   } else if (next) {
     lines.push(`⛔ ${when} охота закрыта.`, `Ближайшее открытие: ${range(next)}`);
+  } else if (estimated.length > 0) {
+    lines.push(
+      `❓ Распоряжения МООиР на ${shortDate(day, true)} ещё нет.`,
+      estimatedOpen.length > 0
+        ? "🟡 По прошлым годам в это время охота обычно открыта — примерно:"
+        : "⛔ По прошлым годам в это время охота обычно закрыта. Ближайшее открытие — примерно:",
+      ...(estimatedOpen.length > 0 ? estimatedOpen : estimated.slice(0, 3)).map(estimateLine),
+      ESTIMATE_SOURCE,
+    );
   } else if (local.length > 0) {
     lines.push(
       `❓ Распоряжения МООиР на ${shortDate(day, true)} пока нет — открыта ли охота, уточните у егеря (/kontakty).`,
@@ -622,7 +645,7 @@ const CHAT_TOOLS: ChatTool[] = [
   {
     name: "plan_ohoty",
     description:
-      "ГЛАВНАЯ функция. Вызывай, когда человек собирается на охоту, называет вид дичи и/или дату. Возвращает сразу всё: открыта ли охота в эту дату, какой патрон взять, цену путёвки МООиР, погоду на эту дату, карантины",
+      "ГЛАВНАЯ функция. Вызывай, когда человек собирается на охоту, называет вид дичи и/или дату (в том числе на годы вперёд). Возвращает сразу всё: открыта ли охота в эту дату (если распоряжения МООиР ещё нет — примерные сроки по прошлым годам), какой патрон взять, цену путёвки МООиР, погоду на эту дату, карантины",
     parameters: {
       type: "object",
       properties: {
