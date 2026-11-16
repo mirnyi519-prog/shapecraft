@@ -3,7 +3,12 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { Badge, Card, chromeTab } from "@/components/ui";
 import { getSession, isAdmin } from "@/lib/auth";
-import { getBotUsageStats, USAGE_PERIODS } from "@/lib/hunting-usage";
+import {
+  BOT_CHANNELS,
+  getBotUsageStats,
+  parseBotChannel,
+  USAGE_PERIODS,
+} from "@/lib/hunting-usage";
 import { formatMoscow } from "@/lib/timezone";
 
 function when(date: Date): string {
@@ -42,7 +47,11 @@ function Bars({ rows, max }: { rows: { key: string; label: string; count: number
   );
 }
 
-export default async function BotStatsPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
+export default async function BotStatsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ days?: string; bot?: string }>;
+}) {
   const session = await getSession();
   if (!session) {
     return null;
@@ -51,9 +60,12 @@ export default async function BotStatsPage({ searchParams }: { searchParams: Pro
     redirect("/dashboard");
   }
 
-  const requested = Number((await searchParams).days);
+  const params = await searchParams;
+  const requested = Number(params.days);
   const days = USAGE_PERIODS.find((value) => value === requested) ?? 30;
-  const stats = await getBotUsageStats(days);
+  const bot = parseBotChannel(params.bot);
+  const botLabel = BOT_CHANNELS.find((item) => item.id === bot)?.label ?? "Охота";
+  const stats = await getBotUsageStats(days, bot);
   const timelineMax = Math.max(1, ...stats.timeline.map((day) => day.count));
 
   return (
@@ -61,18 +73,28 @@ export default async function BotStatsPage({ searchParams }: { searchParams: Pro
       <div className="space-y-6">
         <div className="space-y-3">
           <p className="text-sm font-medium uppercase tracking-wide text-[var(--muted)]">Иное</p>
-          <h1 className="text-2xl font-bold">Охотничий бот · аналитика</h1>
+          <h1 className="text-2xl font-bold">Боты · аналитика</h1>
           <p className="text-[var(--muted)]">
-            Кто пользуется ботом и о чём спрашивает: команды в группе и в личке, вопросы текстом, голоса в сборах.
-            В группе учитываются только команды, упоминания бота и ответы на его сообщения. К каждому обращению
-            сохраняется ответ бота; ответы о сроках документов и сами даты в журнал не попадают. Статистика хранится год,
-            тексты запросов и ответов — 14 дней.
+            {bot === "market"
+              ? "ShapeCraft Market: кто спрашивает прайс через @упоминание и какие слова ищут. Статистика хранится год, тексты запросов и ответов — 14 дней."
+              : "Охотничий бот: кто пользуется и о чём спрашивает — команды в группе и в личке, вопросы текстом, голоса в сборах. В группе учитываются только команды, упоминания бота и ответы на его сообщения. Статистика хранится год, тексты запросов и ответов — 14 дней."}
           </p>
+          <div className="chrome-tabs on-page">
+            {BOT_CHANNELS.map((item) => (
+              <Link
+                key={item.id}
+                href={`/other/bot-stats?bot=${item.id}&days=${days}`}
+                className={chromeTab(item.id === bot)}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
           <div className="chrome-tabs on-page">
             {USAGE_PERIODS.map((value) => (
               <Link
                 key={value}
-                href={`/other/bot-stats?days=${value}`}
+                href={`/other/bot-stats?bot=${bot}&days=${value}`}
                 className={chromeTab(value === days)}
               >
                 {value === 365 ? "год" : `${value} дн.`}
@@ -88,7 +110,7 @@ export default async function BotStatsPage({ searchParams }: { searchParams: Pro
           <Stat label="В группах" value={stats.total - stats.privateCount} />
         </div>
 
-        <Card title={`По дням${days > 90 ? " — последние 90" : ""}`}>
+        <Card title={`${botLabel}: по дням${days > 90 ? " — последние 90" : ""}`}>
           <div className="flex h-28 items-end gap-[2px]">
             {stats.timeline.map((day, index) => (
               <div
@@ -122,7 +144,7 @@ export default async function BotStatsPage({ searchParams }: { searchParams: Pro
               <table className="w-full min-w-[40rem] border-collapse text-sm">
                 <thead>
                   <tr className="text-left">
-                    <th className="border-b border-[var(--border)] py-2 pr-3 font-semibold">Охотник</th>
+                    <th className="border-b border-[var(--border)] py-2 pr-3 font-semibold">Кто</th>
                     <th className="border-b border-[var(--border)] px-3 py-2 font-semibold">Обращений</th>
                     <th className="border-b border-[var(--border)] px-3 py-2 font-semibold">Чаще всего</th>
                     <th className="border-b border-[var(--border)] px-3 py-2 font-semibold">Где</th>

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { formatRub } from "@/lib/calculations";
+import { logBotUsage, saveBotReply } from "@/lib/hunting-usage";
+import type { TelegramUser } from "@/lib/hunting-gathering";
 import { hasListPrice } from "@/lib/pricing";
 import {
   callTelegramApi,
@@ -12,6 +14,7 @@ import {
 /** Защита от флуда Telegram, если совпадений очень много. */
 const MAX_PHOTOS = 40;
 const SEND_GAP_MS = 350;
+const HINT_COUNT = 8;
 
 type MessageEntity = {
   type: string;
@@ -24,9 +27,9 @@ type TelegramMessage = {
   message_id: number;
   text?: string;
   entities?: MessageEntity[];
-  chat: { id: number; type: string };
+  chat: { id: number; type?: string; title?: string };
   message_thread_id?: number;
-  from?: { id: number; is_bot?: boolean };
+  from?: TelegramUser & { is_bot?: boolean };
 };
 
 export type MarketTelegramUpdate = {
@@ -40,6 +43,23 @@ let cachedBotId: number | null = null;
 
 const FILLER_WORD =
   /^(?:покажи|покажите|дай|дайте|найди|найдите|ищи|поиск|нужен|нужна|нужно|цены|цену|цена|прайс|прайсы|пожалуйста|плиз|pls|please|мне|нам|все|весь|вся|по|про)\s+/iu;
+
+const STOP_WORDS = new Set([
+  "и",
+  "в",
+  "на",
+  "с",
+  "из",
+  "для",
+  "по",
+  "или",
+  "the",
+  "a",
+  "of",
+  "шт",
+  "мм",
+  "см",
+]);
 
 function pause(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -162,14 +182,18 @@ function productMatches(name: string, query: string): boolean {
 }
 
 function priceCaption(product: {
+  id: string;
   name: string;
   listPrice: number;
   stock: number;
 }): string {
+  const siteUrl = getPublicSiteUrl();
   return [
     product.name.trim(),
     `Цена: ${formatRub(product.listPrice)}`,
     `В наличии: ${product.stock} шт`,
+    "",
+    `${siteUrl}/products/${product.id}`,
   ].join("\n");
 }
 
@@ -193,8 +217,7 @@ async function loadPricedProducts(query: string) {
   const needle = query.toLowerCase();
   return rows
     .filter(
-      (row) =>
-        hasListPrice(row.listPrice) && productMatches(row.name, needle),
+      (row) => hasListPrice(row.listPrice) && productMatches(row.name, needle),
     )
     .map((row) => ({
       id: row.id,
@@ -205,11 +228,54 @@ async function loadPricedProducts(query: string) {
     }));
 }
 
-async function sendPriceList(
-  chatId: number,
-  threadId: number | null,
-  query: string,
-): Promise<void> {
+/** Частые короткие слова из названий — подсказки, когда поиск пустой. */
+async function popularNameHints(limit = HINT_COUNT): Promise<string[]> {
+  const rows = await prisma.product.findMany({
+    where: { active: true, listPrice: { not: null }, stock: { gt: 0 } },
+    select: { name: true },
+  });
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    const tokens = row.name
+      .toLowerCase()
+      .split(/[^0-9a-zа-яё]+/iu)
+      .filter((token) => token.length >= 3 && !STOP_WORDS.has(token));
+    for (const token of tokens) {
+      counts.set(token, (counts.get(token) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ru"))
+    .slice(0, limit)
+    .map(([token]) => token);
+}
+
+async function missMessage(query: string, username: string | null): Promise<string> {
+  const tag = username ? `@${username}` : "@бот";
+  const hints = await popularNameHints();
+  const lines = [
+    `Ничего не нашёл с «${query}» в названии.`,
+  ];
+  if (hints.length > 0) {
+    lines.push("", "Попробуйте, например:");
+    for (const hint of hints) {
+      lines.push(`${tag}: ${hint}`);
+    }
+  } else {
+    lines.push("Попробуйте другое слово.");
+  }
+  return lines.join("\n");
+}
+
+async function sendPriceList(input: {
+  chatId: number;
+  threadId: number | null;
+  query: string;
+  username: string | null;
+  from?: TelegramUser;
+  chat: { id: number; type?: string; title?: string };
+}): Promise<void> {
+  const { chatId, threadId, query, username, from, chat } = input;
   const key = `${chatId}:${threadId ?? 0}`;
   if (busyChats.has(key)) {
     await sendTelegramTo(
@@ -225,12 +291,20 @@ async function sendPriceList(
   try {
     const products = await loadPricedProducts(query);
     if (products.length === 0) {
-      await sendTelegramTo(
-        "market",
-        chatId,
-        `Ничего не нашёл с «${query}» в названии. Попробуйте другое слово.`,
-        threadId,
-      );
+      const reply = await missMessage(query, username);
+      const eventId = await logBotUsage({
+        bot: "market",
+        from,
+        chat,
+        topic: {
+          section: "Прайс",
+          topic: "miss",
+          title: `Нет: ${query.slice(0, 40)}`,
+        },
+        text: query,
+      });
+      await saveBotReply(eventId, reply);
+      await sendTelegramTo("market", chatId, reply, threadId);
       return;
     }
 
@@ -240,6 +314,27 @@ async function sendPriceList(
       products.length > MAX_PHOTOS
         ? `\nПоказываю первые ${MAX_PHOTOS} — уточните запрос.`
         : "";
+    const summary = [
+      header + note,
+      "",
+      ...shown.slice(0, 10).map((p) => `• ${p.name} — ${formatRub(p.listPrice)}`),
+      shown.length > 10 ? `… и ещё ${shown.length - 10}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const eventId = await logBotUsage({
+      bot: "market",
+      from,
+      chat,
+      topic: {
+        section: "Прайс",
+        topic: "search",
+        title: `Поиск: ${query.slice(0, 40)}`,
+      },
+      text: query,
+    });
+    await saveBotReply(eventId, summary);
+
     await sendTelegramTo("market", chatId, header + note, threadId);
 
     for (const product of shown) {
@@ -277,24 +372,50 @@ export async function handleMarketUpdate(update: MarketTelegramUpdate): Promise<
   const chatId = message.chat.id;
   const threadId =
     typeof message.message_thread_id === "number" ? message.message_thread_id : null;
+  const chat = {
+    id: message.chat.id,
+    type: message.chat.type,
+    title: message.chat.title,
+  };
+  const from = message.from;
 
   if (parsed.kind === "help") {
-    await sendTelegramTo("market", chatId, helpText(username), threadId);
+    const reply = helpText(username);
+    const eventId = await logBotUsage({
+      bot: "market",
+      from,
+      chat,
+      topic: { section: "Справка", topic: "help", title: "Справка" },
+      text: "/help",
+    });
+    await saveBotReply(eventId, reply);
+    await sendTelegramTo("market", chatId, reply, threadId);
     return;
   }
 
   if (parsed.kind === "need_query") {
     const tag = username ? `@${username}` : "@бот";
-    await sendTelegramTo(
-      "market",
-      chatId,
-      `Напишите, что искать в названии.\nНапример: ${tag}: кот\nили: ${tag}: покажи цены кот`,
-      threadId,
-    );
+    const reply = `Напишите, что искать в названии.\nНапример: ${tag}: кот\nили: ${tag}: покажи цены кот`;
+    const eventId = await logBotUsage({
+      bot: "market",
+      from,
+      chat,
+      topic: { section: "Прайс", topic: "need_query", title: "Пустой запрос" },
+      text: message.text.slice(0, 200),
+    });
+    await saveBotReply(eventId, reply);
+    await sendTelegramTo("market", chatId, reply, threadId);
     return;
   }
 
-  await sendPriceList(chatId, threadId, parsed.query);
+  await sendPriceList({
+    chatId,
+    threadId,
+    query: parsed.query,
+    username,
+    from,
+    chat,
+  });
 }
 
 /** Меню + снятие webhook (сообщения забирает long polling). */
@@ -325,6 +446,6 @@ export async function connectMarketBot(): Promise<{
     return { ok: false, error: `setMyCommands: ${menu.error}` };
   }
 
-  const username = await getMarketBotUsername();
-  return { ok: true, username: username ?? undefined };
+  const botUsername = await getMarketBotUsername();
+  return { ok: true, username: botUsername ?? undefined };
 }

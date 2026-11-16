@@ -535,10 +535,12 @@ model HuntingDocument {
   @@index([expires])
 }
 
-/// Обращение к охотничьему боту — для аналитики «кто и о чём спрашивает».
+/// Обращение к боту (охота / маркет) — аналитика «кто и о чём спрашивает».
 model HuntingBotEvent {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
+  /// hunting | market
+  bot       String   @default("hunting")
   userId    String
   name      String   @default("")
   username  String   @default("")
@@ -546,11 +548,11 @@ model HuntingBotEvent {
   /// private | group | supergroup
   chatType  String
   chatTitle String   @default("")
-  /// Раздел: Виды дичи, Закон, Погода…
+  /// Раздел: Виды дичи, Закон, Погода… / Прайс, Справка
   section   String
-  /// Ключ темы: utka, pravila, sbor_vote…
+  /// Ключ темы: utka, pravila, search, miss…
   topic     String
-  /// Тема по-русски: «Утка», «Правила охоты…»
+  /// Тема по-русски: «Утка», «Поиск: кот»
   title     String
   /// Текст запроса без личных данных (для /dokument — только команда), до 200 символов
   text      String   @default("")
@@ -559,6 +561,7 @@ model HuntingBotEvent {
 
   @@index([createdAt])
   @@index([userId])
+  @@index([bot, createdAt])
 }
 
 /// Реплики разговора с охотничьим ботом (GigaChat) — память диалога и дневные лимиты.

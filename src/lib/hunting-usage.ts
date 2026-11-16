@@ -8,22 +8,36 @@ import { formatMoscow } from "@/lib/timezone";
 /** Сколько дней хранить журнал обращений. */
 const KEEP_DAYS = 365;
 
+export type BotChannel = "hunting" | "market";
+
 export type BotTopic = { section: string; topic: string; title: string };
 
 export const USAGE_PERIODS = [7, 30, 90, 365] as const;
+
+export const BOT_CHANNELS: { id: BotChannel; label: string }[] = [
+  { id: "hunting", label: "Охота" },
+  { id: "market", label: "Маркет" },
+];
+
+export function parseBotChannel(value: string | null | undefined): BotChannel {
+  return value === "market" ? "market" : "hunting";
+}
 
 export async function logBotUsage(input: {
   from?: TelegramUser;
   chat: { id: number; type?: string; title?: string };
   topic: BotTopic;
   text: string;
+  bot?: BotChannel;
 }): Promise<string | null> {
   if (!input.from) {
     return null;
   }
+  const bot = input.bot ?? "hunting";
   const event = await prisma.huntingBotEvent
     .create({
       data: {
+        bot,
         userId: String(input.from.id),
         name: userName(input.from),
         username: input.from.username ?? "",
@@ -35,12 +49,14 @@ export async function logBotUsage(input: {
       },
     })
     .catch((error) => {
-      console.error("hunting usage log", error);
+      console.error("bot usage log", error);
       return null;
     });
-  await refreshDocumentNames(String(input.from.id), userName(input.from)).catch((error) =>
-    console.error("hunting document names", error),
-  );
+  if (bot === "hunting") {
+    await refreshDocumentNames(String(input.from.id), userName(input.from)).catch((error) =>
+      console.error("hunting document names", error),
+    );
+  }
   return event?.id ?? null;
 }
 
@@ -51,7 +67,7 @@ export async function saveBotReply(eventId: string | null, reply: string): Promi
   }
   await prisma.huntingBotEvent
     .update({ where: { id: eventId }, data: { reply: reply.slice(0, 2000) } })
-    .catch((error) => console.error("hunting usage reply", error));
+    .catch((error) => console.error("bot usage reply", error));
 }
 
 export async function pruneBotUsage(now = new Date()): Promise<void> {
@@ -86,10 +102,14 @@ export type UsageUser = {
   where: string;
 };
 
-export async function getBotUsageStats(days: number, now = new Date()) {
+export async function getBotUsageStats(
+  days: number,
+  bot: BotChannel = "hunting",
+  now = new Date(),
+) {
   const since = new Date(now.getTime() - days * 86_400_000);
   const events = await prisma.huntingBotEvent.findMany({
-    where: { createdAt: { gte: since } },
+    where: { createdAt: { gte: since }, bot },
     orderBy: { createdAt: "desc" },
   });
 
@@ -135,6 +155,7 @@ export async function getBotUsageStats(days: number, now = new Date()) {
   });
 
   return {
+    bot,
     total: events.length,
     users,
     privateCount: events.filter((e) => e.chatType === "private").length,

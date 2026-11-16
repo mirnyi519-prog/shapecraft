@@ -145,7 +145,7 @@ export function getAppNavItems(admin: boolean): AppNavItem[] {
         { href: "/other/ammo", label: "Патроны", icon: "ammo" },
         { href: "/other/laws", label: "Закон", icon: "law" },
         { href: "/other/documents", label: "Документы", icon: "documents" },
-        { href: "/other/bot-stats", label: "Бот · аналитика", icon: "bot-stats" },
+        { href: "/other/bot-stats", label: "Боты · аналитика", icon: "bot-stats" },
       ],
     });
   }
