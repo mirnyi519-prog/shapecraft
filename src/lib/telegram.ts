@@ -388,19 +388,26 @@ export async function sendTelegramPhoto(input: {
   caption: string;
   imageUrl?: string | null;
   channel?: TelegramChannel;
+  /** Ответ в чат команды (личка/группа). Без параметра — в чат канала из .env. */
+  chatId?: string | number;
+  threadId?: number | null;
 }): Promise<TelegramSendResult> {
   const channel = input.channel ?? "ops";
-  const { token, chatId, configured, threadId } =
-    getTelegramChannelConfig(channel);
+  const config = getTelegramChannelConfig(channel);
+  const { token } = config;
+  const chatId =
+    input.chatId != null ? String(input.chatId) : config.chatId;
+  const threadId =
+    input.threadId !== undefined ? input.threadId : config.threadId;
   const caption = input.caption.slice(0, 1024);
 
-  if (!configured) {
+  if (!token || !chatId) {
     return { ok: false, configured: false, error: notConfiguredError(channel) };
   }
 
   const publicUrl = resolveProductImageUrl(input.imageUrl);
   if (!publicUrl && !input.imageUrl) {
-    return sendTelegramMessage(input.caption, channel);
+    return sendTelegramTo(channel, chatId, input.caption, threadId);
   }
 
   // 1) URL (Telegram сам скачает)
@@ -443,7 +450,7 @@ export async function sendTelegramPhoto(input: {
   }
 
   // 3) хотя бы текст
-  return sendTelegramMessage(input.caption, channel);
+  return sendTelegramTo(channel, chatId, input.caption, threadId);
 }
 
 async function sendPhotoJson(

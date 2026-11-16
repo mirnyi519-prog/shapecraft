@@ -1,5 +1,6 @@
 import { runHuntingSchedule } from "@/lib/hunting-bot";
 import { startHuntingPolling } from "@/lib/hunting-polling";
+import { startMarketPolling } from "@/lib/market-polling";
 import { runRetentionIfDue } from "@/lib/retention";
 
 const TICK_MS = 30 * 60_000;
@@ -13,6 +14,7 @@ export function startHuntingScheduler() {
     return;
   }
   startHuntingPolling();
+  startMarketPolling();
   let busy = false;
   const tick = () => {
     if (busy) {
