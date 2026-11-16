@@ -6,6 +6,17 @@ cd /opt/shapecraft
 git fetch origin
 git reset --hard origin/master
 
+# HTTPS-сайт: сессионные cookie только по Secure
+if [ -f .env ]; then
+  if ! grep -q 'COOKIE_SECURE=' .env 2>/dev/null; then
+    echo 'COOKIE_SECURE=true' >> .env
+    echo "==> Added COOKIE_SECURE=true to .env"
+  elif grep -qE '^COOKIE_SECURE=(false|0|"false")$' .env 2>/dev/null; then
+    sed -i 's/^COOKIE_SECURE=.*/COOKIE_SECURE=true/' .env
+    echo "==> COOKIE_SECURE=true (was false)"
+  fi
+fi
+
 echo "==> Backup before update"
 bash scripts/backup-nightly.sh || echo "!! Бэкап не получился — обновление продолжается"
 bash scripts/backup-nightly.sh --install || true

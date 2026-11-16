@@ -51,7 +51,7 @@ OWNER_LOGIN=admin
 OWNER_PASSWORD=shapecraft123
 PARTNER_LOGIN=partner
 PARTNER_PASSWORD=shapecraft123
-COOKIE_SECURE=false
+COOKIE_SECURE=true
 EOF
   echo ""
   echo "Логин: admin / shapecraft123"
@@ -65,8 +65,12 @@ else
   if grep -q 'PARTNER_PASSWORD=partner-password' .env 2>/dev/null; then
     sed -i 's/PARTNER_PASSWORD=partner-password/PARTNER_PASSWORD=shapecraft123/' .env
   fi
+  # На сервере сайт на HTTPS — cookie должны быть Secure
   if ! grep -q 'COOKIE_SECURE=' .env 2>/dev/null; then
-    echo 'COOKIE_SECURE=false' >> .env
+    echo 'COOKIE_SECURE=true' >> .env
+  elif grep -qE '^COOKIE_SECURE=(false|0|"false")$' .env 2>/dev/null; then
+    sed -i 's/^COOKIE_SECURE=.*/COOKIE_SECURE=true/' .env
+    echo "==> COOKIE_SECURE=true (HTTPS)"
   fi
 fi
 

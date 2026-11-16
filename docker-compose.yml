@@ -15,6 +15,7 @@ services:
       OWNER_PASSWORD: ${OWNER_PASSWORD:-shapecraft123}
       PARTNER_LOGIN: ${PARTNER_LOGIN:-partner}
       PARTNER_PASSWORD: ${PARTNER_PASSWORD:-shapecraft123}
+      # На проде в .env должно быть COOKIE_SECURE=true (HTTPS). false — только для локалки.
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       UPLOADS_DIR: /app/public/uploads
       WORLD_IMPORT_SECRET: ${WORLD_IMPORT_SECRET:-}
