@@ -3,7 +3,7 @@ import { getTelegramChannelConfig, telegramPost } from "@/lib/telegram";
 
 /**
  * Long polling для ShapeCraft Market — как у охотничьего бота.
- * Команды /price и /прайс обрабатываются в market-bot.
+ * Прайс: обращение @бот + слово из названия (например «@бот: кот»).
  */
 const POLL_TIMEOUT_S = 50;
 const RETRY_PAUSE_MS = 3_000;
