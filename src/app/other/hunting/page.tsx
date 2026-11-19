@@ -163,7 +163,7 @@ export default async function HuntingPage() {
           )}
         </Card>
 
-        <Card title={`Примерные сроки на ${Number(overview.today.slice(0, 4)) + 1} год · по 10 сезонам МООиР`}>
+        <Card title={`Примерные сроки на ${Number(overview.today.slice(0, 4)) + 1} год · по закономерностям МООиР`}>
           <HuntingSeasonTable year={Number(overview.today.slice(0, 4)) + 1} />
         </Card>
 
